@@ -111,6 +111,19 @@ export class UsagePanel {
   .sbtn:hover { background: var(--vscode-button-secondaryHoverBackground, #3c3c3c); }
   .sbtn.active { border-color: var(--ok); color: var(--vscode-foreground); }
   hr { border: none; border-top: 1px solid var(--track); margin: 14px 0; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .title { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--vscode-descriptionForeground); }
+  .refresh {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--vscode-font-family); font-size: 12px;
+    padding: 4px 9px; border-radius: 6px; cursor: pointer; border: 1px solid transparent;
+    background: var(--vscode-button-secondaryBackground, #313131);
+    color: var(--vscode-button-secondaryForeground, #ccc);
+  }
+  .refresh:hover { background: var(--vscode-button-secondaryHoverBackground, #3c3c3c); }
+  .refresh .ic { display: inline-block; }
+  .refresh.spinning .ic { animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -151,7 +164,11 @@ export class UsagePanel {
       return '<div class="row"><div class="row-head"><span class="row-label">' + row.label +
         '</span><span class="row-val">' + row.value + '</span></div>' + bar + '</div>';
     }).join('');
+    const header =
+      '<div class="header"><span class="title">Claude Usage</span>' +
+      '<button id="refreshBtn" class="refresh" title="Atualizar"><span class="ic">↻</span> Atualizar</button></div>';
     document.getElementById('app').innerHTML =
+      header +
       '<div class="ring-wrap">' + ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub) + '</div>' +
       rows + '<hr>' + styleButtons() +
       '<div class="footer">' + (d.footer || '') + '</div>';
@@ -163,6 +180,15 @@ export class UsagePanel {
         b.classList.add('active');
       });
     });
+    const rb = document.getElementById('refreshBtn');
+    if (rb) {
+      rb.addEventListener('click', function(){
+        rb.classList.add('spinning');
+        // garante que o giro seja visível mesmo se o refresh for instantâneo
+        setTimeout(function(){ rb.classList.remove('spinning'); }, 600);
+        vscode.postMessage({ type: 'refresh' });
+      });
+    }
   }
   window.addEventListener('message', function(e) {
     const m = e.data;

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- **Botão "Atualizar" no painel** (canto superior direito, igual ao modal do `/usage`),
+  com ícone que gira ao recarregar. Atualiza statusline + ccusage na hora.
+
 ## 0.4.0
 
 - **Nova fonte de dados: ccusage** — a extensão agora calcula o uso da **sessão de 5h**
