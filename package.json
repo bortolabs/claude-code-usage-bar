@@ -1,0 +1,114 @@
+{
+  "name": "claude-code-usage-bar",
+  "displayName": "Claude Code Usage Bar",
+  "description": "Mostra o uso da sessão do Claude Code (limites 5h/7d, contexto e custo) na status bar do VSCode — um anel de progresso igual ao /usage.",
+  "version": "0.1.0",
+  "publisher": "bortolabs",
+  "license": "MIT",
+  "icon": "icon.png",
+  "engines": {
+    "vscode": "^1.84.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bortolabs/claude-code-usage-bar.git"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "claude",
+    "claude code",
+    "tokens",
+    "usage",
+    "status bar"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "claudeUsageBar.refresh",
+        "title": "Claude Usage: Atualizar agora"
+      },
+      {
+        "command": "claudeUsageBar.openState",
+        "title": "Claude Usage: Abrir arquivo de estado"
+      },
+      {
+        "command": "claudeUsageBar.cycleMetric",
+        "title": "Claude Usage: Alternar métrica primária"
+      }
+    ],
+    "configuration": {
+      "title": "Claude Code Usage Bar",
+      "properties": {
+        "claudeUsageBar.stateFilePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Caminho do arquivo de estado gravado pela statusline do Claude Code. Vazio = `~/.claude/usage-state.json`."
+        },
+        "claudeUsageBar.primaryMetric": {
+          "type": "string",
+          "enum": [
+            "fiveHour",
+            "sevenDay",
+            "context"
+          ],
+          "enumDescriptions": [
+            "Janela de 5 horas (a 'sessão' do /usage)",
+            "Janela de 7 dias (limite semanal)",
+            "Uso da janela de contexto da conversa atual"
+          ],
+          "default": "fiveHour",
+          "markdownDescription": "Qual métrica o anel/percentual mostra como principal. Se `rate_limits` não estiver disponível, cai automaticamente para o contexto."
+        },
+        "claudeUsageBar.warnThreshold": {
+          "type": "number",
+          "default": 60,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentual a partir do qual o indicador fica amarelo."
+        },
+        "claudeUsageBar.errorThreshold": {
+          "type": "number",
+          "default": 85,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentual a partir do qual o indicador fica vermelho."
+        },
+        "claudeUsageBar.alignment": {
+          "type": "string",
+          "enum": [
+            "right",
+            "left"
+          ],
+          "default": "right",
+          "description": "Lado da status bar onde o indicador aparece."
+        },
+        "claudeUsageBar.priority": {
+          "type": "number",
+          "default": 100,
+          "description": "Prioridade do item na status bar (maior = mais para a borda)."
+        },
+        "claudeUsageBar.staleAfterSeconds": {
+          "type": "number",
+          "default": 900,
+          "description": "Após quantos segundos sem atualização o indicador é considerado 'parado' (esmaecido)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.84.0",
+    "typescript": "^5.4.0"
+  }
+}
