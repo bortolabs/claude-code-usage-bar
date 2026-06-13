@@ -424,7 +424,8 @@ export function activate(context: vscode.ExtensionContext) {
           .showWarningMessage(
             `Claude Usage — ${alert.message}`,
             "Abrir painel",
-            "Silenciar 1h"
+            "Silenciar 1h",
+            "Desligar alertas"
           )
           .then((choice) => {
             if (choice === "Abrir painel") {
@@ -432,6 +433,13 @@ export function activate(context: vscode.ExtensionContext) {
             } else if (choice === "Silenciar 1h") {
               // empurra o cooldown 1h pra frente
               lastAlertAtMs = Date.now() + 60 * 60_000 - cooldownMs;
+            } else if (choice === "Desligar alertas") {
+              cfg().update(
+                "burnRateAlertEnabled",
+                false,
+                vscode.ConfigurationTarget.Global
+              );
+              render();
             }
           });
       }
@@ -455,6 +463,7 @@ export function activate(context: vscode.ExtensionContext) {
       block,
       state: s,
       alert,
+      alertEnabled: alertOn,
     };
     item.tooltip = buildTooltip(view);
 
@@ -480,6 +489,7 @@ export function activate(context: vscode.ExtensionContext) {
     block: CcusageData | null;
     state: UsageState | null;
     alert: AlertResult;
+    alertEnabled: boolean;
   };
 
   const buildTooltip = (v: View): vscode.MarkdownString => {
@@ -649,6 +659,7 @@ export function activate(context: vscode.ExtensionContext) {
       alert: v.alert.active
         ? { message: v.alert.message, reasons: v.alert.reasons }
         : null,
+      alertEnabled: v.alertEnabled,
       footer: `fonte: ${src}${
         v.state?.ts ? " · statusline " + fmtAgo(v.state.ts) : ""
       }`,
@@ -683,6 +694,19 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("claudeUsageBar.refresh", () => {
       readState();
       refreshCcusage();
+    }),
+    vscode.commands.registerCommand("claudeUsageBar.toggleAlert", async () => {
+      const cur = cfg().get<boolean>("burnRateAlertEnabled") ?? true;
+      await cfg().update(
+        "burnRateAlertEnabled",
+        !cur,
+        vscode.ConfigurationTarget.Global
+      );
+      vscode.window.setStatusBarMessage(
+        `Claude Usage: alerta ${!cur ? "ligado" : "desligado"}`,
+        2500
+      );
+      render();
     }),
     vscode.commands.registerCommand("claudeUsageBar.openState", async () => {
       try {

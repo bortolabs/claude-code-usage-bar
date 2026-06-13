@@ -14,6 +14,8 @@ export interface PanelData {
   rows: { label: string; value: string; pct: number | null }[];
   /** Faixa de alerta de burn rate (null = sem alerta). */
   alert: { message: string; reasons: string[] } | null;
+  /** Estado do alerta de burn rate (para o toggle do painel). */
+  alertEnabled: boolean;
   footer: string;
 }
 
@@ -83,6 +85,17 @@ function panelHtml(): string {
   }
   .alert-title { font-size: 12.5px; font-weight: 600; color: var(--err); margin-bottom: 2px; }
   .alert-reason { font-size: 11.5px; color: var(--vscode-foreground); opacity: .85; }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 2px; }
+  .toggle-label { font-size: 12px; color: var(--vscode-descriptionForeground); }
+  .toggle {
+    font-family: var(--vscode-font-family); font-size: 12px;
+    padding: 4px 10px; border-radius: 6px; cursor: pointer; border: 1px solid transparent;
+    background: var(--vscode-button-secondaryBackground, #313131);
+    color: var(--vscode-button-secondaryForeground, #ccc);
+  }
+  .toggle:hover { background: var(--vscode-button-secondaryHoverBackground, #3c3c3c); }
+  .toggle.on { border-color: var(--ok); color: var(--vscode-foreground); }
+  .toggle.off { opacity: .7; }
 </style>
 </head>
 <body>
@@ -132,10 +145,15 @@ function panelHtml(): string {
         .map(function(r){ return '<div class="alert-reason">· ' + r + '</div>'; }).join('');
       alertHtml = '<div class="alert"><div class="alert-title">⚠ ' + d.alert.message + '</div>' + extra + '</div>';
     }
+    const alertEnabled = d.alertEnabled !== false;
+    const toggleHtml =
+      '<div class="toggle-row"><span class="toggle-label">Alerta de burn rate</span>' +
+      '<button id="alertToggle" class="toggle ' + (alertEnabled ? 'on' : 'off') + '">' +
+      (alertEnabled ? '🔔 Ligado' : '🔕 Desligado') + '</button></div>';
     document.getElementById('app').innerHTML =
       header + alertHtml +
       '<div class="ring-wrap">' + ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub) + '</div>' +
-      rows + '<hr>' + styleButtons() +
+      rows + '<hr>' + styleButtons() + toggleHtml +
       '<div class="footer">' + (d.footer || '') + '</div>';
     document.querySelectorAll('.sbtn').forEach(function(b){
       b.addEventListener('click', function(){
@@ -151,6 +169,12 @@ function panelHtml(): string {
         rb.classList.add('spinning');
         setTimeout(function(){ rb.classList.remove('spinning'); }, 600);
         vscode.postMessage({ type: 'refresh' });
+      });
+    }
+    const at = document.getElementById('alertToggle');
+    if (at) {
+      at.addEventListener('click', function(){
+        vscode.postMessage({ type: 'toggleAlert' });
       });
     }
   }
@@ -174,6 +198,8 @@ function wireMessages(webview: vscode.Webview, onReady: () => void) {
       vscode.commands.executeCommand("claudeUsageBar.setStyle", msg.style);
     } else if (msg?.type === "refresh") {
       vscode.commands.executeCommand("claudeUsageBar.refresh");
+    } else if (msg?.type === "toggleAlert") {
+      vscode.commands.executeCommand("claudeUsageBar.toggleAlert");
     } else if (msg?.type === "ready") {
       onReady();
     }

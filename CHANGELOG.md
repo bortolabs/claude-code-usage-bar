@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0
+
+- **Liga/desliga do alerta de burn rate** em três lugares:
+  - **toggle no painel** (🔔/🔕) mostrando o estado atual;
+  - **comando na paleta** _Claude Usage: Ligar/desligar alerta de burn rate_;
+  - botão **"Desligar alertas"** na própria notificação (ao lado de "Silenciar 1h").
+
 ## 0.7.0
 
 - **Correção conceitual de custo para assinaturas (Pro/Max).** O "custo" que o ccusage
