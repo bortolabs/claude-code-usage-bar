@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { UsagePanel, PanelData } from "./panel";
+import { runCcusage, CcusageResult, CcusageData } from "./ccusage";
 
 /** Forma do JSON gravado por statusline-command.sh (bridge). */
 interface RateWindow {
@@ -33,12 +34,6 @@ interface UsageState {
   seven_day?: RateWindow | null;
 }
 
-/**
- * Dois modos, escolhidos automaticamente pelo que o JSON entrega:
- *  - "plan": conta com assinatura (Pro/Max). rate_limits presente. Anel = 5h, número = 7d.
- *  - "api":  conta API/pay-as-you-go. Sem rate_limits. Anel = contexto, número = custo $.
- * "subscriber" força sempre o modo plano; "cost" força sempre o modo API; "auto" decide.
- */
 type Mode = "auto" | "subscriber" | "cost";
 type BarStyle = "ring" | "bar" | "number" | "icon";
 
@@ -53,13 +48,11 @@ function ringFor(pct: number): string {
   return RING_GLYPHS[idx];
 }
 
-// Mini barra em blocos para o estilo "bar" da status bar.
 function textBar(pct: number, width = 5): string {
   const filled = Math.round((Math.min(100, Math.max(0, pct)) / 100) * width);
   return "█".repeat(filled) + "░".repeat(width - filled);
 }
 
-/** Aplica o estilo de texto escolhido ao indicador da status bar. */
 function styleText(
   style: BarStyle,
   ringPct: number | null,
@@ -108,9 +101,20 @@ function fmtResetsAt(epochSeconds: number | null | undefined): string {
   if (!epochSeconds) {
     return "—";
   }
-  const deltaMs = epochSeconds * 1000 - Date.now();
+  return "em " + fmtDuration(epochSeconds * 1000 - Date.now());
+}
+
+/** Duração curta a partir de ms: "40m", "2h13", "3d". */
+function fmtResetsShort(epochSeconds: number | null | undefined): string {
+  if (!epochSeconds) {
+    return "";
+  }
+  return fmtDuration(epochSeconds * 1000 - Date.now());
+}
+
+function fmtDuration(deltaMs: number): string {
   if (deltaMs <= 0) {
-    return "agora";
+    return "0m";
   }
   const totalMin = Math.round(deltaMs / 60000);
   const h = Math.floor(totalMin / 60);
@@ -118,12 +122,12 @@ function fmtResetsAt(epochSeconds: number | null | undefined): string {
   if (h >= 24) {
     const d = Math.floor(h / 24);
     const rh = h % 24;
-    return rh > 0 ? `em ${d}d${rh}h` : `em ${d}d`;
+    return rh > 0 ? `${d}d${rh}h` : `${d}d`;
   }
   if (h > 0) {
-    return `em ${h}h${String(m).padStart(2, "0")}`;
+    return `${h}h${String(m).padStart(2, "0")}`;
   }
-  return `em ${m}min`;
+  return `${m}m`;
 }
 
 function fmtAgo(ts: number | undefined): string {
@@ -157,9 +161,11 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(item);
 
   let lastState: UsageState | null = null;
+  let lastCcusage: CcusageResult | null = null;
   let watcher: fs.FSWatcher | undefined;
   let debounce: NodeJS.Timeout | undefined;
   let tick: NodeJS.Timeout | undefined;
+  let ccTick: NodeJS.Timeout | undefined;
 
   const resolveStatePath = (): string => {
     const custom = (cfg().get<string>("stateFilePath") || "").trim();
@@ -171,23 +177,41 @@ export function activate(context: vscode.ExtensionContext) {
     return path.join(os.homedir(), ".claude", "usage-state.json");
   };
 
+  /** Considera a statusline "fresca" só se atualizada nos últimos N segundos. */
+  const stateIsFresh = (s: UsageState | null): boolean => {
+    if (!s || !s.ts) {
+      return false;
+    }
+    const maxAge = cfg().get<number>("staleAfterSeconds") ?? 900;
+    return Date.now() / 1000 - s.ts <= maxAge;
+  };
+  const stateHasRate = (s: UsageState | null): boolean =>
+    !!s &&
+    (s.five_hour?.used_percentage != null ||
+      s.seven_day?.used_percentage != null);
+
   const readState = () => {
     const p = resolveStatePath();
     try {
       const raw = fs.readFileSync(p, "utf8");
       lastState = JSON.parse(raw) as UsageState;
     } catch {
-      // arquivo ainda não existe ou leitura no meio de um mv — mantém o último estado
+      // arquivo ausente ou leitura no meio de um mv — mantém o último estado
     }
     render();
   };
 
-  /** Decide o modo efetivo a partir da config e do que o estado entrega. */
-  const effectiveMode = (s: UsageState): "plan" | "api" => {
+  const refreshCcusage = async () => {
+    const cmd =
+      (cfg().get<string>("ccusageCommand") || "").trim() ||
+      "npx -y ccusage@latest blocks --active --json";
+    lastCcusage = await runCcusage(cmd);
+    render();
+  };
+
+  /** Decide o modo efetivo a partir da config e dos dados disponíveis. */
+  const effectiveMode = (hasRate: boolean): "plan" | "api" => {
     const wanted = (cfg().get<Mode>("mode") ?? "auto") as Mode;
-    const hasRate =
-      s.five_hour?.used_percentage != null ||
-      s.seven_day?.used_percentage != null;
     if (wanted === "subscriber") {
       return "plan";
     }
@@ -197,12 +221,22 @@ export function activate(context: vscode.ExtensionContext) {
     return hasRate ? "plan" : "api";
   };
 
-  const ctxPctOf = (s: UsageState): number | null =>
-    s.context?.used_pct ??
-    (s.context?.size && s.context.size > 0
-      ? (((s.context.input ?? 0) + (s.context.output ?? 0)) / s.context.size) *
-        100
-      : null);
+  const ctxPctOf = (s: UsageState | null): number | null => {
+    if (!s) {
+      return null;
+    }
+    return (
+      s.context?.used_pct ??
+      (s.context?.size && s.context.size > 0
+        ? (((s.context.input ?? 0) + (s.context.output ?? 0)) /
+            s.context.size) *
+          100
+        : null)
+    );
+  };
+
+  const cc = (): CcusageData | null =>
+    lastCcusage && lastCcusage.available ? lastCcusage : null;
 
   const render = () => {
     const c = cfg();
@@ -210,11 +244,18 @@ export function activate(context: vscode.ExtensionContext) {
     const err = c.get<number>("errorThreshold") ?? 85;
     const staleAfter = c.get<number>("staleAfterSeconds") ?? 900;
     const costCap = c.get<number>("costCapUsd") ?? 5;
+    const style = (c.get<BarStyle>("barStyle") ?? "ring") as BarStyle;
 
-    if (!lastState) {
+    const s = lastState;
+    const block = cc();
+    const fresh = stateIsFresh(s);
+    const hasRate = fresh && stateHasRate(s);
+
+    // Sem nenhuma fonte: placeholder.
+    if (!hasRate && !block && !fresh) {
       item.text = "$(circle-outline) Claude —";
       const md = new vscode.MarkdownString(
-        "**Claude Code Usage**\n\nNenhum dado ainda. Inicie ou continue uma sessão do Claude Code — o indicador aparece após a primeira resposta.\n\n_(Os dados vêm de `~/.claude/usage-state.json`, gravado pela statusline.)_"
+        "**Claude Code Usage**\n\nSem dados ainda. A extensão usa o **ccusage** (uso da sessão de 5h, calculado dos transcripts) e, quando você roda o Claude Code no terminal, os limites **5h/7d** da statusline.\n\n_Rode `npx ccusage blocks --active` no terminal para testar a fonte._"
       );
       md.isTrusted = true;
       item.tooltip = md;
@@ -223,31 +264,44 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
-    const style = (c.get<BarStyle>("barStyle") ?? "ring") as BarStyle;
-
-    const s = lastState;
-    const mode = effectiveMode(s);
-    const fiveHour = s.five_hour?.used_percentage ?? null;
-    const sevenDay = s.seven_day?.used_percentage ?? null;
+    const mode = effectiveMode(hasRate);
+    const fiveHour = s?.five_hour?.used_percentage ?? null;
+    const sevenDay = s?.seven_day?.used_percentage ?? null;
     const ctxPct = ctxPctOf(s);
-    const cost = s.cost_usd ?? 0;
+    // Custo: prefere o do bloco ccusage (real do bloco de 5h); senão statusline.
+    const cost = block?.costUSD ?? s?.cost_usd ?? 0;
 
-    // Modelo de exibição comum à status bar e ao painel.
     let ringPct: number | null;
     let primary: string;
     let suffix: string;
     let centerLabel: string;
     let centerSub: string;
-    let effective: number; // % que rege as cores
+    let effective: number;
 
     if (mode === "plan") {
+      // Assinante via statusline (terminal): % real do limite 5h + reset.
       ringPct = fiveHour;
       primary = fiveHour != null ? `${Math.round(fiveHour)}%` : "—";
-      suffix = sevenDay != null ? ` · 7d ${Math.round(sevenDay)}%` : "";
+      const resetShort = fmtResetsShort(s?.five_hour?.resets_at);
+      suffix = resetShort ? ` · ${resetShort}` : "";
       centerLabel = primary;
-      centerSub = "sessão · 5h";
+      centerSub = resetShort
+        ? `sessão 5h · reseta ${resetShort}`
+        : "sessão · 5h";
       effective = Math.max(fiveHour ?? 0, sevenDay ?? 0);
+    } else if (block) {
+      // App/IDE: ccusage. Herói = % de TEMPO da sessão de 5h + tempo restante.
+      ringPct = block.timePct;
+      primary = `${Math.round(block.timePct)}%`;
+      const resetShort = fmtDuration(block.remainingMinutes * 60000);
+      suffix = ` · ${resetShort}`;
+      centerLabel = primary;
+      centerSub = `sessão 5h · reseta ${resetShort}`;
+      // Cor: tempo decorrido OU custo vs teto, o que estiver pior.
+      const costPct = costCap > 0 ? Math.min(100, (cost / costCap) * 100) : 0;
+      effective = Math.max(block.timePct, costPct);
     } else {
+      // Só statusline fresca sem rate (raro): cai pra custo/contexto.
       ringPct = ctxPct;
       primary = fmtUsd(cost);
       suffix = "";
@@ -259,7 +313,6 @@ export function activate(context: vscode.ExtensionContext) {
 
     item.text = styleText(style, ringPct, primary, suffix);
 
-    // Cores por threshold.
     const level: "ok" | "warn" | "err" =
       effective >= err ? "err" : effective >= warn ? "warn" : "ok";
     if (level === "err") {
@@ -277,65 +330,117 @@ export function activate(context: vscode.ExtensionContext) {
       item.backgroundColor = undefined;
     }
 
-    // "Parado" se não atualiza há muito tempo.
-    const stale = s.ts ? Date.now() / 1000 - s.ts > staleAfter : false;
-    if (stale) {
-      item.color = new vscode.ThemeColor("disabledForeground");
-      item.backgroundColor = undefined;
-    }
-
-    item.tooltip = buildTooltip(s, {
-      mode,
+    const view = {
+      mode: mode === "plan" ? ("plan" as const) : ("api" as const),
+      usingCcusage: mode !== "plan" && !!block,
+      ringPct,
+      centerLabel,
+      centerSub,
+      level,
       fiveHour,
       sevenDay,
       ctxPct,
       cost,
       costCap,
-      stale,
-    });
+      block,
+      state: s,
+    };
+    item.tooltip = buildTooltip(view);
 
-    // Atualiza o painel SVG se estiver aberto.
     if (UsagePanel.current) {
-      UsagePanel.current.update(
-        buildPanelData(s, {
-          mode,
-          ringPct,
-          centerLabel,
-          centerSub,
-          level,
-          fiveHour,
-          sevenDay,
-          ctxPct,
-          cost,
-          costCap,
-          stale,
-        })
-      );
+      UsagePanel.current.update(buildPanelData(view));
     }
   };
 
-  /** Monta o payload para o painel webview a partir do estado e do modelo de exibição. */
-  const buildPanelData = (
-    s: UsageState,
-    v: {
-      mode: "plan" | "api";
-      ringPct: number | null;
-      centerLabel: string;
-      centerSub: string;
-      level: "ok" | "warn" | "err";
-      fiveHour: number | null;
-      sevenDay: number | null;
-      ctxPct: number | null;
-      cost: number;
-      costCap: number;
-      stale: boolean;
+  type View = {
+    mode: "plan" | "api";
+    usingCcusage: boolean;
+    ringPct: number | null;
+    centerLabel: string;
+    centerSub: string;
+    level: "ok" | "warn" | "err";
+    fiveHour: number | null;
+    sevenDay: number | null;
+    ctxPct: number | null;
+    cost: number;
+    costCap: number;
+    block: CcusageData | null;
+    state: UsageState | null;
+  };
+
+  const buildTooltip = (v: View): vscode.MarkdownString => {
+    const lines: string[] = ["**Claude Code — uso da sessão**", ""];
+    const pctStr = (x: number | null) => (x == null ? "—" : `${Math.round(x)}%`);
+    const bar = (x: number | null) => {
+      if (x == null) {
+        return "";
+      }
+      const filled = Math.round((Math.min(100, x) / 100) * 10);
+      return " " + "█".repeat(filled) + "░".repeat(10 - filled);
+    };
+
+    if (v.mode === "plan") {
+      const s = v.state;
+      lines.push(
+        `**Sessão (5h):** ${pctStr(v.fiveHour)}${bar(v.fiveHour)}` +
+          (s?.five_hour?.resets_at
+            ? ` · reseta ${fmtResetsAt(s.five_hour.resets_at)}`
+            : "")
+      );
+      lines.push(
+        `**Semana (7d):** ${pctStr(v.sevenDay)}${bar(v.sevenDay)}` +
+          (s?.seven_day?.resets_at
+            ? ` · reseta ${fmtResetsAt(s.seven_day.resets_at)}`
+            : "")
+      );
+    } else if (v.block) {
+      const b = v.block;
+      lines.push(
+        `**Sessão (5h):** ${Math.round(b.timePct)}% do tempo${bar(b.timePct)}`
+      );
+      lines.push(`reseta em ${fmtDuration(b.remainingMinutes * 60000)}`);
+      lines.push(`**Custo da sessão:** ${fmtUsd(b.costUSD)}`);
+      if (b.burnCostPerHour != null) {
+        lines.push(
+          `**Ritmo:** ${fmtUsd(b.burnCostPerHour)}/h · projeção ${fmtUsd(
+            b.projectedCost ?? undefined
+          )}`
+        );
+      }
+      lines.push(`**Tokens no bloco:** ${fmtTokens(b.totalTokens)}`);
     }
-  ): PanelData => {
+    lines.push("");
+
+    if (v.ctxPct != null) {
+      lines.push(`**Contexto:** ${pctStr(v.ctxPct)}${bar(v.ctxPct)}`);
+    }
+
+    const model = v.block?.model || v.state?.model;
+    if (model) {
+      lines.push(`**Modelo:** ${model}`);
+    }
+
+    lines.push("");
+    const src = v.usingCcusage
+      ? "fonte: ccusage (transcripts)"
+      : v.mode === "plan"
+      ? "fonte: statusline (limites do plano)"
+      : "fonte: statusline";
+    const agoStr = v.state?.ts ? ` · statusline ${fmtAgo(v.state.ts)}` : "";
+    lines.push(`_${src}${agoStr} · clique abre o painel_`);
+
+    const md = new vscode.MarkdownString(lines.join("\n\n"));
+    md.isTrusted = true;
+    return md;
+  };
+
+  const buildPanelData = (v: View): PanelData => {
     const rows: PanelData["rows"] = [];
     if (v.mode === "plan") {
+      const s = v.state;
       rows.push({
         label: `Sessão (5h)${
-          s.five_hour?.resets_at
+          s?.five_hour?.resets_at
             ? " · reseta " + fmtResetsAt(s.five_hour.resets_at)
             : ""
         }`,
@@ -344,41 +449,62 @@ export function activate(context: vscode.ExtensionContext) {
       });
       rows.push({
         label: `Semana (7d)${
-          s.seven_day?.resets_at
+          s?.seven_day?.resets_at
             ? " · reseta " + fmtResetsAt(s.seven_day.resets_at)
             : ""
         }`,
         value: v.sevenDay != null ? `${Math.round(v.sevenDay)}%` : "—",
         pct: v.sevenDay,
       });
-    } else {
+    } else if (v.block) {
+      const b = v.block;
+      rows.push({
+        label: `Sessão 5h · reseta em ${fmtDuration(
+          b.remainingMinutes * 60000
+        )}`,
+        value: `${Math.round(b.timePct)}% do tempo`,
+        pct: b.timePct,
+      });
       const capPct =
-        v.costCap > 0 ? Math.min(100, (v.cost / v.costCap) * 100) : null;
+        v.costCap > 0 ? Math.min(100, (b.costUSD / v.costCap) * 100) : null;
       rows.push({
         label: v.costCap > 0 ? `Custo / teto ${fmtUsd(v.costCap)}` : "Custo",
-        value: fmtUsd(v.cost),
+        value: fmtUsd(b.costUSD),
         pct: capPct,
       });
-    }
-    const ctxIn = s.context?.input ?? 0;
-    const ctxOut = s.context?.output ?? 0;
-    const ctxSize = s.context?.size ?? 0;
-    rows.push({
-      label: "Contexto",
-      value: `${fmtTokens(ctxIn + ctxOut)} / ${fmtTokens(ctxSize)}`,
-      pct: v.ctxPct,
-    });
-    if (v.mode === "plan") {
-      rows.push({ label: "Custo estimado", value: fmtUsd(v.cost), pct: null });
-    }
-    if (s.model) {
-      rows.push({ label: "Modelo", value: s.model, pct: null });
+      if (b.burnCostPerHour != null) {
+        rows.push({
+          label: "Ritmo (projeção do bloco)",
+          value: `${fmtUsd(b.burnCostPerHour)}/h → ${fmtUsd(
+            b.projectedCost ?? undefined
+          )}`,
+          pct: null,
+        });
+      }
+      rows.push({
+        label: "Tokens no bloco",
+        value: fmtTokens(b.totalTokens),
+        pct: null,
+      });
     }
 
-    const sessName =
-      s.session_name || (s.session_id ? s.session_id.slice(0, 8) : "");
-    const proj = s.cwd ? path.basename(s.cwd) : "";
-    const footerSess = [sessName, proj].filter(Boolean).join(" · ");
+    if (v.ctxPct != null) {
+      rows.push({
+        label: "Contexto",
+        value: `${Math.round(v.ctxPct)}%`,
+        pct: v.ctxPct,
+      });
+    }
+    const model = v.block?.model || v.state?.model;
+    if (model) {
+      rows.push({ label: "Modelo", value: model, pct: null });
+    }
+
+    const src = v.usingCcusage
+      ? "ccusage"
+      : v.mode === "plan"
+      ? "statusline (plano)"
+      : "statusline";
     return {
       mode: v.mode,
       ringPct: v.ringPct,
@@ -386,110 +512,10 @@ export function activate(context: vscode.ExtensionContext) {
       centerSub: v.centerSub,
       level: v.level,
       rows,
-      footer: `${footerSess ? footerSess + " · " : ""}${
-        v.stale ? "⚠ parado · " : ""
-      }atualizado ${fmtAgo(s.ts)}`,
+      footer: `fonte: ${src}${
+        v.state?.ts ? " · statusline " + fmtAgo(v.state.ts) : ""
+      }`,
     };
-  };
-
-  const buildTooltip = (
-    s: UsageState,
-    info: {
-      mode: "plan" | "api";
-      fiveHour: number | null;
-      sevenDay: number | null;
-      ctxPct: number | null;
-      cost: number;
-      costCap: number;
-      stale: boolean;
-    }
-  ): vscode.MarkdownString => {
-    const lines: string[] = [];
-    lines.push("**Claude Code — uso da sessão**");
-    lines.push("");
-
-    const pctStr = (v: number | null) =>
-      v == null ? "—" : `${Math.round(v)}%`;
-    const bar = (v: number | null) => {
-      if (v == null) {
-        return "";
-      }
-      const filled = Math.round((Math.min(100, v) / 100) * 10);
-      return " " + "█".repeat(filled) + "░".repeat(10 - filled);
-    };
-
-    if (info.mode === "plan") {
-      lines.push(
-        `**Sessão (5h):** ${pctStr(info.fiveHour)}${bar(info.fiveHour)}` +
-          (s.five_hour?.resets_at
-            ? ` · reseta ${fmtResetsAt(s.five_hour.resets_at)}`
-            : "")
-      );
-      lines.push(
-        `**Semana (7d):** ${pctStr(info.sevenDay)}${bar(info.sevenDay)}` +
-          (s.seven_day?.resets_at
-            ? ` · reseta ${fmtResetsAt(s.seven_day.resets_at)}`
-            : "")
-      );
-    } else {
-      const capPct =
-        info.costCap > 0
-          ? Math.min(100, (info.cost / info.costCap) * 100)
-          : null;
-      lines.push(
-        `**Custo da sessão:** ${fmtUsd(info.cost)}` +
-          (info.costCap > 0
-            ? ` / ${fmtUsd(info.costCap)}${bar(capPct)}`
-            : "")
-      );
-      lines.push("_Conta API/pay-as-you-go: sem limite de plano — anel reflete o contexto._");
-    }
-    lines.push("");
-
-    const ctxIn = s.context?.input ?? 0;
-    const ctxOut = s.context?.output ?? 0;
-    const ctxSize = s.context?.size ?? 0;
-    lines.push(
-      `**Contexto:** ${fmtTokens(ctxIn + ctxOut)} / ${fmtTokens(
-        ctxSize
-      )} (${pctStr(info.ctxPct)})`
-    );
-
-    if (s.last_call) {
-      const lc = s.last_call;
-      lines.push(
-        `**Última chamada:** in ${fmtTokens(lc.input_tokens)} · out ${fmtTokens(
-          lc.output_tokens
-        )} · cache r ${fmtTokens(
-          lc.cache_read_input_tokens
-        )} · cache w ${fmtTokens(lc.cache_creation_input_tokens)}`
-      );
-    }
-
-    lines.push("");
-    if (info.mode === "plan" && typeof s.cost_usd === "number") {
-      lines.push(`**Custo estimado:** ${fmtUsd(s.cost_usd)}`);
-    }
-    if (s.model) {
-      lines.push(`**Modelo:** ${s.model}`);
-    }
-    const sessName =
-      s.session_name || (s.session_id ? s.session_id.slice(0, 8) : "");
-    const proj = s.cwd ? path.basename(s.cwd) : "";
-    if (sessName || proj) {
-      lines.push(`**Sessão:** ${sessName}${proj ? ` · ${proj}` : ""}`);
-    }
-
-    lines.push("");
-    lines.push(
-      `_${info.stale ? "⚠ parado · " : ""}atualizado ${fmtAgo(
-        s.ts
-      )} · clique p/ abrir o estado_`
-    );
-
-    const md = new vscode.MarkdownString(lines.join("\n\n"));
-    md.isTrusted = true;
-    return md;
   };
 
   const startWatch = () => {
@@ -511,13 +537,16 @@ export function activate(context: vscode.ExtensionContext) {
       });
       context.subscriptions.push({ dispose: () => watcher?.close() });
     } catch {
-      // diretório pode não existir ainda; o tick periódico cobre esse caso
+      // diretório pode não existir; ticks cobrem
     }
   };
 
   // Comandos
   context.subscriptions.push(
-    vscode.commands.registerCommand("claudeUsageBar.refresh", readState),
+    vscode.commands.registerCommand("claudeUsageBar.refresh", () => {
+      readState();
+      refreshCcusage();
+    }),
     vscode.commands.registerCommand("claudeUsageBar.openState", async () => {
       try {
         const doc = await vscode.workspace.openTextDocument(
@@ -526,26 +555,47 @@ export function activate(context: vscode.ExtensionContext) {
         await vscode.window.showTextDocument(doc);
       } catch {
         vscode.window.showInformationMessage(
-          "Arquivo de estado ainda não existe. Rode um turno no Claude Code com a bridge da statusline configurada."
+          "Arquivo de estado da statusline ainda não existe (só é gravado ao usar o Claude Code no terminal)."
         );
       }
     }),
-    vscode.commands.registerCommand("claudeUsageBar.openPanel", () => {
-      // Abre com um payload neutro; render() preenche em seguida (e a cada update).
-      UsagePanel.createOrShow(context, {
-        mode: "plan",
-        ringPct: null,
-        centerLabel: "—",
-        centerSub: "",
-        level: "ok",
-        rows: [],
-        footer: "Aguardando dados…",
-      });
+    vscode.commands.registerCommand("claudeUsageBar.cycleStyle", async () => {
+      const order: BarStyle[] = ["ring", "bar", "number", "icon"];
+      const cur = (cfg().get<BarStyle>("barStyle") ?? "ring") as BarStyle;
+      const next = order[(order.indexOf(cur) + 1) % order.length];
+      await cfg().update("barStyle", next, vscode.ConfigurationTarget.Global);
       render();
+    }),
+    vscode.commands.registerCommand("claudeUsageBar.setStyle", async (style?: string) => {
+      const valid: BarStyle[] = ["ring", "bar", "number", "icon"];
+      if (style && (valid as string[]).includes(style)) {
+        await cfg().update(
+          "barStyle",
+          style,
+          vscode.ConfigurationTarget.Global
+        );
+        render();
+      }
+    }),
+    vscode.commands.registerCommand("claudeUsageBar.openPanel", () => {
+      UsagePanel.createOrShow(
+        context,
+        {
+          mode: "api",
+          ringPct: null,
+          centerLabel: "—",
+          centerSub: "",
+          level: "ok",
+          rows: [],
+          footer: "Aguardando dados…",
+        },
+        cfg().get<BarStyle>("barStyle") ?? "ring"
+      );
+      render();
+      refreshCcusage();
     })
   );
 
-  // Reage a mudanças de configuração relevantes.
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("claudeUsageBar")) {
@@ -555,12 +605,20 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Tick periódico: cobre criação tardia do arquivo e mantém os "reseta em" frescos.
+  // Ticks: statusline a cada 30s (resets frescos); ccusage no intervalo configurado.
   tick = setInterval(readState, 30_000);
   context.subscriptions.push({ dispose: () => tick && clearInterval(tick) });
 
+  const ccInterval = Math.max(
+    15,
+    cfg().get<number>("ccusageRefreshSeconds") ?? 60
+  );
+  ccTick = setInterval(refreshCcusage, ccInterval * 1000);
+  context.subscriptions.push({ dispose: () => ccTick && clearInterval(ccTick) });
+
   startWatch();
   readState();
+  refreshCcusage();
 }
 
 export function deactivate() {

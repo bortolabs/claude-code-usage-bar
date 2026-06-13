@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage Bar",
   "description": "Mostra o uso da sessão do Claude Code (limites 5h/7d, contexto e custo) na status bar do VSCode — um anel de progresso igual ao /usage.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -40,6 +40,14 @@
       {
         "command": "claudeUsageBar.openPanel",
         "title": "Claude Usage: Abrir painel (anel SVG)"
+      },
+      {
+        "command": "claudeUsageBar.cycleStyle",
+        "title": "Claude Usage: Alternar estilo da status bar"
+      },
+      {
+        "command": "claudeUsageBar.setStyle",
+        "title": "Claude Usage: Definir estilo da status bar"
       }
     ],
     "configuration": {
@@ -119,7 +127,18 @@
         "claudeUsageBar.staleAfterSeconds": {
           "type": "number",
           "default": 900,
-          "description": "Após quantos segundos sem atualização o indicador é considerado 'parado' (esmaecido)."
+          "description": "Janela em que o dado da statusline é considerado fresco. Acima disso, usa o ccusage."
+        },
+        "claudeUsageBar.ccusageCommand": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Comando para obter o bloco de sessão (5h). Vazio = `npx -y ccusage@latest blocks --active --json`. Aponte para um `ccusage` instalado globalmente para evitar a latência do npx (ex: `ccusage blocks --active --json`)."
+        },
+        "claudeUsageBar.ccusageRefreshSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 15,
+          "description": "Com que frequência (segundos) atualizar os dados do ccusage."
         }
       }
     }

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0
+
+- **Nova fonte de dados: ccusage** — a extensão agora calcula o uso da **sessão de 5h**
+  a partir dos transcripts (via `ccusage blocks --active`), então **funciona em qualquer
+  ambiente** (app/IDE ou terminal), sem depender da statusline disparar.
+  - Mostra **% de tempo decorrido da sessão de 5h** + **tempo até resetar** + custo real do bloco.
+  - Tooltip/painel ganham ritmo de gasto ($/h) e projeção do bloco.
+- **Limites reais do plano (5h/7d, igual ao `/usage`)** continuam usados quando você roda
+  o Claude Code no **terminal** (statusline fresca) — eles têm prioridade sobre o ccusage.
+- **Botões de estilo no painel**: troque ring/bar/number/icon com um clique, vendo na hora.
+- Novos settings: `ccusageCommand`, `ccusageRefreshSeconds`.
+
+> Por que ccusage: os limites 5h/7d que alimentam o `/usage` só existem nos headers da API
+> e só são expostos pela statusline, que **só roda no terminal (TUI)**. Para ter feedback
+> constante no app/IDE, a sessão de 5h é derivada dos transcripts pelo ccusage.
+
 ## 0.3.0
 
 - **Painel com anel SVG real** (estilo app do Claude): clique no item da status bar ou

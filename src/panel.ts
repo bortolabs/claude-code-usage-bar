@@ -21,11 +21,15 @@ export class UsagePanel {
   private readonly panel: vscode.WebviewPanel;
   private disposed = false;
 
-  static createOrShow(ctx: vscode.ExtensionContext, data: PanelData) {
+  static createOrShow(
+    ctx: vscode.ExtensionContext,
+    data: PanelData,
+    barStyle: string
+  ) {
     const column = vscode.ViewColumn.Beside;
     if (UsagePanel.current) {
       UsagePanel.current.panel.reveal(column, true);
-      UsagePanel.current.update(data);
+      UsagePanel.current.update(data, barStyle);
       return;
     }
     const panel = vscode.window.createWebviewPanel(
@@ -35,24 +39,31 @@ export class UsagePanel {
       { enableScripts: true, retainContextWhenHidden: true }
     );
     UsagePanel.current = new UsagePanel(panel);
-    UsagePanel.current.update(data);
+    UsagePanel.current.update(data, barStyle);
     ctx.subscriptions.push(panel);
   }
 
   private constructor(panel: vscode.WebviewPanel) {
     this.panel = panel;
     this.panel.webview.html = this.html();
+    this.panel.webview.onDidReceiveMessage((msg) => {
+      if (msg?.type === "setStyle" && typeof msg.style === "string") {
+        vscode.commands.executeCommand("claudeUsageBar.setStyle", msg.style);
+      } else if (msg?.type === "refresh") {
+        vscode.commands.executeCommand("claudeUsageBar.refresh");
+      }
+    });
     this.panel.onDidDispose(() => {
       this.disposed = true;
       UsagePanel.current = undefined;
     });
   }
 
-  update(data: PanelData) {
+  update(data: PanelData, barStyle?: string) {
     if (this.disposed) {
       return;
     }
-    this.panel.webview.postMessage({ type: "data", data });
+    this.panel.webview.postMessage({ type: "data", data, barStyle });
   }
 
   private html(): string {
@@ -75,7 +86,7 @@ export class UsagePanel {
     padding: 18px 16px;
     margin: 0;
   }
-  .ring-wrap { display: flex; justify-content: center; margin: 4px 0 18px; }
+  .ring-wrap { display: flex; justify-content: center; margin: 4px 0 16px; }
   .center-num { font-size: 30px; font-weight: 700; }
   .center-sub { font-size: 12px; fill: var(--vscode-descriptionForeground); }
   .row { margin: 10px 0; }
@@ -84,18 +95,33 @@ export class UsagePanel {
   .row-val { font-variant-numeric: tabular-nums; }
   .track { height: 7px; border-radius: 4px; background: var(--track); overflow: hidden; }
   .fill { height: 100%; border-radius: 4px; transition: width .35s ease; }
-  .footer { margin-top: 18px; font-size: 11.5px; color: var(--vscode-descriptionForeground); text-align: center; }
-  .ok { color: var(--ok); } .warn { color: var(--warn); } .err { color: var(--err); }
-  .bg-ok { background: var(--ok); } .bg-warn { background: var(--warn); } .bg-err { background: var(--err); }
+  .footer { margin-top: 16px; font-size: 11.5px; color: var(--vscode-descriptionForeground); text-align: center; }
   .empty { text-align: center; color: var(--vscode-descriptionForeground); margin-top: 40px; }
+  .bg-ok { background: var(--ok); } .bg-warn { background: var(--warn); } .bg-err { background: var(--err); }
+  .styles { margin: 8px 0 18px; }
+  .styles-title { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--vscode-descriptionForeground); margin-bottom: 6px; }
+  .style-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sbtn {
+    font-family: var(--vscode-font-family); font-size: 12px;
+    padding: 4px 10px; border-radius: 6px; cursor: pointer;
+    background: var(--vscode-button-secondaryBackground, #313131);
+    color: var(--vscode-button-secondaryForeground, #ccc);
+    border: 1px solid transparent;
+  }
+  .sbtn:hover { background: var(--vscode-button-secondaryHoverBackground, #3c3c3c); }
+  .sbtn.active { border-color: var(--ok); color: var(--vscode-foreground); }
+  hr { border: none; border-top: 1px solid var(--track); margin: 14px 0; }
 </style>
 </head>
 <body>
   <div id="app"><div class="empty">Aguardando dados do Claude Code…</div></div>
 <script nonce="${nonce}">
+  const vscode = acquireVsCodeApi();
   const colorVar = { ok: 'var(--ok)', warn: 'var(--warn)', err: 'var(--err)' };
+  let curStyle = 'ring';
+
   function ringSvg(pct, level, centerLabel, centerSub) {
-    const r = 70, c = 2 * Math.PI * r, p = Math.max(0, Math.min(100, pct ?? 0));
+    const r = 70, c = 2 * Math.PI * r, p = Math.max(0, Math.min(100, pct == null ? 0 : pct));
     const off = c * (1 - p / 100);
     const col = colorVar[level] || colorVar.ok;
     return \`
@@ -107,6 +133,13 @@ export class UsagePanel {
       <text x="90" y="88" text-anchor="middle" class="center-num" fill="var(--vscode-foreground)">\${centerLabel}</text>
       <text x="90" y="108" text-anchor="middle" class="center-sub">\${centerSub}</text>
     </svg>\`;
+  }
+  function styleButtons() {
+    const opts = [['ring','◕ anel'],['bar','▰ barra'],['number','% número'],['icon','⚡ ícone']];
+    return '<div class="styles"><div class="styles-title">Estilo na status bar</div><div class="style-btns">' +
+      opts.map(function(o){
+        return '<button class="sbtn' + (o[0]===curStyle?' active':'') + '" data-style="' + o[0] + '">' + o[1] + '</button>';
+      }).join('') + '</div></div>';
   }
   function render(d) {
     if (!d) return;
@@ -120,11 +153,23 @@ export class UsagePanel {
     }).join('');
     document.getElementById('app').innerHTML =
       '<div class="ring-wrap">' + ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub) + '</div>' +
-      rows +
+      rows + '<hr>' + styleButtons() +
       '<div class="footer">' + (d.footer || '') + '</div>';
+    document.querySelectorAll('.sbtn').forEach(function(b){
+      b.addEventListener('click', function(){
+        curStyle = b.getAttribute('data-style');
+        vscode.postMessage({ type: 'setStyle', style: curStyle });
+        document.querySelectorAll('.sbtn').forEach(function(x){ x.classList.remove('active'); });
+        b.classList.add('active');
+      });
+    });
   }
   window.addEventListener('message', function(e) {
-    if (e.data && e.data.type === 'data') render(e.data.data);
+    const m = e.data;
+    if (m && m.type === 'data') {
+      if (m.barStyle) curStyle = m.barStyle;
+      render(m.data);
+    }
   });
 </script>
 </body>
