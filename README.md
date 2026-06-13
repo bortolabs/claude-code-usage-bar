@@ -1,15 +1,21 @@
 # Claude Code Usage Bar
 
-Um indicador na **status bar do VSCode** que mostra, em tempo real, o uso da sessão do
-[Claude Code](https://claude.com/claude-code) — um anel de progresso + percentual, igual
-ao que o comando `/usage` mostra dentro do CLI.
+Um indicador na **status bar do VSCode** que dá feedback visual constante do uso da sessão
+do [Claude Code](https://claude.com/claude-code) — um anel de progresso + número, sem você
+precisar parar pra rodar `/usage`.
 
-```
-◕ 24% 5h
-```
+Funciona para **todos os tipos de conta** e se adapta automaticamente:
 
-Passe o mouse para ver o breakdown completo: limite de 5 horas, limite semanal (7 dias),
-uso da janela de contexto, tokens da última chamada, custo estimado, modelo e sessão.
+| Conta | O que mostra | Exemplo |
+| --- | --- | --- |
+| **Assinatura** (Pro/Max) | Limite do plano: anel = janela de **5h**, número = janela de **7d** (igual ao `/usage`) | `◑ 38% · 7d 41%` |
+| **API / pay-as-you-go** | **Custo** acumulado da sessão (não há limite de plano); anel reflete o contexto | `◕ $2.47` |
+
+A detecção é automática: se o Claude Code reporta limites de plano (`rate_limits`), entra no
+modo assinante; se não (contas API), entra no modo custo. Dá pra forçar um modo nas configurações.
+
+Passe o mouse para ver o breakdown completo: limites 5h/7d (ou custo vs teto), uso da janela
+de contexto, tokens da última chamada, custo, modelo e sessão.
 
 ## Como funciona
 
@@ -28,9 +34,10 @@ statusline-command.sh ──grava──> ~/.claude/usage-state.json
                                  Claude Code Usage Bar (VSCode)
 ```
 
-Os números são os mesmos que o Claude Code calcula — incluindo
-`rate_limits.five_hour.used_percentage` e `rate_limits.seven_day.used_percentage`, os
-campos que alimentam o `/usage`.
+Os números são os mesmos que o Claude Code calcula. Em contas com assinatura, vêm de
+`rate_limits.five_hour/seven_day.used_percentage` (os campos que alimentam o `/usage`).
+Em contas API esses campos não existem, então o indicador usa `cost.total_cost_usd`, que
+está sempre presente.
 
 ## Instalação
 
@@ -98,19 +105,19 @@ automaticamente para o uso de contexto (mostrado com `~` na frente).
 
 ## Uso
 
-- **Clique** no item → alterna a métrica primária (5h → 7d → contexto).
 - **Hover** → breakdown completo.
+- **Clique** no item → abre o arquivo de estado.
 - Paleta de comandos:
   - `Claude Usage: Atualizar agora`
   - `Claude Usage: Abrir arquivo de estado`
-  - `Claude Usage: Alternar métrica primária`
 
 ## Configurações
 
 | Setting | Padrão | Descrição |
 | --- | --- | --- |
+| `claudeUsageBar.mode` | `auto` | `auto` detecta o tipo de conta; `subscriber` força 5h/7d; `cost` força custo $. |
+| `claudeUsageBar.costCapUsd` | `5` | Teto de custo (USD) p/ colorir no modo custo / contas API. `0` desativa. |
 | `claudeUsageBar.stateFilePath` | `~/.claude/usage-state.json` | Caminho do arquivo de estado. |
-| `claudeUsageBar.primaryMetric` | `fiveHour` | Métrica do anel: `fiveHour`, `sevenDay` ou `context`. |
 | `claudeUsageBar.warnThreshold` | `60` | % a partir do qual fica amarelo. |
 | `claudeUsageBar.errorThreshold` | `85` | % a partir do qual fica vermelho. |
 | `claudeUsageBar.alignment` | `right` | Lado da status bar (`right`/`left`). |
@@ -121,6 +128,8 @@ automaticamente para o uso de contexto (mostrado com `~` na frente).
 
 - A status bar nativa do VSCode renderiza apenas texto + ícones (codicons), não SVG
   arbitrário. O "círculo" é o glifo de anel que mais se aproxima (`○ ◔ ◑ ◕ ●`).
+- Em contas com assinatura, os campos `rate_limits` só aparecem **após a primeira resposta
+  da API** na sessão — até lá, o indicador mostra o custo/contexto como nas contas API.
 - Mostra a última sessão que escreveu o estado; várias sessões simultâneas compartilham
   o mesmo arquivo.
 

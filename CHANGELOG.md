@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0
+
+- **Suporte a todos os tipos de conta** com modo adaptativo automático:
+  - Assinatura (Pro/Max): anel = janela 5h, número = janela 7d (limites do plano, igual ao `/usage`).
+  - API/pay-as-you-go: número = custo $ acumulado, anel = uso de contexto (não há limite de plano).
+- Novo setting `claudeUsageBar.mode` (`auto`/`subscriber`/`cost`) e `claudeUsageBar.costCapUsd`.
+- Foco nos limites de plano e custo (o uso de contexto já é coberto pelo `/context`).
+- Removido o comando de alternar métrica (substituído pela detecção automática de modo).
+
 ## 0.1.0
 
 - Versão inicial.

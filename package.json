@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage Bar",
   "description": "Mostra o uso da sessão do Claude Code (limites 5h/7d, contexto e custo) na status bar do VSCode — um anel de progresso igual ao /usage.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -36,10 +36,6 @@
       {
         "command": "claudeUsageBar.openState",
         "title": "Claude Usage: Abrir arquivo de estado"
-      },
-      {
-        "command": "claudeUsageBar.cycleMetric",
-        "title": "Claude Usage: Alternar métrica primária"
       }
     ],
     "configuration": {
@@ -50,20 +46,26 @@
           "default": "",
           "markdownDescription": "Caminho do arquivo de estado gravado pela statusline do Claude Code. Vazio = `~/.claude/usage-state.json`."
         },
-        "claudeUsageBar.primaryMetric": {
+        "claudeUsageBar.mode": {
           "type": "string",
           "enum": [
-            "fiveHour",
-            "sevenDay",
-            "context"
+            "auto",
+            "subscriber",
+            "cost"
           ],
           "enumDescriptions": [
-            "Janela de 5 horas (a 'sessão' do /usage)",
-            "Janela de 7 dias (limite semanal)",
-            "Uso da janela de contexto da conversa atual"
+            "Detecta automaticamente: assinante (Pro/Max) mostra limites 5h/7d; conta API mostra custo $",
+            "Força o modo assinante: anel = janela 5h, número = janela 7d (igual ao /usage)",
+            "Força o modo custo: anel = contexto, número = custo $ acumulado da sessão"
           ],
-          "default": "fiveHour",
-          "markdownDescription": "Qual métrica o anel/percentual mostra como principal. Se `rate_limits` não estiver disponível, cai automaticamente para o contexto."
+          "default": "auto",
+          "markdownDescription": "Como exibir. **auto** (recomendado) escolhe pelo que o Claude Code entrega: contas com assinatura têm limites de plano (`rate_limits`) e mostram 5h/7d; contas API/pay-as-you-go não têm limite e mostram custo `$` com o anel refletindo o contexto."
+        },
+        "claudeUsageBar.costCapUsd": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "markdownDescription": "Teto de custo (USD) por sessão usado **apenas no modo custo / contas API** para colorir o indicador conforme o gasto se aproxima desse valor. `0` desativa o aviso por custo."
         },
         "claudeUsageBar.warnThreshold": {
           "type": "number",

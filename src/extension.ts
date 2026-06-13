@@ -32,7 +32,13 @@ interface UsageState {
   seven_day?: RateWindow | null;
 }
 
-type Metric = "fiveHour" | "sevenDay" | "context";
+/**
+ * Dois modos, escolhidos automaticamente pelo que o JSON entrega:
+ *  - "plan": conta com assinatura (Pro/Max). rate_limits presente. Anel = 5h, número = 7d.
+ *  - "api":  conta API/pay-as-you-go. Sem rate_limits. Anel = contexto, número = custo $.
+ * "subscriber" força sempre o modo plano; "cost" força sempre o modo API; "auto" decide.
+ */
+type Mode = "auto" | "subscriber" | "cost";
 
 // Anel de progresso em texto: 9 níveis de 0% a 100%.
 const RING_GLYPHS = ["○", "◔", "◔", "◑", "◑", "◕", "◕", "●", "●"];
@@ -56,6 +62,17 @@ function fmtTokens(n: number | undefined): string {
     return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "k";
   }
   return String(n);
+}
+
+function fmtUsd(n: number | undefined): string {
+  const v = n ?? 0;
+  if (v >= 100) {
+    return "$" + v.toFixed(0);
+  }
+  if (v >= 10) {
+    return "$" + v.toFixed(1);
+  }
+  return "$" + v.toFixed(2);
 }
 
 function fmtResetsAt(epochSeconds: number | null | undefined): string {
@@ -106,7 +123,7 @@ export function activate(context: vscode.ExtensionContext) {
   const priority = cfg().get<number>("priority") ?? 100;
 
   const item = vscode.window.createStatusBarItem(alignment, priority);
-  item.command = "claudeUsageBar.cycleMetric";
+  item.command = "claudeUsageBar.openState";
   item.show();
   context.subscriptions.push(item);
 
@@ -136,17 +153,39 @@ export function activate(context: vscode.ExtensionContext) {
     render();
   };
 
+  /** Decide o modo efetivo a partir da config e do que o estado entrega. */
+  const effectiveMode = (s: UsageState): "plan" | "api" => {
+    const wanted = (cfg().get<Mode>("mode") ?? "auto") as Mode;
+    const hasRate =
+      s.five_hour?.used_percentage != null ||
+      s.seven_day?.used_percentage != null;
+    if (wanted === "subscriber") {
+      return "plan";
+    }
+    if (wanted === "cost") {
+      return "api";
+    }
+    return hasRate ? "plan" : "api";
+  };
+
+  const ctxPctOf = (s: UsageState): number | null =>
+    s.context?.used_pct ??
+    (s.context?.size && s.context.size > 0
+      ? (((s.context.input ?? 0) + (s.context.output ?? 0)) / s.context.size) *
+        100
+      : null);
+
   const render = () => {
     const c = cfg();
     const warn = c.get<number>("warnThreshold") ?? 60;
     const err = c.get<number>("errorThreshold") ?? 85;
     const staleAfter = c.get<number>("staleAfterSeconds") ?? 900;
-    let metric = (c.get<Metric>("primaryMetric") ?? "fiveHour") as Metric;
+    const costCap = c.get<number>("costCapUsd") ?? 5;
 
     if (!lastState) {
       item.text = "$(circle-outline) Claude —";
       const md = new vscode.MarkdownString(
-        "**Claude Code Usage**\n\nNenhum dado ainda. Inicie ou continue uma sessão do Claude Code — o indicador aparece após a primeira resposta da API.\n\n_(Os dados vêm de `~/.claude/usage-state.json`, gravado pela statusline.)_"
+        "**Claude Code Usage**\n\nNenhum dado ainda. Inicie ou continue uma sessão do Claude Code — o indicador aparece após a primeira resposta.\n\n_(Os dados vêm de `~/.claude/usage-state.json`, gravado pela statusline.)_"
       );
       md.isTrusted = true;
       item.tooltip = md;
@@ -156,39 +195,37 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     const s = lastState;
+    const mode = effectiveMode(s);
     const fiveHour = s.five_hour?.used_percentage ?? null;
     const sevenDay = s.seven_day?.used_percentage ?? null;
-    const ctxPct =
-      s.context?.used_pct ??
-      (s.context?.size && s.context.size > 0
-        ? ((s.context.input ?? 0) + (s.context.output ?? 0)) / s.context.size * 100
-        : null);
+    const ctxPct = ctxPctOf(s);
+    const cost = s.cost_usd ?? 0;
 
-    // Fallback: se a métrica escolhida não tem dado, cai para o contexto.
-    const valueFor = (m: Metric): number | null =>
-      m === "fiveHour" ? fiveHour : m === "sevenDay" ? sevenDay : ctxPct;
-    let pct = valueFor(metric);
-    let usingFallback = false;
-    if (pct == null) {
-      pct = ctxPct;
-      usingFallback = true;
-      metric = "context";
-    }
+    // "effective" = o % que rege as cores do indicador.
+    let effective = 0;
 
-    const label =
-      metric === "fiveHour" ? "5h" : metric === "sevenDay" ? "7d" : "ctx";
-
-    if (pct == null) {
-      item.text = "$(circle-outline) Claude —";
+    if (mode === "plan") {
+      // Anel = 5h; número secundário = 7d.
+      const ringPct = fiveHour ?? 0;
+      const ring = ringFor(ringPct);
+      const sevenStr = sevenDay != null ? ` · 7d ${Math.round(sevenDay)}%` : "";
+      item.text =
+        fiveHour != null
+          ? `${ring} ${Math.round(fiveHour)}%${sevenStr}`
+          : `${ring} —${sevenStr}`;
+      // cor pelo limite mais crítico das duas janelas
+      effective = Math.max(fiveHour ?? 0, sevenDay ?? 0);
     } else {
-      const rounded = Math.round(pct);
-      const ring = ringFor(pct);
-      const mark = usingFallback ? "~" : "";
-      item.text = `${ring} ${mark}${rounded}% ${label}`;
+      // Modo API: anel = contexto; número = custo $.
+      const ringPct = ctxPct ?? 0;
+      const ring = ringFor(ringPct);
+      item.text = `${ring} ${fmtUsd(cost)}`;
+      // cor: mistura — usa o pior entre %contexto e %do teto de custo
+      const costPct = costCap > 0 ? Math.min(100, (cost / costCap) * 100) : 0;
+      effective = Math.max(ctxPct ?? 0, costPct);
     }
 
-    // Cores por threshold (sobre o valor exibido).
-    const effective = pct ?? 0;
+    // Cores por threshold.
     if (effective >= err) {
       item.color = new vscode.ThemeColor("statusBarItem.errorForeground");
       item.backgroundColor = new vscode.ThemeColor(
@@ -212,10 +249,12 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     item.tooltip = buildTooltip(s, {
+      mode,
       fiveHour,
       sevenDay,
       ctxPct,
-      metric,
+      cost,
+      costCap,
       stale,
     });
   };
@@ -223,10 +262,12 @@ export function activate(context: vscode.ExtensionContext) {
   const buildTooltip = (
     s: UsageState,
     info: {
+      mode: "plan" | "api";
       fiveHour: number | null;
       sevenDay: number | null;
       ctxPct: number | null;
-      metric: Metric;
+      cost: number;
+      costCap: number;
       stale: boolean;
     }
   ): vscode.MarkdownString => {
@@ -244,18 +285,32 @@ export function activate(context: vscode.ExtensionContext) {
       return " " + "█".repeat(filled) + "░".repeat(10 - filled);
     };
 
-    lines.push(
-      `**Sessão (5h):** ${pctStr(info.fiveHour)}${bar(info.fiveHour)}` +
-        (s.five_hour?.resets_at
-          ? ` · reseta ${fmtResetsAt(s.five_hour.resets_at)}`
-          : "")
-    );
-    lines.push(
-      `**Semana (7d):** ${pctStr(info.sevenDay)}${bar(info.sevenDay)}` +
-        (s.seven_day?.resets_at
-          ? ` · reseta ${fmtResetsAt(s.seven_day.resets_at)}`
-          : "")
-    );
+    if (info.mode === "plan") {
+      lines.push(
+        `**Sessão (5h):** ${pctStr(info.fiveHour)}${bar(info.fiveHour)}` +
+          (s.five_hour?.resets_at
+            ? ` · reseta ${fmtResetsAt(s.five_hour.resets_at)}`
+            : "")
+      );
+      lines.push(
+        `**Semana (7d):** ${pctStr(info.sevenDay)}${bar(info.sevenDay)}` +
+          (s.seven_day?.resets_at
+            ? ` · reseta ${fmtResetsAt(s.seven_day.resets_at)}`
+            : "")
+      );
+    } else {
+      const capPct =
+        info.costCap > 0
+          ? Math.min(100, (info.cost / info.costCap) * 100)
+          : null;
+      lines.push(
+        `**Custo da sessão:** ${fmtUsd(info.cost)}` +
+          (info.costCap > 0
+            ? ` / ${fmtUsd(info.costCap)}${bar(capPct)}`
+            : "")
+      );
+      lines.push("_Conta API/pay-as-you-go: sem limite de plano — anel reflete o contexto._");
+    }
     lines.push("");
 
     const ctxIn = s.context?.input ?? 0;
@@ -279,25 +334,24 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     lines.push("");
-    if (typeof s.cost_usd === "number") {
-      lines.push(`**Custo estimado:** $${s.cost_usd.toFixed(4)}`);
+    if (info.mode === "plan" && typeof s.cost_usd === "number") {
+      lines.push(`**Custo estimado:** ${fmtUsd(s.cost_usd)}`);
     }
     if (s.model) {
       lines.push(`**Modelo:** ${s.model}`);
     }
-    const sessName = s.session_name || (s.session_id ? s.session_id.slice(0, 8) : "");
+    const sessName =
+      s.session_name || (s.session_id ? s.session_id.slice(0, 8) : "");
     const proj = s.cwd ? path.basename(s.cwd) : "";
     if (sessName || proj) {
-      lines.push(
-        `**Sessão:** ${sessName}${proj ? ` · ${proj}` : ""}`
-      );
+      lines.push(`**Sessão:** ${sessName}${proj ? ` · ${proj}` : ""}`);
     }
 
     lines.push("");
     lines.push(
       `_${info.stale ? "⚠ parado · " : ""}atualizado ${fmtAgo(
         s.ts
-      )} · clique p/ alternar métrica_`
+      )} · clique p/ abrir o estado_`
     );
 
     const md = new vscode.MarkdownString(lines.join("\n\n"));
@@ -332,21 +386,16 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("claudeUsageBar.refresh", readState),
     vscode.commands.registerCommand("claudeUsageBar.openState", async () => {
-      const doc = await vscode.workspace.openTextDocument(
-        vscode.Uri.file(resolveStatePath())
-      );
-      await vscode.window.showTextDocument(doc);
-    }),
-    vscode.commands.registerCommand("claudeUsageBar.cycleMetric", async () => {
-      const order: Metric[] = ["fiveHour", "sevenDay", "context"];
-      const cur = (cfg().get<Metric>("primaryMetric") ?? "fiveHour") as Metric;
-      const next = order[(order.indexOf(cur) + 1) % order.length];
-      await cfg().update(
-        "primaryMetric",
-        next,
-        vscode.ConfigurationTarget.Global
-      );
-      render();
+      try {
+        const doc = await vscode.workspace.openTextDocument(
+          vscode.Uri.file(resolveStatePath())
+        );
+        await vscode.window.showTextDocument(doc);
+      } catch {
+        vscode.window.showInformationMessage(
+          "Arquivo de estado ainda não existe. Rode um turno no Claude Code com a bridge da statusline configurada."
+        );
+      }
     })
   );
 
