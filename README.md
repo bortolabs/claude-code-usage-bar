@@ -132,6 +132,17 @@ Você escolhe como ver:
   bar**, tudo ao vivo. Clicar no item da status bar (ou _Claude Usage: Abrir painel_)
   revela essa view.
 
+## Custo: assinatura vs API
+
+O número em dólar do ccusage é o **equivalente em preço de API**. Se você tem **assinatura**
+(Pro/Max), isso **não é cobrança** — enquanto não estourar os limites do plano (5h/7d), o
+custo adicional é zero. Por isso, com `accountType: subscription` (ou `auto`), o `$` aparece
+só como referência ("~$X, sua assinatura cobre"), **sem teto e sem alerta de custo**. O foco
+fica em **tempo da sessão de 5h** e nos **limites do plano**.
+
+Se você usa **API/pay-as-you-go**, defina `accountType: api` — aí o custo é real, com teto
+(`costCapUsd`) e alerta.
+
 ## Alerta de burn rate
 
 A extensão avisa quando o **ritmo de gasto** projeta estourar antes do reset — algo que o
@@ -159,6 +170,7 @@ bar, e uma faixa no topo do painel. Desligue com `burnRateAlertEnabled: false`.
 | --- | --- | --- |
 | `claudeUsageBar.ccusageCommand` | `npx -y ccusage@latest blocks --active --json` | Comando do ccusage. Aponte p/ um binário global p/ evitar latência do npx. |
 | `claudeUsageBar.ccusageRefreshSeconds` | `60` | Frequência de atualização do ccusage. |
+| `claudeUsageBar.accountType` | `auto` | `subscription` (custo = referência, sem teto/alerta) ou `api` (custo real). `auto` = assinatura. |
 | `claudeUsageBar.mode` | `auto` | `auto` decide a fonte; `subscriber` força limites 5h/7d; `cost` força custo. |
 | `claudeUsageBar.barStyle` | `ring` | Estilo na status bar: `ring`, `bar`, `number` ou `icon`. |
 | `claudeUsageBar.costCapUsd` | `5` | Teto de custo (USD) p/ colorir o indicador. `0` desativa. |

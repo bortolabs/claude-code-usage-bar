@@ -239,6 +239,26 @@ export function activate(context: vscode.ExtensionContext) {
     return hasRate ? "plan" : "api";
   };
 
+  /**
+   * Tipo de conta. Em "subscription" o custo em $ é só equivalente de API
+   * (não há cobrança adicional enquanto não estourar os limites do plano),
+   * então não tem teto nem alerta de custo.
+   */
+  const resolveAccountType = (): "subscription" | "api" => {
+    const wanted =
+      (cfg().get<string>("accountType") ?? "auto") as
+        | "auto"
+        | "subscription"
+        | "api";
+    if (wanted === "api") {
+      return "api";
+    }
+    // "subscription" e "auto" → assinatura. Não há sinal confiável p/ detectar
+    // API automaticamente (ambos rodam no app), então auto assume o caso comum.
+    // Quem usa API configura accountType: "api".
+    return "subscription";
+  };
+
   const ctxPctOf = (s: UsageState | null): number | null => {
     if (!s) {
       return null;
@@ -283,11 +303,15 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     const mode = effectiveMode(hasRate);
+    const isSub = resolveAccountType() === "subscription";
     const fiveHour = s?.five_hour?.used_percentage ?? null;
     const sevenDay = s?.seven_day?.used_percentage ?? null;
     const ctxPct = ctxPctOf(s);
     // Custo: prefere o do bloco ccusage (real do bloco de 5h); senão statusline.
     const cost = block?.costUSD ?? s?.cost_usd ?? 0;
+    // Em assinatura, o custo NÃO entra na cor (não é cobrança).
+    const costPctForColor =
+      !isSub && costCap > 0 ? Math.min(100, (cost / costCap) * 100) : 0;
 
     let ringPct: number | null;
     let primary: string;
@@ -315,27 +339,45 @@ export function activate(context: vscode.ExtensionContext) {
       suffix = ` · ${resetShort}`;
       centerLabel = primary;
       centerSub = `sessão 5h · reseta ${resetShort}`;
-      // Cor: tempo decorrido OU custo vs teto, o que estiver pior.
-      const costPct = costCap > 0 ? Math.min(100, (cost / costCap) * 100) : 0;
-      effective = Math.max(block.timePct, costPct);
+      effective = Math.max(block.timePct, costPctForColor);
     } else {
-      // Só statusline fresca sem rate (raro): cai pra custo/contexto.
-      ringPct = ctxPct;
-      primary = fmtUsd(cost);
-      suffix = "";
-      centerLabel = fmtUsd(cost);
-      centerSub = "custo da sessão";
-      const costPct = costCap > 0 ? Math.min(100, (cost / costCap) * 100) : 0;
-      effective = Math.max(ctxPct ?? 0, costPct);
+      // Só statusline fresca sem rate (raro).
+      if (isSub) {
+        // Assinatura sem rate/ccusage: mostra contexto (custo não é cobrança).
+        ringPct = ctxPct;
+        primary = ctxPct != null ? `${Math.round(ctxPct)}%` : "—";
+        suffix = "";
+        centerLabel = primary;
+        centerSub = "contexto";
+        effective = ctxPct ?? 0;
+      } else {
+        ringPct = ctxPct;
+        primary = fmtUsd(cost);
+        suffix = "";
+        centerLabel = fmtUsd(cost);
+        centerSub = "custo da sessão";
+        effective = Math.max(ctxPct ?? 0, costPctForColor);
+      }
     }
 
     // Avalia alerta de burn rate (projeção de estouro).
     const alertOn = c.get<boolean>("burnRateAlertEnabled") ?? true;
+    // Em assinatura: custo não é cobrança → sem gatilho de custo;
+    // gatilho de $/h só se o usuário tiver DEFINIDO burnRateMaxPerHour explicitamente.
+    const maxPerHourSet =
+      c.inspect<number>("burnRateMaxPerHour")?.globalValue ??
+      c.inspect<number>("burnRateMaxPerHour")?.workspaceValue;
+    const alertCostCap = isSub ? 0 : costCap;
+    const alertMaxPerHour = isSub
+      ? typeof maxPerHourSet === "number"
+        ? maxPerHourSet
+        : 0
+      : c.get<number>("burnRateMaxPerHour") ?? 20;
     const alert: AlertResult = alertOn
       ? evaluateAlerts({
           block,
-          costCap,
-          maxPerHour: c.get<number>("burnRateMaxPerHour") ?? 20,
+          costCap: alertCostCap,
+          maxPerHour: alertMaxPerHour,
           fiveHour,
           sevenDay,
           fiveHourResetsAt: s?.five_hour?.resets_at ?? null,
@@ -409,6 +451,7 @@ export function activate(context: vscode.ExtensionContext) {
       ctxPct,
       cost,
       costCap,
+      isSub,
       block,
       state: s,
       alert,
@@ -433,6 +476,7 @@ export function activate(context: vscode.ExtensionContext) {
     ctxPct: number | null;
     cost: number;
     costCap: number;
+    isSub: boolean;
     block: CcusageData | null;
     state: UsageState | null;
     alert: AlertResult;
@@ -474,13 +518,19 @@ export function activate(context: vscode.ExtensionContext) {
         `**Sessão (5h):** ${Math.round(b.timePct)}% do tempo${bar(b.timePct)}`
       );
       lines.push(`reseta em ${fmtDuration(b.remainingMinutes * 60000)}`);
-      lines.push(`**Custo da sessão:** ${fmtUsd(b.costUSD)}`);
-      if (b.burnCostPerHour != null) {
+      if (v.isSub) {
         lines.push(
-          `**Ritmo:** ${fmtUsd(b.burnCostPerHour)}/h · projeção ${fmtUsd(
-            b.projectedCost ?? undefined
-          )}`
+          `**Equivalente API:** ~${fmtUsd(b.costUSD)} _(referência; sua assinatura cobre)_`
         );
+      } else {
+        lines.push(`**Custo da sessão:** ${fmtUsd(b.costUSD)}`);
+        if (b.burnCostPerHour != null) {
+          lines.push(
+            `**Ritmo:** ${fmtUsd(b.burnCostPerHour)}/h · projeção ${fmtUsd(
+              b.projectedCost ?? undefined
+            )}`
+          );
+        }
       }
       lines.push(`**Tokens no bloco:** ${fmtTokens(b.totalTokens)}`);
     }
@@ -540,21 +590,30 @@ export function activate(context: vscode.ExtensionContext) {
         value: `${Math.round(b.timePct)}% do tempo`,
         pct: b.timePct,
       });
-      const capPct =
-        v.costCap > 0 ? Math.min(100, (b.costUSD / v.costCap) * 100) : null;
-      rows.push({
-        label: v.costCap > 0 ? `Custo / teto ${fmtUsd(v.costCap)}` : "Custo",
-        value: fmtUsd(b.costUSD),
-        pct: capPct,
-      });
-      if (b.burnCostPerHour != null) {
+      if (v.isSub) {
+        // Assinatura: $ é só referência; sem teto/barra/cor.
         rows.push({
-          label: "Ritmo (projeção do bloco)",
-          value: `${fmtUsd(b.burnCostPerHour)}/h → ${fmtUsd(
-            b.projectedCost ?? undefined
-          )}`,
+          label: "Equivalente API (sua assinatura cobre)",
+          value: `~${fmtUsd(b.costUSD)}`,
           pct: null,
         });
+      } else {
+        const capPct =
+          v.costCap > 0 ? Math.min(100, (b.costUSD / v.costCap) * 100) : null;
+        rows.push({
+          label: v.costCap > 0 ? `Custo / teto ${fmtUsd(v.costCap)}` : "Custo",
+          value: fmtUsd(b.costUSD),
+          pct: capPct,
+        });
+        if (b.burnCostPerHour != null) {
+          rows.push({
+            label: "Ritmo (projeção do bloco)",
+            value: `${fmtUsd(b.burnCostPerHour)}/h → ${fmtUsd(
+              b.projectedCost ?? undefined
+            )}`,
+            pct: null,
+          });
+        }
       }
       rows.push({
         label: "Tokens no bloco",

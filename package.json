@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage Bar",
   "description": "Mostra o uso da sessão do Claude Code (limites 5h/7d, contexto e custo) na status bar do VSCode — um anel de progresso igual ao /usage.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -76,6 +76,21 @@
           "type": "string",
           "default": "",
           "markdownDescription": "Caminho do arquivo de estado gravado pela statusline do Claude Code. Vazio = `~/.claude/usage-state.json`."
+        },
+        "claudeUsageBar.accountType": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "subscription",
+            "api"
+          ],
+          "enumDescriptions": [
+            "Detecta automaticamente (assinatura se houver limites de plano)",
+            "Assinatura (Pro/Max): você já paga o mensal — o $ é só 'equivalente API' informativo, sem teto nem alerta de custo. O foco é tempo/limites do plano.",
+            "API/pay-as-you-go: o $ é dinheiro real, com teto e alerta de custo."
+          ],
+          "default": "auto",
+          "markdownDescription": "Tipo de conta. Em **assinatura**, o custo em dólar é apenas o equivalente em preço de API (referência do quanto você economiza) — não é cobrança, então não há teto nem alerta de custo. Em **api**, o custo é real."
         },
         "claudeUsageBar.mode": {
           "type": "string",

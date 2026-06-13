@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0
+
+- **Correção conceitual de custo para assinaturas (Pro/Max).** O "custo" que o ccusage
+  calcula é o **equivalente em preço de API** — não é cobrança quando você tem assinatura
+  (enquanto não estourar os limites do plano, o custo adicional é zero). Antes o plugin
+  comparava esse valor com um teto em dólar e alertava como se fosse gasto real.
+  - Novo setting `accountType` (`auto`/`subscription`/`api`). `auto` assume assinatura.
+  - Em **assinatura**: o `$` vira "equivalente API ~$X" (referência), **sem teto, sem cor
+    de erro por custo e sem alerta de custo/$h** (a menos que você defina `burnRateMaxPerHour`
+    explicitamente). O foco passa a ser tempo da sessão e limites do plano.
+  - Em **api**: comportamento de custo real (teto + alerta) preservado.
+
 ## 0.6.0
 
 - **Ícone na Activity Bar** (lateral esquerda): abre uma view dedicada com o painel
