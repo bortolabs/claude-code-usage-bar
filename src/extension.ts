@@ -3,8 +3,15 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { UsageViewProvider, PanelData } from "./panel";
-import { runCcusage, CcusageResult, CcusageData } from "./ccusage";
+import {
+  runCcusage,
+  runCcusageDaily,
+  CcusageResult,
+  CcusageData,
+  CcusageDaily,
+} from "./ccusage";
 import { evaluateAlerts, AlertResult } from "./alerts";
+import { readCurrentModel, prettyModel } from "./transcript";
 
 /** Forma do JSON gravado por statusline-command.sh (bridge). */
 interface RateWindow {
@@ -189,10 +196,15 @@ export function activate(context: vscode.ExtensionContext) {
 
   let lastState: UsageState | null = null;
   let lastCcusage: CcusageResult | null = null;
+  // Modelo atual em uso (lido do transcript; o ccusage mistura modelos do bloco).
+  let currentModel: string | null = null;
+  // Histórico diário (sparkline). Atualizado num intervalo mais folgado.
+  let lastDaily: CcusageDaily[] = [];
   let watcher: fs.FSWatcher | undefined;
   let debounce: NodeJS.Timeout | undefined;
   let tick: NodeJS.Timeout | undefined;
   let ccTick: NodeJS.Timeout | undefined;
+  let dailyTick: NodeJS.Timeout | undefined;
   // Alerta: controle de cooldown da notificação.
   let lastAlertKey = "";
   let lastAlertAtMs = 0;
@@ -202,6 +214,7 @@ export function activate(context: vscode.ExtensionContext) {
   viewProvider.onReady = () => {
     readState();
     refreshCcusage();
+    refreshDaily();
   };
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -242,6 +255,11 @@ export function activate(context: vscode.ExtensionContext) {
     } catch {
       // arquivo ausente ou leitura no meio de um mv — mantém o último estado
     }
+    // Modelo atual vem do transcript (o ccusage mistura modelos do bloco).
+    const m = readCurrentModel();
+    if (m) {
+      currentModel = m;
+    }
     render();
   };
 
@@ -250,6 +268,24 @@ export function activate(context: vscode.ExtensionContext) {
       (cfg().get<string>("ccusageCommand") || "").trim() ||
       "npx -y ccusage@latest blocks --active --json";
     lastCcusage = await runCcusage(cmd);
+    render();
+  };
+
+  /**
+   * Deriva o comando `daily` do `ccusageCommand` (que é do `blocks --active`),
+   * trocando "blocks --active" por "daily" e mantendo o resto (ex: --json e o
+   * binário/caminho configurado). Se não casar, usa o default com npx.
+   */
+  const dailyCommand = (): string => {
+    const base = (cfg().get<string>("ccusageCommand") || "").trim();
+    if (base && base.includes("blocks --active")) {
+      return base.replace("blocks --active", "daily");
+    }
+    return "npx -y ccusage@latest daily --json";
+  };
+
+  const refreshDaily = async () => {
+    lastDaily = await runCcusageDaily(dailyCommand());
     render();
   };
 
@@ -502,6 +538,10 @@ export function activate(context: vscode.ExtensionContext) {
       lastAlertKey = "";
     }
 
+    // Modelo atual: statusline fresca > transcript > ccusage (último do bloco).
+    const modelName =
+      (fresh && s?.model) || currentModel || block?.model || null;
+
     const view = {
       mode: mode === "plan" ? ("plan" as const) : ("api" as const),
       usingCcusage: mode !== "plan" && !!block,
@@ -520,6 +560,8 @@ export function activate(context: vscode.ExtensionContext) {
       alert,
       alertEnabled: alertOn,
       projPct,
+      daily: lastDaily,
+      modelName,
     };
     item.tooltip = buildTooltip(view);
 
@@ -547,6 +589,8 @@ export function activate(context: vscode.ExtensionContext) {
     alert: AlertResult;
     alertEnabled: boolean;
     projPct: number | null;
+    daily: CcusageDaily[];
+    modelName: string | null;
   };
 
   const buildTooltip = (v: View): vscode.MarkdownString => {
@@ -618,7 +662,7 @@ export function activate(context: vscode.ExtensionContext) {
       lines.push(`**Contexto:** ${pctStr(v.ctxPct)}${bar(v.ctxPct)}`);
     }
 
-    const model = v.block?.model || v.state?.model;
+    const model = prettyModel(v.modelName);
     if (model) {
       lines.push(`**Modelo:** ${model}`);
     }
@@ -707,7 +751,7 @@ export function activate(context: vscode.ExtensionContext) {
         pct: v.ctxPct,
       });
     }
-    const model = v.block?.model || v.state?.model;
+    const model = prettyModel(v.modelName);
     if (model) {
       rows.push({ label: "Modelo", value: model, pct: null });
     }
@@ -717,6 +761,11 @@ export function activate(context: vscode.ExtensionContext) {
       : v.mode === "plan"
       ? "statusline (plano)"
       : "statusline";
+    // Últimos ~7 dias pro sparkline: só o que o gráfico precisa (data + tokens).
+    const daily = v.daily.slice(-7).map((d) => ({
+      date: d.date,
+      tokens: d.totalTokens,
+    }));
     return {
       mode: v.mode,
       ringPct: v.ringPct,
@@ -728,6 +777,7 @@ export function activate(context: vscode.ExtensionContext) {
         ? { message: v.alert.message, reasons: v.alert.reasons }
         : null,
       alertEnabled: v.alertEnabled,
+      daily,
       footer: `fonte: ${src}${
         v.state?.ts ? " · statusline " + fmtAgo(v.state.ts) : ""
       }`,
@@ -762,6 +812,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("claudeUsageBar.refresh", () => {
       readState();
       refreshCcusage();
+      refreshDaily();
     }),
     vscode.commands.registerCommand("claudeUsageBar.toggleAlert", async () => {
       const cur = cfg().get<boolean>("burnRateAlertEnabled") ?? true;
@@ -810,6 +861,7 @@ export function activate(context: vscode.ExtensionContext) {
       viewProvider.reveal();
       render();
       refreshCcusage();
+      refreshDaily();
     })
   );
 
@@ -833,9 +885,16 @@ export function activate(context: vscode.ExtensionContext) {
   ccTick = setInterval(refreshCcusage, ccInterval * 1000);
   context.subscriptions.push({ dispose: () => ccTick && clearInterval(ccTick) });
 
+  // Histórico diário: muda pouco ao longo do dia, então 5 min basta.
+  dailyTick = setInterval(refreshDaily, 5 * 60 * 1000);
+  context.subscriptions.push({
+    dispose: () => dailyTick && clearInterval(dailyTick),
+  });
+
   startWatch();
   readState();
   refreshCcusage();
+  refreshDaily();
 }
 
 export function deactivate() {

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0
+
+- **Sparkline de histórico** no painel: mini-gráfico de barras dos últimos ~7 dias
+  (via `ccusage daily`), com o dia de hoje destacado e tokens/data no tooltip.
+- **Correção do modelo atual**: agora lido do transcript mais recente
+  (`~/.claude/projects/*.jsonl`). Antes vinha do array de modelos do bloco do ccusage,
+  que mistura vários (opus/haiku/etc) e mostrava o errado. Nome formatado (ex: "Opus 4.8").
+- Adicionado `ROADMAP.md` com o histórico de features e as próximas ideias.
+
 ## 0.9.0
 
 - **Cor por projeção de estouro** (`colorByProjection`, on por padrão): o indicador

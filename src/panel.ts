@@ -16,6 +16,8 @@ export interface PanelData {
   alert: { message: string; reasons: string[] } | null;
   /** Estado do alerta de burn rate (para o toggle do painel). */
   alertEnabled: boolean;
+  /** Histórico de uso dos últimos dias para o sparkline (pode ser vazio). */
+  daily: { date: string; tokens: number }[];
   footer: string;
 }
 
@@ -54,6 +56,15 @@ function panelHtml(): string {
   .bg-ok { background: var(--ok); } .bg-warn { background: var(--warn); } .bg-err { background: var(--err); }
   .styles { margin: 8px 0 14px; }
   .styles-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--vscode-descriptionForeground); margin-bottom: 6px; }
+  /* Sparkline de histórico (últimos dias). */
+  .spark { margin: 12px 0 4px; }
+  .spark-bars { display: flex; align-items: flex-end; gap: 3px; height: 40px; }
+  .spark-bar {
+    flex: 1 1 0; min-width: 0; border-radius: 2px 2px 0 0;
+    background: var(--ok); opacity: .55; min-height: 2px;
+  }
+  .spark-bar.today { opacity: 1; }
+  .spark-labels { display: flex; justify-content: space-between; font-size: 9.5px; color: var(--vscode-descriptionForeground); margin-top: 3px; }
   .style-btns { display: flex; gap: 6px; flex-wrap: wrap; }
   .sbtn {
     font-family: var(--vscode-font-family); font-size: 12px;
@@ -126,6 +137,33 @@ function panelHtml(): string {
         return '<button class="sbtn' + (o[0]===curStyle?' active':'') + '" data-style="' + o[0] + '">' + o[1] + '</button>';
       }).join('') + '</div></div>';
   }
+  // Formata tokens curto pro tooltip da barra (ex: 12.3M, 84k).
+  function fmtTok(n) {
+    if (!n || n <= 0) return '0';
+    if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\\.0$/, '') + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\\.0$/, '') + 'k';
+    return String(n);
+  }
+  // Sparkline: fileira de barras verticais proporcionais aos tokens/dia.
+  // O último item (hoje) fica destacado. Sem itens, não renderiza nada.
+  function sparkline(daily) {
+    const days = (daily || []).filter(function(d){ return d && d.tokens != null; });
+    if (!days.length) return '';
+    const max = Math.max.apply(null, days.map(function(d){ return d.tokens; }).concat([1]));
+    const bars = days.map(function(d, i) {
+      const h = Math.max(2, Math.round((d.tokens / max) * 100));
+      const today = i === days.length - 1 ? ' today' : '';
+      const tip = (d.date || '') + ' · ' + fmtTok(d.tokens) + ' tokens';
+      return '<div class="spark-bar' + today + '" style="height:' + h + '%" title="' + tip + '"></div>';
+    }).join('');
+    // rótulos só nas pontas (primeiro e último dia), pra não poluir.
+    const first = days[0].date || '';
+    const last = days[days.length - 1].date || '';
+    const labels = '<div class="spark-labels"><span>' + first.slice(5) +
+      '</span><span>' + last.slice(5) + '</span></div>';
+    return '<div class="spark"><div class="styles-title">Últimos dias</div>' +
+      '<div class="spark-bars">' + bars + '</div>' + labels + '</div>';
+  }
   function render(d) {
     if (!d) return;
     const rows = (d.rows || []).map(function(row) {
@@ -153,7 +191,7 @@ function panelHtml(): string {
     document.getElementById('app').innerHTML =
       header + alertHtml +
       '<div class="ring-wrap">' + ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub) + '</div>' +
-      rows + '<hr>' + styleButtons() + toggleHtml +
+      rows + sparkline(d.daily) + '<hr>' + styleButtons() + toggleHtml +
       '<div class="footer">' + (d.footer || '') + '</div>';
     document.querySelectorAll('.sbtn').forEach(function(b){
       b.addEventListener('click', function(){

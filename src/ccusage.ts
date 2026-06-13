@@ -54,6 +54,62 @@ export interface CcusageUnavailable {
 }
 export type CcusageResult = CcusageData | CcusageUnavailable;
 
+/** Item de uso diário normalizado (do `ccusage daily --json`). */
+export interface CcusageDaily {
+  /** Data no formato YYYY-MM-DD (campo `period` do ccusage). */
+  date: string;
+  totalTokens: number;
+  costUSD: number;
+}
+
+/**
+ * Executa `ccusage daily --json` e devolve o histórico normalizado.
+ * No JSON do ccusage cada dia vem em `daily[]` com os campos `period`
+ * (data), `totalTokens` e `totalCost`. Em caso de erro/parse inválido
+ * retorna `[]` (nunca lança), pra não derrubar o resto da extensão.
+ */
+export function runCcusageDaily(
+  command: string,
+  timeoutMs = 15000
+): Promise<CcusageDaily[]> {
+  return new Promise((resolve) => {
+    exec(
+      command,
+      { timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024 },
+      (err, stdout) => {
+        if (err && !stdout) {
+          resolve([]);
+          return;
+        }
+        try {
+          const parsed = JSON.parse(stdout);
+          const days: unknown[] = Array.isArray(parsed?.daily)
+            ? parsed.daily
+            : [];
+          const out: CcusageDaily[] = days.map((raw) => {
+            const d = raw as {
+              period?: string;
+              date?: string;
+              totalTokens?: number;
+              totalCost?: number;
+              costUSD?: number;
+            };
+            return {
+              // `period` é o nome real no ccusage; cai pra `date` por garantia.
+              date: d.period ?? d.date ?? "",
+              totalTokens: d.totalTokens ?? 0,
+              costUSD: d.totalCost ?? d.costUSD ?? 0,
+            };
+          });
+          resolve(out);
+        } catch {
+          resolve([]);
+        }
+      }
+    );
+  });
+}
+
 /** Comando configurável (default usa npx). */
 export function runCcusage(
   command: string,
