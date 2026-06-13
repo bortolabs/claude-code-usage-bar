@@ -212,6 +212,11 @@ function panelHtml(): string {
     const at = document.getElementById('alertToggle');
     if (at) {
       at.addEventListener('click', function(){
+        // feedback otimista imediato (o estado real volta no próximo render)
+        var on = at.classList.contains('on');
+        at.classList.toggle('on', !on);
+        at.classList.toggle('off', on);
+        at.textContent = on ? '🔕 Desligado' : '🔔 Ligado';
         vscode.postMessage({ type: 'toggleAlert' });
       });
     }
@@ -230,8 +235,11 @@ function panelHtml(): string {
 </html>`;
 }
 
-function wireMessages(webview: vscode.Webview, onReady: () => void) {
-  webview.onDidReceiveMessage((msg) => {
+function wireMessages(
+  webview: vscode.Webview,
+  onReady: () => void
+): vscode.Disposable {
+  return webview.onDidReceiveMessage((msg) => {
     if (msg?.type === "setStyle" && typeof msg.style === "string") {
       vscode.commands.executeCommand("claudeUsageBar.setStyle", msg.style);
     } else if (msg?.type === "refresh") {
@@ -253,6 +261,7 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
   public static current: UsageViewProvider | undefined;
   private view?: vscode.WebviewView;
   private last?: { data: PanelData; barStyle: string };
+  private msgDisposable?: vscode.Disposable;
   /** Chamado quando a webview sinaliza que montou e quer dados. */
   public onReady?: () => void;
 
@@ -263,8 +272,11 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
   resolveWebviewView(view: vscode.WebviewView): void {
     this.view = view;
     view.webview.options = { enableScripts: true };
-    view.webview.html = panelHtml();
-    wireMessages(view.webview, () => {
+    // Descarta listener anterior se a view for recriada (troca de aba na
+    // Activity Bar destrói e recria a webview) — evita handlers órfãos.
+    this.msgDisposable?.dispose();
+    this.msgDisposable = wireMessages(view.webview, () => {
+      // Webview montou e pediu dados: envia o último estado conhecido.
       if (this.last) {
         view.webview.postMessage({
           type: "data",
@@ -274,13 +286,9 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
       }
       this.onReady?.();
     });
-    if (this.last) {
-      view.webview.postMessage({
-        type: "data",
-        data: this.last.data,
-        barStyle: this.last.barStyle,
-      });
-    }
+    // NÃO postar data aqui — o webview ainda não montou o listener; ele pede
+    // via {type:'ready'} e respondemos acima. Postar antes se perde.
+    view.webview.html = panelHtml();
   }
 
   update(data: PanelData, barStyle: string) {

@@ -903,16 +903,17 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand("claudeUsageBar.toggleAlert", async () => {
       const cur = cfg().get<boolean>("burnRateAlertEnabled") ?? true;
+      const next = !cur;
       await cfg().update(
         "burnRateAlertEnabled",
-        !cur,
+        next,
         vscode.ConfigurationTarget.Global
       );
-      vscode.window.setStatusBarMessage(
-        `Claude Usage: alerta ${!cur ? "ligado" : "desligado"}`,
-        2500
-      );
       render();
+      // Feedback claro e visível (não só a mensagem fugaz da status bar).
+      vscode.window.showInformationMessage(
+        `Claude Usage: alerta de burn rate ${next ? "LIGADO 🔔" : "DESLIGADO 🔕"}.`
+      );
     }),
     vscode.commands.registerCommand("claudeUsageBar.openState", async () => {
       try {

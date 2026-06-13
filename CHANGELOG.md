@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.1
+
+- **Fix: toggle do alerta sem feedback.** Ao clicar no 🔔/🔕 do painel:
+  - o botão agora muda na hora (feedback otimista), sem esperar o round-trip;
+  - mostra notificação clara "alerta LIGADO/DESLIGADO" (antes só uma mensagem fugaz);
+  - corrigido um problema de timing onde a 1ª mensagem ao webview podia se perder e
+    o listener de mensagens podia acumular ao recriar a view.
+
 ## 0.11.0
 
 - **ETA até estourar** (#7): quando há previsão de estouro, mostra *em quanto tempo* o
