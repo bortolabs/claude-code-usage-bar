@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage Bar",
   "description": "Mostra o uso da sessão do Claude Code (limites 5h/7d, contexto e custo) na status bar do VSCode — um anel de progresso igual ao /usage.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -194,6 +194,17 @@
           "default": 15,
           "minimum": 1,
           "description": "Tempo mínimo (minutos) entre notificações de alerta, para não repetir demais."
+        },
+        "claudeUsageBar.colorByProjection": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Colorir o indicador pela **projeção** de estouro (não só pelo valor atual). A cor usa o pior entre o uso atual e a projeção até o reset."
+        },
+        "claudeUsageBar.intenseTokensPerMin": {
+          "type": "number",
+          "default": 50000,
+          "minimum": 1000,
+          "markdownDescription": "Ritmo de tokens/min considerado 'intenso' (= 100% na cor por projeção) para contas de **assinatura no app**, onde não há limite real de plano. Usado só como proxy de intensidade."
         }
       }
     }

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0
+
+- **Cor por projeção de estouro** (`colorByProjection`, on por padrão): o indicador
+  colore pela projeção de onde você vai chegar no reset, não só pelo valor atual —
+  usa o **pior dos dois**. Assim o anel esquenta antes de o número ficar alto.
+  - **Terminal**: projeta a % dos limites 5h/7d no reset.
+  - **API**: projeta o custo vs teto.
+  - **Assinatura no app**: usa o ritmo de tokens/min vs uma referência de intensidade
+    (`intenseTokensPerMin`, default 50k), já que não há limite real.
+  - Projeção só conta após 25% da janela decorrida (evita alarme falso no início).
+  - O tooltip mostra a projeção quando ela é o fator relevante (↗/⚠).
+
 ## 0.8.0
 
 - **Liga/desliga do alerta de burn rate** em três lugares:

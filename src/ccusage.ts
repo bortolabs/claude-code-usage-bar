@@ -41,7 +41,11 @@ export interface CcusageData {
   totalTokens: number;
   model: string;
   burnCostPerHour: number | null;
+  /** Ritmo de tokens por minuto (do burnRate do ccusage). */
+  tokensPerMinute: number | null;
   projectedCost: number | null;
+  /** Total de tokens projetado para o fim do bloco. */
+  projectedTokens: number | null;
   tokenCounts: CcusageBlock["tokenCounts"];
 }
 export interface CcusageUnavailable {
@@ -95,7 +99,9 @@ export function runCcusage(
             totalTokens: block.totalTokens ?? 0,
             model: block.models?.[block.models.length - 1] ?? "",
             burnCostPerHour: block.burnRate?.costPerHour ?? null,
+            tokensPerMinute: block.burnRate?.tokensPerMinute ?? null,
             projectedCost: block.projection?.totalCost ?? null,
+            projectedTokens: block.projection?.totalTokens ?? null,
             tokenCounts: block.tokenCounts,
           });
         } catch (e) {

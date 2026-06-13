@@ -131,6 +131,32 @@ function fmtDuration(deltaMs: number): string {
   return `${m}m`;
 }
 
+/**
+ * Projeta a % de um limite (5h/7d) no momento do reset, assumindo ritmo linear
+ * desde o início da janela. Retorna null se cedo demais pra estimar.
+ */
+function projectLimitPct(
+  usedPct: number | null,
+  resetsAtSec: number | null,
+  windowSeconds: number
+): number | null {
+  if (usedPct == null || !resetsAtSec) {
+    return null;
+  }
+  const remainingMs = resetsAtSec * 1000 - Date.now();
+  if (remainingMs <= 0) {
+    return usedPct;
+  }
+  const remainingSec = remainingMs / 1000;
+  const elapsedSec = windowSeconds - remainingSec;
+  // Exige >= 25% da janela decorrida: cedo demais, o ritmo é ruidoso e a
+  // projeção linear vira alarmista (ex: 20% em 1h projetaria 100%).
+  if (elapsedSec < windowSeconds * 0.25) {
+    return null;
+  }
+  return usedPct + (usedPct / elapsedSec) * remainingSec;
+}
+
 function fmtAgo(ts: number | undefined): string {
   if (!ts) {
     return "—";
@@ -313,6 +339,35 @@ export function activate(context: vscode.ExtensionContext) {
     const costPctForColor =
       !isSub && costCap > 0 ? Math.min(100, (cost / costCap) * 100) : 0;
 
+    // Cor por projeção (pior dos dois): calcula a % projetada conforme o modo.
+    const colorByProj = c.get<boolean>("colorByProjection") ?? true;
+    const intenseTpm = c.get<number>("intenseTokensPerMin") ?? 50000;
+    let projPct: number | null = null; // % projetada (0..100+), p/ a cor
+    if (colorByProj) {
+      const p5 = projectLimitPct(fiveHour, s?.five_hour?.resets_at ?? null, 5 * 3600);
+      const p7 = projectLimitPct(
+        sevenDay,
+        s?.seven_day?.resets_at ?? null,
+        7 * 24 * 3600
+      );
+      const planProj = Math.max(p5 ?? 0, p7 ?? 0);
+      if (mode === "plan") {
+        projPct = planProj;
+      } else if (block) {
+        // app: custo projetado (api) e/ou ritmo de tokens (assinatura).
+        const costProjPct =
+          !isSub && costCap > 0 && block.projectedCost != null
+            ? (block.projectedCost / costCap) * 100
+            : 0;
+        const tokenIntensityPct =
+          isSub && block.tokensPerMinute != null && intenseTpm > 0
+            ? (block.tokensPerMinute / intenseTpm) * 100
+            : 0;
+        projPct = Math.max(costProjPct, tokenIntensityPct, planProj);
+      }
+    }
+    const projForColor = Math.min(150, projPct ?? 0); // cap p/ não explodir cores
+
     let ringPct: number | null;
     let primary: string;
     let suffix: string;
@@ -330,7 +385,7 @@ export function activate(context: vscode.ExtensionContext) {
       centerSub = resetShort
         ? `sessão 5h · reseta ${resetShort}`
         : "sessão · 5h";
-      effective = Math.max(fiveHour ?? 0, sevenDay ?? 0);
+      effective = Math.max(fiveHour ?? 0, sevenDay ?? 0, projForColor);
     } else if (block) {
       // App/IDE: ccusage. Herói = % de TEMPO da sessão de 5h + tempo restante.
       ringPct = block.timePct;
@@ -339,7 +394,7 @@ export function activate(context: vscode.ExtensionContext) {
       suffix = ` · ${resetShort}`;
       centerLabel = primary;
       centerSub = `sessão 5h · reseta ${resetShort}`;
-      effective = Math.max(block.timePct, costPctForColor);
+      effective = Math.max(block.timePct, costPctForColor, projForColor);
     } else {
       // Só statusline fresca sem rate (raro).
       if (isSub) {
@@ -464,6 +519,7 @@ export function activate(context: vscode.ExtensionContext) {
       state: s,
       alert,
       alertEnabled: alertOn,
+      projPct,
     };
     item.tooltip = buildTooltip(view);
 
@@ -490,6 +546,7 @@ export function activate(context: vscode.ExtensionContext) {
     state: UsageState | null;
     alert: AlertResult;
     alertEnabled: boolean;
+    projPct: number | null;
   };
 
   const buildTooltip = (v: View): vscode.MarkdownString => {
@@ -543,6 +600,17 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }
       lines.push(`**Tokens no bloco:** ${fmtTokens(b.totalTokens)}`);
+    }
+
+    // Projeção (quando colore por projeção e ela é o fator relevante).
+    if (v.projPct != null && v.projPct >= 60) {
+      const arrow = v.projPct >= 100 ? "⚠" : "↗";
+      const label = v.isSub
+        ? "Ritmo projetado"
+        : v.mode === "plan"
+        ? "Limite projetado no reset"
+        : "Custo projetado vs teto";
+      lines.push(`${arrow} **${label}:** ~${Math.round(v.projPct)}%`);
     }
     lines.push("");
 
