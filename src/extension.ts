@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { UsagePanel, PanelData } from "./panel";
 
 /** Forma do JSON gravado por statusline-command.sh (bridge). */
 interface RateWindow {
@@ -39,6 +40,7 @@ interface UsageState {
  * "subscriber" força sempre o modo plano; "cost" força sempre o modo API; "auto" decide.
  */
 type Mode = "auto" | "subscriber" | "cost";
+type BarStyle = "ring" | "bar" | "number" | "icon";
 
 // Anel de progresso em texto: 9 níveis de 0% a 100%.
 const RING_GLYPHS = ["○", "◔", "◔", "◑", "◑", "◕", "◕", "●", "●"];
@@ -49,6 +51,33 @@ function ringFor(pct: number): string {
     Math.max(0, Math.round((pct / 100) * (RING_GLYPHS.length - 1)))
   );
   return RING_GLYPHS[idx];
+}
+
+// Mini barra em blocos para o estilo "bar" da status bar.
+function textBar(pct: number, width = 5): string {
+  const filled = Math.round((Math.min(100, Math.max(0, pct)) / 100) * width);
+  return "█".repeat(filled) + "░".repeat(width - filled);
+}
+
+/** Aplica o estilo de texto escolhido ao indicador da status bar. */
+function styleText(
+  style: BarStyle,
+  ringPct: number | null,
+  primary: string,
+  suffix: string
+): string {
+  const p = ringPct ?? 0;
+  switch (style) {
+    case "bar":
+      return `${textBar(p)} ${primary}${suffix}`;
+    case "number":
+      return `${primary}${suffix}`;
+    case "icon":
+      return `$(pulse) ${primary}${suffix}`;
+    case "ring":
+    default:
+      return `${ringFor(p)} ${primary}${suffix}`;
+  }
 }
 
 function fmtTokens(n: number | undefined): string {
@@ -123,7 +152,7 @@ export function activate(context: vscode.ExtensionContext) {
   const priority = cfg().get<number>("priority") ?? 100;
 
   const item = vscode.window.createStatusBarItem(alignment, priority);
-  item.command = "claudeUsageBar.openState";
+  item.command = "claudeUsageBar.openPanel";
   item.show();
   context.subscriptions.push(item);
 
@@ -194,6 +223,8 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
+    const style = (c.get<BarStyle>("barStyle") ?? "ring") as BarStyle;
+
     const s = lastState;
     const mode = effectiveMode(s);
     const fiveHour = s.five_hour?.used_percentage ?? null;
@@ -201,37 +232,42 @@ export function activate(context: vscode.ExtensionContext) {
     const ctxPct = ctxPctOf(s);
     const cost = s.cost_usd ?? 0;
 
-    // "effective" = o % que rege as cores do indicador.
-    let effective = 0;
+    // Modelo de exibição comum à status bar e ao painel.
+    let ringPct: number | null;
+    let primary: string;
+    let suffix: string;
+    let centerLabel: string;
+    let centerSub: string;
+    let effective: number; // % que rege as cores
 
     if (mode === "plan") {
-      // Anel = 5h; número secundário = 7d.
-      const ringPct = fiveHour ?? 0;
-      const ring = ringFor(ringPct);
-      const sevenStr = sevenDay != null ? ` · 7d ${Math.round(sevenDay)}%` : "";
-      item.text =
-        fiveHour != null
-          ? `${ring} ${Math.round(fiveHour)}%${sevenStr}`
-          : `${ring} —${sevenStr}`;
-      // cor pelo limite mais crítico das duas janelas
+      ringPct = fiveHour;
+      primary = fiveHour != null ? `${Math.round(fiveHour)}%` : "—";
+      suffix = sevenDay != null ? ` · 7d ${Math.round(sevenDay)}%` : "";
+      centerLabel = primary;
+      centerSub = "sessão · 5h";
       effective = Math.max(fiveHour ?? 0, sevenDay ?? 0);
     } else {
-      // Modo API: anel = contexto; número = custo $.
-      const ringPct = ctxPct ?? 0;
-      const ring = ringFor(ringPct);
-      item.text = `${ring} ${fmtUsd(cost)}`;
-      // cor: mistura — usa o pior entre %contexto e %do teto de custo
+      ringPct = ctxPct;
+      primary = fmtUsd(cost);
+      suffix = "";
+      centerLabel = fmtUsd(cost);
+      centerSub = "custo da sessão";
       const costPct = costCap > 0 ? Math.min(100, (cost / costCap) * 100) : 0;
       effective = Math.max(ctxPct ?? 0, costPct);
     }
 
+    item.text = styleText(style, ringPct, primary, suffix);
+
     // Cores por threshold.
-    if (effective >= err) {
+    const level: "ok" | "warn" | "err" =
+      effective >= err ? "err" : effective >= warn ? "warn" : "ok";
+    if (level === "err") {
       item.color = new vscode.ThemeColor("statusBarItem.errorForeground");
       item.backgroundColor = new vscode.ThemeColor(
         "statusBarItem.errorBackground"
       );
-    } else if (effective >= warn) {
+    } else if (level === "warn") {
       item.color = undefined;
       item.backgroundColor = new vscode.ThemeColor(
         "statusBarItem.warningBackground"
@@ -257,6 +293,103 @@ export function activate(context: vscode.ExtensionContext) {
       costCap,
       stale,
     });
+
+    // Atualiza o painel SVG se estiver aberto.
+    if (UsagePanel.current) {
+      UsagePanel.current.update(
+        buildPanelData(s, {
+          mode,
+          ringPct,
+          centerLabel,
+          centerSub,
+          level,
+          fiveHour,
+          sevenDay,
+          ctxPct,
+          cost,
+          costCap,
+          stale,
+        })
+      );
+    }
+  };
+
+  /** Monta o payload para o painel webview a partir do estado e do modelo de exibição. */
+  const buildPanelData = (
+    s: UsageState,
+    v: {
+      mode: "plan" | "api";
+      ringPct: number | null;
+      centerLabel: string;
+      centerSub: string;
+      level: "ok" | "warn" | "err";
+      fiveHour: number | null;
+      sevenDay: number | null;
+      ctxPct: number | null;
+      cost: number;
+      costCap: number;
+      stale: boolean;
+    }
+  ): PanelData => {
+    const rows: PanelData["rows"] = [];
+    if (v.mode === "plan") {
+      rows.push({
+        label: `Sessão (5h)${
+          s.five_hour?.resets_at
+            ? " · reseta " + fmtResetsAt(s.five_hour.resets_at)
+            : ""
+        }`,
+        value: v.fiveHour != null ? `${Math.round(v.fiveHour)}%` : "—",
+        pct: v.fiveHour,
+      });
+      rows.push({
+        label: `Semana (7d)${
+          s.seven_day?.resets_at
+            ? " · reseta " + fmtResetsAt(s.seven_day.resets_at)
+            : ""
+        }`,
+        value: v.sevenDay != null ? `${Math.round(v.sevenDay)}%` : "—",
+        pct: v.sevenDay,
+      });
+    } else {
+      const capPct =
+        v.costCap > 0 ? Math.min(100, (v.cost / v.costCap) * 100) : null;
+      rows.push({
+        label: v.costCap > 0 ? `Custo / teto ${fmtUsd(v.costCap)}` : "Custo",
+        value: fmtUsd(v.cost),
+        pct: capPct,
+      });
+    }
+    const ctxIn = s.context?.input ?? 0;
+    const ctxOut = s.context?.output ?? 0;
+    const ctxSize = s.context?.size ?? 0;
+    rows.push({
+      label: "Contexto",
+      value: `${fmtTokens(ctxIn + ctxOut)} / ${fmtTokens(ctxSize)}`,
+      pct: v.ctxPct,
+    });
+    if (v.mode === "plan") {
+      rows.push({ label: "Custo estimado", value: fmtUsd(v.cost), pct: null });
+    }
+    if (s.model) {
+      rows.push({ label: "Modelo", value: s.model, pct: null });
+    }
+
+    const sessName =
+      s.session_name || (s.session_id ? s.session_id.slice(0, 8) : "");
+    const proj = s.cwd ? path.basename(s.cwd) : "";
+    const footerSess = [sessName, proj].filter(Boolean).join(" · ");
+    return {
+      mode: v.mode,
+      ringPct: v.ringPct,
+      centerLabel: v.centerLabel,
+      centerSub: v.centerSub,
+      level: v.level,
+      rows,
+      footer: `${footerSess ? footerSess + " · " : ""}${
+        v.stale ? "⚠ parado · " : ""
+      }atualizado ${fmtAgo(s.ts)}`,
+    };
   };
 
   const buildTooltip = (
@@ -396,6 +529,19 @@ export function activate(context: vscode.ExtensionContext) {
           "Arquivo de estado ainda não existe. Rode um turno no Claude Code com a bridge da statusline configurada."
         );
       }
+    }),
+    vscode.commands.registerCommand("claudeUsageBar.openPanel", () => {
+      // Abre com um payload neutro; render() preenche em seguida (e a cada update).
+      UsagePanel.createOrShow(context, {
+        mode: "plan",
+        ringPct: null,
+        centerLabel: "—",
+        centerSub: "",
+        level: "ok",
+        rows: [],
+        footer: "Aguardando dados…",
+      });
+      render();
     })
   );
 

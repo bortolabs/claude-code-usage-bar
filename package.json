@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage Bar",
   "description": "Mostra o uso da sessão do Claude Code (limites 5h/7d, contexto e custo) na status bar do VSCode — um anel de progresso igual ao /usage.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -36,6 +36,10 @@
       {
         "command": "claudeUsageBar.openState",
         "title": "Claude Usage: Abrir arquivo de estado"
+      },
+      {
+        "command": "claudeUsageBar.openPanel",
+        "title": "Claude Usage: Abrir painel (anel SVG)"
       }
     ],
     "configuration": {
@@ -66,6 +70,23 @@
           "default": 5,
           "minimum": 0,
           "markdownDescription": "Teto de custo (USD) por sessão usado **apenas no modo custo / contas API** para colorir o indicador conforme o gasto se aproxima desse valor. `0` desativa o aviso por custo."
+        },
+        "claudeUsageBar.barStyle": {
+          "type": "string",
+          "enum": [
+            "ring",
+            "bar",
+            "number",
+            "icon"
+          ],
+          "enumDescriptions": [
+            "Anel de progresso em texto (◕ 38%)",
+            "Mini barra em blocos (███░░ 38%)",
+            "Só o número (38%)",
+            "Ícone + número ($(pulse) 38%)"
+          ],
+          "default": "ring",
+          "markdownDescription": "Estilo do indicador **na status bar**. Para o anel SVG grande, abra o painel (clique no item ou comando _Claude Usage: Abrir painel_)."
         },
         "claudeUsageBar.warnThreshold": {
           "type": "number",

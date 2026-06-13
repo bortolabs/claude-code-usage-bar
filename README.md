@@ -103,11 +103,25 @@ indicador aparece. Os campos `rate_limits` só existem para assinantes **Pro/Max
 **após a primeira resposta da API** na sessão — antes disso o indicador cai
 automaticamente para o uso de contexto (mostrado com `~` na frente).
 
+## Visual: status bar + painel
+
+Você escolhe como ver:
+
+- **Na status bar** (sempre visível) — estilo configurável em `claudeUsageBar.barStyle`:
+  - `ring` → `◕ 38% · 7d 41%` (padrão)
+  - `bar` → `███░░ 38% · 7d 41%`
+  - `number` → `38% · 7d 41%`
+  - `icon` → ícone + número
+- **Painel com anel SVG real** (estilo app do Claude) — clique no item da status bar
+  ou rode _Claude Usage: Abrir painel_. Mostra o círculo de progresso grande + barras
+  de cada métrica, atualizando ao vivo.
+
 ## Uso
 
-- **Hover** → breakdown completo.
-- **Clique** no item → abre o arquivo de estado.
+- **Clique** no item → abre o painel com o anel SVG.
+- **Hover** → breakdown completo no tooltip.
 - Paleta de comandos:
+  - `Claude Usage: Abrir painel (anel SVG)`
   - `Claude Usage: Atualizar agora`
   - `Claude Usage: Abrir arquivo de estado`
 
@@ -116,6 +130,7 @@ automaticamente para o uso de contexto (mostrado com `~` na frente).
 | Setting | Padrão | Descrição |
 | --- | --- | --- |
 | `claudeUsageBar.mode` | `auto` | `auto` detecta o tipo de conta; `subscriber` força 5h/7d; `cost` força custo $. |
+| `claudeUsageBar.barStyle` | `ring` | Estilo na status bar: `ring`, `bar`, `number` ou `icon`. |
 | `claudeUsageBar.costCapUsd` | `5` | Teto de custo (USD) p/ colorir no modo custo / contas API. `0` desativa. |
 | `claudeUsageBar.stateFilePath` | `~/.claude/usage-state.json` | Caminho do arquivo de estado. |
 | `claudeUsageBar.warnThreshold` | `60` | % a partir do qual fica amarelo. |

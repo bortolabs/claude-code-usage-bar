@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- **Painel com anel SVG real** (estilo app do Claude): clique no item da status bar ou
+  rode _Claude Usage: Abrir painel_. Atualiza ao vivo, com barras de cada métrica.
+- **Estilos da status bar** via `claudeUsageBar.barStyle`: `ring` (◕ 38%), `bar` (███░░ 38%),
+  `number` (38%) e `icon` ($(pulse) 38%).
+
 ## 0.2.0
 
 - **Suporte a todos os tipos de conta** com modo adaptativo automático:
