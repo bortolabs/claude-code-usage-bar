@@ -127,9 +127,10 @@ Você escolhe como ver:
   - `bar` → `█░░░░ 6% · 4h42`
   - `number` → `6% · 4h42`
   - `icon` → ícone + número
-- **Painel com anel SVG real** (estilo app do Claude) — clique no item da status bar
-  ou rode _Claude Usage: Abrir painel_. Mostra o círculo de progresso grande, barras
-  de cada métrica e **botões para trocar o estilo da status bar**, tudo ao vivo.
+- **Ícone na Activity Bar** (lateral esquerda) — abre uma view dedicada com o painel
+  completo: anel SVG, barras, faixa de alerta e **botões para trocar o estilo da status
+  bar**, tudo ao vivo. Clicar no item da status bar (ou _Claude Usage: Abrir painel_)
+  revela essa view.
 
 ## Alerta de burn rate
 

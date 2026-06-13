@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { UsagePanel, PanelData } from "./panel";
+import { UsageViewProvider, PanelData } from "./panel";
 import { runCcusage, CcusageResult, CcusageData } from "./ccusage";
 import { evaluateAlerts, AlertResult } from "./alerts";
 
@@ -170,6 +170,20 @@ export function activate(context: vscode.ExtensionContext) {
   // Alerta: controle de cooldown da notificação.
   let lastAlertKey = "";
   let lastAlertAtMs = 0;
+
+  // View ancorada na Activity Bar (sidebar esquerda).
+  const viewProvider = new UsageViewProvider();
+  viewProvider.onReady = () => {
+    readState();
+    refreshCcusage();
+  };
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      UsageViewProvider.viewType,
+      viewProvider,
+      { webviewOptions: { retainContextWhenHidden: true } }
+    )
+  );
 
   const resolveStatePath = (): string => {
     const custom = (cfg().get<string>("stateFilePath") || "").trim();
@@ -401,9 +415,10 @@ export function activate(context: vscode.ExtensionContext) {
     };
     item.tooltip = buildTooltip(view);
 
-    if (UsagePanel.current) {
-      UsagePanel.current.update(buildPanelData(view));
-    }
+    viewProvider.update(
+      buildPanelData(view),
+      c.get<BarStyle>("barStyle") ?? "ring"
+    );
   };
 
   type View = {
@@ -641,20 +656,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
     }),
     vscode.commands.registerCommand("claudeUsageBar.openPanel", () => {
-      UsagePanel.createOrShow(
-        context,
-        {
-          mode: "api",
-          ringPct: null,
-          centerLabel: "—",
-          centerSub: "",
-          level: "ok",
-          rows: [],
-          alert: null,
-          footer: "Aguardando dados…",
-        },
-        cfg().get<BarStyle>("barStyle") ?? "ring"
-      );
+      viewProvider.reveal();
       render();
       refreshCcusage();
     })

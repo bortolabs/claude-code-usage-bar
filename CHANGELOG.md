@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+
+- **Ícone na Activity Bar** (lateral esquerda): abre uma view dedicada com o painel
+  completo (anel SVG, barras, alerta, botões de estilo e atualizar), sempre acessível.
+- O painel deixou de abrir como aba ao lado; agora vive na sidebar. O comando
+  _Abrir painel_ e o clique no item da status bar revelam a view.
+
 ## 0.5.0
 
 - **Alerta de burn rate** — avisa quando o ritmo de gasto projeta estourar antes do reset.

@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage Bar",
   "description": "Mostra o uso da sessão do Claude Code (limites 5h/7d, contexto e custo) na status bar do VSCode — um anel de progresso igual ao /usage.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -25,9 +25,28 @@
   ],
   "main": "./out/extension.js",
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onView:claudeUsageView"
   ],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "claudeUsage",
+          "title": "Claude Usage",
+          "icon": "media/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "claudeUsage": [
+        {
+          "id": "claudeUsageView",
+          "name": "Uso da sessão",
+          "type": "webview"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "claudeUsageBar.refresh",
