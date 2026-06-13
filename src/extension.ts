@@ -713,105 +713,62 @@ export function activate(context: vscode.ExtensionContext) {
     modelName: string | null;
   };
 
+  // Tooltip RESUMIDO do hover: só o essencial + link p/ o painel completo.
   const buildTooltip = (v: View): vscode.MarkdownString => {
-    const lines: string[] = ["**Claude Code — uso da sessão**", ""];
-    if (v.alert.active) {
-      lines.push(`$(warning) **${v.alert.message}**`);
-      v.alert.reasons.slice(1).forEach((r) => lines.push(`· ${r}`));
-      lines.push("");
-    }
-    const pctStr = (x: number | null) => (x == null ? "—" : `${Math.round(x)}%`);
     const bar = (x: number | null) => {
       if (x == null) {
         return "";
       }
       const filled = Math.round((Math.min(100, x) / 100) * 10);
-      return " " + "█".repeat(filled) + "░".repeat(10 - filled);
+      return " `" + "█".repeat(filled) + "░".repeat(10 - filled) + "`";
     };
 
+    const lines: string[] = [];
+
+    // Linha principal: sessão de 5h + reset (o que mais importa).
     if (v.mode === "plan") {
-      const s = v.state;
-      lines.push(
-        `**Sessão (5h):** ${pctStr(v.fiveHour)}${bar(v.fiveHour)}` +
-          (s?.five_hour?.resets_at
-            ? ` · reseta ${fmtResetsAt(s.five_hour.resets_at)}`
-            : "")
-      );
-      lines.push(
-        `**Semana (7d):** ${pctStr(v.sevenDay)}${bar(v.sevenDay)}` +
-          (s?.seven_day?.resets_at
-            ? ` · reseta ${fmtResetsAt(s.seven_day.resets_at)}`
-            : "")
-      );
+      const pct = v.fiveHour != null ? `${Math.round(v.fiveHour)}%` : "—";
+      const reset = v.state?.five_hour?.resets_at
+        ? ` · reseta ${fmtResetsAt(v.state.five_hour.resets_at)}`
+        : "";
+      lines.push(`**Sessão 5h:** ${pct}${bar(v.fiveHour)}${reset}`);
+      if (v.sevenDay != null) {
+        lines.push(`**Semana 7d:** ${Math.round(v.sevenDay)}%${bar(v.sevenDay)}`);
+      }
     } else if (v.block) {
       const b = v.block;
       lines.push(
-        `**Sessão (5h):** ${Math.round(b.timePct)}% do tempo${bar(b.timePct)}`
+        `**Sessão 5h:** ${Math.round(b.timePct)}% do tempo${bar(
+          b.timePct
+        )} · reseta em ${fmtDuration(b.remainingMinutes * 60000)}`
       );
-      lines.push(`reseta em ${fmtDuration(b.remainingMinutes * 60000)}`);
-      if (v.isSub) {
-        lines.push(
-          `**Equivalente API:** ~${fmtUsd(b.costUSD)} _(referência; sua assinatura cobre)_`
-        );
-      } else {
-        lines.push(`**Custo da sessão:** ${fmtUsd(b.costUSD)}`);
-        if (b.burnCostPerHour != null) {
-          lines.push(
-            `**Ritmo:** ${fmtUsd(b.burnCostPerHour)}/h · projeção ${fmtUsd(
-              b.projectedCost ?? undefined
-            )}`
-          );
-        }
-      }
-      lines.push(`**Tokens no bloco:** ${fmtTokens(b.totalTokens)}`);
-      // Projeção de tokens vs teto da sessão (o "estouro de tokens").
-      if (v.tokenCap > 0 && b.projectedTokens != null) {
-        const pj = (b.projectedTokens / v.tokenCap) * 100;
-        const mark = pj >= 100 ? "⚠ " : "";
-        lines.push(
-          `${mark}**Projeção de tokens:** ${fmtTokens(b.projectedTokens)} / ${fmtTokens(
-            v.tokenCap
-          )} (${Math.round(pj)}%)`
-        );
-      }
+    } else {
+      lines.push("Sem dados da sessão ainda.");
     }
 
-    // Projeção (quando colore por projeção e ela é o fator relevante).
-    if (v.projPct != null && v.projPct >= 60) {
-      const arrow = v.projPct >= 100 ? "⚠" : "↗";
-      const label = v.isSub
-        ? "Ritmo projetado"
-        : v.mode === "plan"
-        ? "Limite projetado no reset"
-        : "Custo projetado vs teto";
+    // Alerta / projeção — só quando ativo (linha curta).
+    if (v.alert.active) {
       const eta =
         v.etaMin != null
           ? ` · estoura em ~${fmtDuration(v.etaMin * 60000)}`
           : "";
-      lines.push(`${arrow} **${label}:** ~${Math.round(v.projPct)}%${eta}`);
-    }
-    lines.push("");
-
-    if (v.ctxPct != null) {
-      lines.push(`**Contexto:** ${pctStr(v.ctxPct)}${bar(v.ctxPct)}`);
-    }
-
-    const model = prettyModel(v.modelName);
-    if (model) {
-      lines.push(`**Modelo:** ${model}`);
+      lines.push(`$(warning) **${v.alert.message}**${eta}`);
+    } else if (v.projPct != null && v.projPct >= 60) {
+      const eta =
+        v.etaMin != null
+          ? ` · ~${fmtDuration(v.etaMin * 60000)}`
+          : "";
+      lines.push(`↗ ritmo projeta ~${Math.round(v.projPct)}%${eta}`);
     }
 
-    lines.push("");
-    const src = v.usingCcusage
-      ? "fonte: ccusage (transcripts)"
-      : v.mode === "plan"
-      ? "fonte: statusline (limites do plano)"
-      : "fonte: statusline";
-    const agoStr = v.state?.ts ? ` · statusline ${fmtAgo(v.state.ts)}` : "";
-    lines.push(`_${src}${agoStr} · clique abre o painel_`);
+    // Link clicável para o painel completo.
+    lines.push(
+      `[$(graph) Abrir painel](command:claudeUsageBar.openPanel) · _detalhes completos_`
+    );
 
     const md = new vscode.MarkdownString(lines.join("\n\n"));
     md.isTrusted = true;
+    md.supportThemeIcons = true;
     return md;
   };
 

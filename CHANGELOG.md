@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.0
+
+- **Tooltip do hover resumido.** Ao passar o mouse no item da status bar, o popover
+  agora é enxuto: sessão 5h + reset (com barrinha), alerta/projeção só quando ativo, e
+  um link **"Abrir painel"** para os detalhes completos. Antes era um bloco denso.
+
 ## 0.12.0
 
 - **Estouro de tokens da sessão** (ritmo de uso vs tempo restante): com um teto de
