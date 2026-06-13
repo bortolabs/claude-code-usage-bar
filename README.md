@@ -179,6 +179,9 @@ bar, e uma faixa no topo do painel. Desligue com `burnRateAlertEnabled: false`.
 | `claudeUsageBar.errorThreshold` | `85` | % a partir do qual fica vermelho. |
 | `claudeUsageBar.alignment` | `right` | Lado da status bar (`right`/`left`). |
 | `claudeUsageBar.priority` | `100` | Prioridade do item. |
+| `claudeUsageBar.colorByProjection` | `true` | Colorir pela projeção de estouro (pior entre atual e projeção). |
+| `claudeUsageBar.intenseTokensPerMin` | `50000` | Ritmo tokens/min = 100% na cor por projeção (assinatura no app). |
+| `claudeUsageBar.resetWarningMinutes` | `10` | Avisa quando faltar este tempo pro reset da sessão de 5h. `0` desativa. |
 | `claudeUsageBar.staleAfterSeconds` | `900` | Janela em que o dado da statusline é considerado fresco. |
 
 ## Limitações

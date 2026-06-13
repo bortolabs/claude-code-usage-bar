@@ -164,6 +164,39 @@ function projectLimitPct(
   return usedPct + (usedPct / elapsedSec) * remainingSec;
 }
 
+/**
+ * ETA (em minutos) até um limite percentual atingir 100%, no ritmo atual.
+ * Retorna null se não dá pra estimar ou se NÃO estoura antes do reset.
+ */
+function etaToLimitMin(
+  usedPct: number | null,
+  resetsAtSec: number | null,
+  windowSeconds: number
+): number | null {
+  if (usedPct == null || !resetsAtSec || usedPct >= 100) {
+    return usedPct != null && usedPct >= 100 ? 0 : null;
+  }
+  const remainingMs = resetsAtSec * 1000 - Date.now();
+  if (remainingMs <= 0) {
+    return null;
+  }
+  const remainingSec = remainingMs / 1000;
+  const elapsedSec = windowSeconds - remainingSec;
+  if (elapsedSec < windowSeconds * 0.25) {
+    return null; // cedo demais p/ taxa confiável
+  }
+  const ratePerSec = usedPct / elapsedSec; // %/s
+  if (ratePerSec <= 0) {
+    return null;
+  }
+  const secsToFull = (100 - usedPct) / ratePerSec;
+  // Só interessa se estoura ANTES do reset.
+  if (secsToFull >= remainingSec) {
+    return null;
+  }
+  return Math.max(0, Math.round(secsToFull / 60));
+}
+
 function fmtAgo(ts: number | undefined): string {
   if (!ts) {
     return "—";
@@ -208,6 +241,8 @@ export function activate(context: vscode.ExtensionContext) {
   // Alerta: controle de cooldown da notificação.
   let lastAlertKey = "";
   let lastAlertAtMs = 0;
+  // Aviso de fim de janela (#8): endMs do bloco já avisado (1x por janela).
+  let resetWarnedEndMs = 0;
 
   // View ancorada na Activity Bar (sidebar esquerda).
   const viewProvider = new UsageViewProvider();
@@ -364,6 +399,20 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
+    // Aviso de fim de janela (#8): notifica 1x quando faltar pouco pro reset 5h.
+    const resetWarnMin = c.get<number>("resetWarningMinutes") ?? 10;
+    if (resetWarnMin > 0 && block && block.remainingMinutes > 0) {
+      const within = block.remainingMinutes <= resetWarnMin;
+      if (within && resetWarnedEndMs !== block.endMs) {
+        resetWarnedEndMs = block.endMs; // só uma vez por janela
+        vscode.window.showInformationMessage(
+          `Claude Usage — sua sessão de 5h reseta em ~${fmtDuration(
+            block.remainingMinutes * 60000
+          )}.`
+        );
+      }
+    }
+
     const mode = effectiveMode(hasRate);
     const isSub = resolveAccountType() === "subscription";
     const fiveHour = s?.five_hour?.used_percentage ?? null;
@@ -403,6 +452,33 @@ export function activate(context: vscode.ExtensionContext) {
       }
     }
     const projForColor = Math.min(150, projPct ?? 0); // cap p/ não explodir cores
+
+    // ETA até estourar (#7): só faz sentido com limites reais (terminal) ou
+    // custo (api). Pega o menor tempo entre os limites relevantes.
+    let etaMin: number | null = null;
+    if (mode === "plan") {
+      const e5 = etaToLimitMin(fiveHour, s?.five_hour?.resets_at ?? null, 5 * 3600);
+      const e7 = etaToLimitMin(
+        sevenDay,
+        s?.seven_day?.resets_at ?? null,
+        7 * 24 * 3600
+      );
+      const etas = [e5, e7].filter((x): x is number => x != null);
+      etaMin = etas.length ? Math.min(...etas) : null;
+    } else if (!isSub && block && costCap > 0 && block.burnCostPerHour) {
+      // API: ETA até o custo atingir o teto, no ritmo atual ($/h).
+      const remainingUsd = costCap - cost;
+      if (remainingUsd > 0) {
+        const hrs = remainingUsd / block.burnCostPerHour;
+        const mins = Math.round(hrs * 60);
+        // só se estoura dentro do que resta do bloco
+        if (mins < block.remainingMinutes) {
+          etaMin = mins;
+        }
+      } else {
+        etaMin = 0;
+      }
+    }
 
     let ringPct: number | null;
     let primary: string;
@@ -511,9 +587,14 @@ export function activate(context: vscode.ExtensionContext) {
       ) {
         lastAlertKey = alert.key;
         lastAlertAtMs = now;
+        // Incorpora a ETA na mensagem quando há previsão de estouro (#7).
+        const etaSuffix =
+          etaMin != null
+            ? ` — estoura em ~${fmtDuration(etaMin * 60000)}`
+            : "";
         vscode.window
           .showWarningMessage(
-            `Claude Usage — ${alert.message}`,
+            `Claude Usage — ${alert.message}${etaSuffix}`,
             "Abrir painel",
             "Silenciar 1h",
             "Desligar alertas"
@@ -560,6 +641,7 @@ export function activate(context: vscode.ExtensionContext) {
       alert,
       alertEnabled: alertOn,
       projPct,
+      etaMin,
       daily: lastDaily,
       modelName,
     };
@@ -589,6 +671,7 @@ export function activate(context: vscode.ExtensionContext) {
     alert: AlertResult;
     alertEnabled: boolean;
     projPct: number | null;
+    etaMin: number | null;
     daily: CcusageDaily[];
     modelName: string | null;
   };
@@ -654,7 +737,11 @@ export function activate(context: vscode.ExtensionContext) {
         : v.mode === "plan"
         ? "Limite projetado no reset"
         : "Custo projetado vs teto";
-      lines.push(`${arrow} **${label}:** ~${Math.round(v.projPct)}%`);
+      const eta =
+        v.etaMin != null
+          ? ` · estoura em ~${fmtDuration(v.etaMin * 60000)}`
+          : "";
+      lines.push(`${arrow} **${label}:** ~${Math.round(v.projPct)}%${eta}`);
     }
     lines.push("");
 

@@ -16,13 +16,13 @@ Ideias de features para o Claude Code Usage Bar. Marcadas conforme o status.
 | Cor por projeção | Anel colore pela projeção de estouro, não só valor atual | 0.9 |
 | Sparkline de histórico | Mini-gráfico dos últimos dias no painel | 0.10 |
 | Modelo atual correto | Lê o modelo do transcript (não o array misto do ccusage) | 0.10 |
+| ETA até estourar | "no ritmo atual, 100% em ~Xmin" no painel/tooltip e na notificação | 0.11 |
+| Aviso de fim de janela | Notifica quando falta pouco pro reset da sessão de 5h | 0.11 |
 
 ## 💡 Próximas ideias
 
 | # | Feature | O que faz | Esforço | Viável? |
 | --- | --- | --- | --- | --- |
-| 7 | **ETA até queimar o plano** | No terminal: "no ritmo atual, seus 5h batem 100% em ~Xmin" (tempo, não só "vai estourar") | Baixo | ✅ tenho rate + reset |
-| 8 | **Aviso de fim de janela** | Notifica "sua sessão de 5h reseta em 10min" — bom pra emendar trabalho pesado | Baixo | ✅ tenho `remainingMinutes` |
 | 9 | **Resumo ao fechar o bloco** | Quando um bloco de 5h fecha: "essa sessão usou 42M tokens / ~$32 equivalente" | Médio | ✅ `ccusage blocks` |
 | 5 | **Tema do anel** | Cor configurável (ex: laranja do Claude) em vez de verde/amarelo/vermelho | Baixo | ✅ |
 | 4 | **Breakdown por projeto** | Quais projetos/sessões consomem o bloco atual | Médio | ✅ `ccusage session` |

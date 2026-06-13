@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0
+
+- **ETA até estourar** (#7): quando há previsão de estouro, mostra *em quanto tempo* o
+  limite atinge 100% no ritmo atual — no painel/tooltip ("estoura em ~38min") e
+  incorporado na notificação de alerta. No terminal usa os limites 5h/7d; em conta API,
+  o custo vs teto.
+- **Aviso de fim de janela** (#8): notifica uma vez quando faltar pouco para a sessão de
+  5h resetar (setting `resetWarningMinutes`, padrão 10) — útil para emendar trabalho pesado.
+
 ## 0.10.0
 
 - **Sparkline de histórico** no painel: mini-gráfico de barras dos últimos ~7 dias
