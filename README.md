@@ -181,6 +181,7 @@ bar, e uma faixa no topo do painel. Desligue com `burnRateAlertEnabled: false`.
 | `claudeUsageBar.priority` | `100` | Prioridade do item. |
 | `claudeUsageBar.colorByProjection` | `true` | Colorir pela projeção de estouro (pior entre atual e projeção). |
 | `claudeUsageBar.intenseTokensPerMin` | `50000` | Ritmo tokens/min = 100% na cor por projeção (assinatura no app). |
+| `claudeUsageBar.sessionTokenCap` | `0` | Teto de tokens por sessão de 5h (ex: `150000000`). Projeta o estouro de tokens no ritmo atual. `0` desativa. |
 | `claudeUsageBar.resetWarningMinutes` | `10` | Avisa quando faltar este tempo pro reset da sessão de 5h. `0` desativa. |
 | `claudeUsageBar.staleAfterSeconds` | `900` | Janela em que o dado da statusline é considerado fresco. |
 

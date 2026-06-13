@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.0
+
+- **Estouro de tokens da sessão** (ritmo de uso vs tempo restante): com um teto de
+  tokens definido (`sessionTokenCap`, ex: 150M), o indicador projeta — no ritmo atual —
+  quantos tokens você terá usado quando a janela de 5h fechar (`projection.totalTokens`
+  do ccusage), e:
+  - **colore** quando a projeção passa do teto (entra no "pior dos dois");
+  - **alerta** "Nesse ritmo: 124M tokens até o reset (teto 100M)";
+  - mostra **ETA** "estoura em ~Xmin" no ritmo de tokens/min;
+  - exibe a projeção no tooltip/painel.
+  - Vale também em **assinatura** (onde não há limite de tokens oficial). `0` desativa.
+
 ## 0.11.1
 
 - **Fix: toggle do alerta sem feedback.** Ao clicar no 🔔/🔕 do painel:

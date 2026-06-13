@@ -427,6 +427,13 @@ export function activate(context: vscode.ExtensionContext) {
     // Cor por projeção (pior dos dois): calcula a % projetada conforme o modo.
     const colorByProj = c.get<boolean>("colorByProjection") ?? true;
     const intenseTpm = c.get<number>("intenseTokensPerMin") ?? 50000;
+    const tokenCap = c.get<number>("sessionTokenCap") ?? 0;
+    // % de tokens projetados vs teto da sessão (no ritmo atual). Vale em qualquer
+    // modo com bloco ccusage — é o "estouro de tokens da sessão".
+    const tokenProjPct =
+      tokenCap > 0 && block?.projectedTokens != null
+        ? (block.projectedTokens / tokenCap) * 100
+        : null;
     let projPct: number | null = null; // % projetada (0..100+), p/ a cor
     if (colorByProj) {
       const p5 = projectLimitPct(fiveHour, s?.five_hour?.resets_at ?? null, 5 * 3600);
@@ -437,9 +444,10 @@ export function activate(context: vscode.ExtensionContext) {
       );
       const planProj = Math.max(p5 ?? 0, p7 ?? 0);
       if (mode === "plan") {
-        projPct = planProj;
+        projPct = Math.max(planProj, tokenProjPct ?? 0);
       } else if (block) {
-        // app: custo projetado (api) e/ou ritmo de tokens (assinatura).
+        // app: custo projetado (api), ritmo de tokens (assinatura) e/ou
+        // projeção de tokens vs teto da sessão.
         const costProjPct =
           !isSub && costCap > 0 && block.projectedCost != null
             ? (block.projectedCost / costCap) * 100
@@ -448,7 +456,12 @@ export function activate(context: vscode.ExtensionContext) {
           isSub && block.tokensPerMinute != null && intenseTpm > 0
             ? (block.tokensPerMinute / intenseTpm) * 100
             : 0;
-        projPct = Math.max(costProjPct, tokenIntensityPct, planProj);
+        projPct = Math.max(
+          costProjPct,
+          tokenIntensityPct,
+          tokenProjPct ?? 0,
+          planProj
+        );
       }
     }
     const projForColor = Math.min(150, projPct ?? 0); // cap p/ não explodir cores
@@ -477,6 +490,27 @@ export function activate(context: vscode.ExtensionContext) {
         }
       } else {
         etaMin = 0;
+      }
+    }
+
+    // ETA até estourar o TETO DE TOKENS da sessão, no ritmo atual (tokens/min).
+    // Vale em qualquer modo (o "estouro de tokens" que o usuário pediu).
+    if (
+      tokenCap > 0 &&
+      block &&
+      block.tokensPerMinute &&
+      block.tokensPerMinute > 0
+    ) {
+      const remainingTokens = tokenCap - block.totalTokens;
+      let tokEta: number | null;
+      if (remainingTokens <= 0) {
+        tokEta = 0;
+      } else {
+        const mins = Math.round(remainingTokens / block.tokensPerMinute);
+        tokEta = mins < block.remainingMinutes ? mins : null;
+      }
+      if (tokEta != null) {
+        etaMin = etaMin != null ? Math.min(etaMin, tokEta) : tokEta;
       }
     }
 
@@ -545,6 +579,7 @@ export function activate(context: vscode.ExtensionContext) {
           block,
           costCap: alertCostCap,
           maxPerHour: alertMaxPerHour,
+          tokenCap, // teto de tokens vale em qualquer modo (inclui assinatura)
           fiveHour,
           sevenDay,
           fiveHourResetsAt: s?.five_hour?.resets_at ?? null,
@@ -642,6 +677,7 @@ export function activate(context: vscode.ExtensionContext) {
       alertEnabled: alertOn,
       projPct,
       etaMin,
+      tokenCap,
       daily: lastDaily,
       modelName,
     };
@@ -672,6 +708,7 @@ export function activate(context: vscode.ExtensionContext) {
     alertEnabled: boolean;
     projPct: number | null;
     etaMin: number | null;
+    tokenCap: number;
     daily: CcusageDaily[];
     modelName: string | null;
   };
@@ -727,6 +764,16 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }
       lines.push(`**Tokens no bloco:** ${fmtTokens(b.totalTokens)}`);
+      // Projeção de tokens vs teto da sessão (o "estouro de tokens").
+      if (v.tokenCap > 0 && b.projectedTokens != null) {
+        const pj = (b.projectedTokens / v.tokenCap) * 100;
+        const mark = pj >= 100 ? "⚠ " : "";
+        lines.push(
+          `${mark}**Projeção de tokens:** ${fmtTokens(b.projectedTokens)} / ${fmtTokens(
+            v.tokenCap
+          )} (${Math.round(pj)}%)`
+        );
+      }
     }
 
     // Projeção (quando colore por projeção e ela é o fator relevante).

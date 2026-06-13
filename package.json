@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage Bar",
   "description": "Mostra o uso da sessão do Claude Code (limites 5h/7d, contexto e custo) na status bar do VSCode — um anel de progresso igual ao /usage.",
-  "version": "0.11.1",
+  "version": "0.12.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -205,6 +205,12 @@
           "default": 50000,
           "minimum": 1000,
           "markdownDescription": "Ritmo de tokens/min considerado 'intenso' (= 100% na cor por projeção) para contas de **assinatura no app**, onde não há limite real de plano. Usado só como proxy de intensidade."
+        },
+        "claudeUsageBar.sessionTokenCap": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "markdownDescription": "Teto de **tokens por sessão de 5h** (ex: `150000000` para 150M). Quando definido, o indicador projeta — no ritmo atual — quantos tokens você terá usado no fim da janela e alerta/colore se a projeção passar do teto, com ETA ('estoura em ~Xmin'). `0` desativa. Útil em assinatura, onde não há limite de tokens oficial."
         },
         "claudeUsageBar.resetWarningMinutes": {
           "type": "number",

@@ -4,6 +4,8 @@ export interface AlertInput {
   block: CcusageData | null;
   costCap: number;
   maxPerHour: number;
+  /** Teto de tokens da sessão de 5h (0 = desativado). */
+  tokenCap: number;
   /** Limites reais do plano (terminal), se disponíveis. */
   fiveHour: number | null;
   sevenDay: number | null;
@@ -29,6 +31,16 @@ function fmtUsd(n: number): string {
     return "$" + n.toFixed(1);
   }
   return "$" + n.toFixed(2);
+}
+
+function fmtTok(n: number): string {
+  if (n >= 1_000_000) {
+    return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  }
+  if (n >= 1_000) {
+    return (n / 1_000).toFixed(0) + "k";
+  }
+  return String(Math.round(n));
 }
 
 /**
@@ -71,6 +83,21 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
       );
       keys.push("cost");
     }
+  }
+
+  // 1b. Projeção de TOKENS da sessão > teto de tokens (ritmo de uso vs tempo)
+  if (
+    input.block &&
+    input.tokenCap > 0 &&
+    input.block.projectedTokens != null &&
+    input.block.projectedTokens > input.tokenCap
+  ) {
+    reasons.push(
+      `Nesse ritmo: ${fmtTok(input.block.projectedTokens)} tokens até o reset (teto ${fmtTok(
+        input.tokenCap
+      )})`
+    );
+    keys.push("tokens");
   }
 
   // 2. Ritmo alto ($/h)

@@ -18,6 +18,7 @@ Ideias de features para o Claude Code Usage Bar. Marcadas conforme o status.
 | Modelo atual correto | Lê o modelo do transcript (não o array misto do ccusage) | 0.10 |
 | ETA até estourar | "no ritmo atual, 100% em ~Xmin" no painel/tooltip e na notificação | 0.11 |
 | Aviso de fim de janela | Notifica quando falta pouco pro reset da sessão de 5h | 0.11 |
+| Estouro de tokens da sessão | Projeta tokens (ritmo × tempo) vs teto configurável; cor + alerta + ETA | 0.12 |
 
 ## 💡 Próximas ideias
 
