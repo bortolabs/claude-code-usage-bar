@@ -131,6 +131,18 @@ Você escolhe como ver:
   ou rode _Claude Usage: Abrir painel_. Mostra o círculo de progresso grande, barras
   de cada métrica e **botões para trocar o estilo da status bar**, tudo ao vivo.
 
+## Alerta de burn rate
+
+A extensão avisa quando o **ritmo de gasto** projeta estourar antes do reset — algo que o
+`/usage` não mostra. Três gatilhos:
+
+- **Projeção de custo** do bloco passa do teto (`costCapUsd`).
+- **Ritmo alto**: `$/h` acima de `burnRateMaxPerHour`.
+- **Limites do plano** (no terminal): projeção de 5h/7d atingir 100% antes do reset.
+
+Quando dispara: notificação do VSCode (com "Silenciar 1h"), ícone ⚠ e vermelho na status
+bar, e uma faixa no topo do painel. Desligue com `burnRateAlertEnabled: false`.
+
 ## Uso
 
 - **Clique** no item → abre o painel com o anel SVG.

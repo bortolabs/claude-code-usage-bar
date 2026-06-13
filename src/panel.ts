@@ -12,6 +12,8 @@ export interface PanelData {
   /** Cor do anel: "ok" | "warn" | "err". */
   level: "ok" | "warn" | "err";
   rows: { label: string; value: string; pct: number | null }[];
+  /** Faixa de alerta de burn rate (null = sem alerta). */
+  alert: { message: string; reasons: string[] } | null;
   footer: string;
 }
 
@@ -124,6 +126,13 @@ export class UsagePanel {
   .refresh .ic { display: inline-block; }
   .refresh.spinning .ic { animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .alert {
+    background: color-mix(in srgb, var(--err) 18%, transparent);
+    border: 1px solid var(--err);
+    border-radius: 8px; padding: 9px 11px; margin-bottom: 14px;
+  }
+  .alert-title { font-size: 13px; font-weight: 600; color: var(--err); margin-bottom: 2px; }
+  .alert-reason { font-size: 12px; color: var(--vscode-foreground); opacity: .85; }
 </style>
 </head>
 <body>
@@ -167,8 +176,14 @@ export class UsagePanel {
     const header =
       '<div class="header"><span class="title">Claude Usage</span>' +
       '<button id="refreshBtn" class="refresh" title="Atualizar"><span class="ic">↻</span> Atualizar</button></div>';
+    let alertHtml = '';
+    if (d.alert) {
+      const extra = (d.alert.reasons || []).slice(1)
+        .map(function(r){ return '<div class="alert-reason">· ' + r + '</div>'; }).join('');
+      alertHtml = '<div class="alert"><div class="alert-title">⚠ ' + d.alert.message + '</div>' + extra + '</div>';
+    }
     document.getElementById('app').innerHTML =
-      header +
+      header + alertHtml +
       '<div class="ring-wrap">' + ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub) + '</div>' +
       rows + '<hr>' + styleButtons() +
       '<div class="footer">' + (d.footer || '') + '</div>';

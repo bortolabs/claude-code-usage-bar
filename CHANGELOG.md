@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0
+
+- **Alerta de burn rate** — avisa quando o ritmo de gasto projeta estourar antes do reset.
+  Três gatilhos: projeção de custo > teto, ritmo alto (`$/h`) e projeção dos limites do
+  plano (5h/7d) baterem 100%. Mostra:
+  - **notificação** do VSCode (com cooldown e botão "Silenciar 1h");
+  - **ícone ⚠ + vermelho** na status bar;
+  - **faixa de aviso** no topo do painel.
+- Novos settings: `burnRateAlertEnabled`, `burnRateMaxPerHour`, `alertCooldownMinutes`.
+
 ## 0.4.1
 
 - **Botão "Atualizar" no painel** (canto superior direito, igual ao modal do `/usage`),

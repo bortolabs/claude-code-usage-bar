@@ -4,6 +4,7 @@ import * as os from "os";
 import * as path from "path";
 import { UsagePanel, PanelData } from "./panel";
 import { runCcusage, CcusageResult, CcusageData } from "./ccusage";
+import { evaluateAlerts, AlertResult } from "./alerts";
 
 /** Forma do JSON gravado por statusline-command.sh (bridge). */
 interface RateWindow {
@@ -166,6 +167,9 @@ export function activate(context: vscode.ExtensionContext) {
   let debounce: NodeJS.Timeout | undefined;
   let tick: NodeJS.Timeout | undefined;
   let ccTick: NodeJS.Timeout | undefined;
+  // Alerta: controle de cooldown da notificação.
+  let lastAlertKey = "";
+  let lastAlertAtMs = 0;
 
   const resolveStatePath = (): string => {
     const custom = (cfg().get<string>("stateFilePath") || "").trim();
@@ -311,10 +315,29 @@ export function activate(context: vscode.ExtensionContext) {
       effective = Math.max(ctxPct ?? 0, costPct);
     }
 
-    item.text = styleText(style, ringPct, primary, suffix);
+    // Avalia alerta de burn rate (projeção de estouro).
+    const alertOn = c.get<boolean>("burnRateAlertEnabled") ?? true;
+    const alert: AlertResult = alertOn
+      ? evaluateAlerts({
+          block,
+          costCap,
+          maxPerHour: c.get<number>("burnRateMaxPerHour") ?? 20,
+          fiveHour,
+          sevenDay,
+          fiveHourResetsAt: s?.five_hour?.resets_at ?? null,
+          sevenDayResetsAt: s?.seven_day?.resets_at ?? null,
+        })
+      : { active: false, message: "", reasons: [], key: "" };
 
-    const level: "ok" | "warn" | "err" =
+    // Ícone de alerta antecede o texto quando ativo.
+    item.text = (alert.active ? "$(warning) " : "") +
+      styleText(style, ringPct, primary, suffix);
+
+    let level: "ok" | "warn" | "err" =
       effective >= err ? "err" : effective >= warn ? "warn" : "ok";
+    if (alert.active) {
+      level = "err"; // alerta sempre pinta de vermelho
+    }
     if (level === "err") {
       item.color = new vscode.ThemeColor("statusBarItem.errorForeground");
       item.backgroundColor = new vscode.ThemeColor(
@@ -328,6 +351,36 @@ export function activate(context: vscode.ExtensionContext) {
     } else {
       item.color = undefined;
       item.backgroundColor = undefined;
+    }
+
+    // Notificação com cooldown (e re-dispara se o tipo de alerta mudar).
+    if (alert.active) {
+      const cooldownMs =
+        (c.get<number>("alertCooldownMinutes") ?? 15) * 60_000;
+      const now = Date.now();
+      if (
+        alert.key !== lastAlertKey ||
+        now - lastAlertAtMs > cooldownMs
+      ) {
+        lastAlertKey = alert.key;
+        lastAlertAtMs = now;
+        vscode.window
+          .showWarningMessage(
+            `Claude Usage — ${alert.message}`,
+            "Abrir painel",
+            "Silenciar 1h"
+          )
+          .then((choice) => {
+            if (choice === "Abrir painel") {
+              vscode.commands.executeCommand("claudeUsageBar.openPanel");
+            } else if (choice === "Silenciar 1h") {
+              // empurra o cooldown 1h pra frente
+              lastAlertAtMs = Date.now() + 60 * 60_000 - cooldownMs;
+            }
+          });
+      }
+    } else {
+      lastAlertKey = "";
     }
 
     const view = {
@@ -344,6 +397,7 @@ export function activate(context: vscode.ExtensionContext) {
       costCap,
       block,
       state: s,
+      alert,
     };
     item.tooltip = buildTooltip(view);
 
@@ -366,10 +420,16 @@ export function activate(context: vscode.ExtensionContext) {
     costCap: number;
     block: CcusageData | null;
     state: UsageState | null;
+    alert: AlertResult;
   };
 
   const buildTooltip = (v: View): vscode.MarkdownString => {
     const lines: string[] = ["**Claude Code — uso da sessão**", ""];
+    if (v.alert.active) {
+      lines.push(`$(warning) **${v.alert.message}**`);
+      v.alert.reasons.slice(1).forEach((r) => lines.push(`· ${r}`));
+      lines.push("");
+    }
     const pctStr = (x: number | null) => (x == null ? "—" : `${Math.round(x)}%`);
     const bar = (x: number | null) => {
       if (x == null) {
@@ -512,6 +572,9 @@ export function activate(context: vscode.ExtensionContext) {
       centerSub: v.centerSub,
       level: v.level,
       rows,
+      alert: v.alert.active
+        ? { message: v.alert.message, reasons: v.alert.reasons }
+        : null,
       footer: `fonte: ${src}${
         v.state?.ts ? " · statusline " + fmtAgo(v.state.ts) : ""
       }`,
@@ -587,6 +650,7 @@ export function activate(context: vscode.ExtensionContext) {
           centerSub: "",
           level: "ok",
           rows: [],
+          alert: null,
           footer: "Aguardando dados…",
         },
         cfg().get<BarStyle>("barStyle") ?? "ring"
