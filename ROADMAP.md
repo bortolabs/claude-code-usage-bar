@@ -19,6 +19,7 @@ Ideias de features para o Claude Code Usage Bar. Marcadas conforme o status.
 | ETA até estourar | "no ritmo atual, 100% em ~Xmin" no painel/tooltip e na notificação | 0.11 |
 | Aviso de fim de janela | Notifica quando falta pouco pro reset da sessão de 5h | 0.11 |
 | Estouro de tokens da sessão | Projeta tokens (ritmo × tempo) vs teto configurável; cor + alerta + ETA | 0.12 |
+| Tooltip do hover resumido | Popover enxuto (sessão 5h + reset, alerta se houver) com link pro painel | 0.13 |
 
 ## 💡 Próximas ideias
 
