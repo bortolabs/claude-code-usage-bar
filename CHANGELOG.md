@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.2
+
+- **Fix: o painel piscava entre o layout novo (oauth/cota real) e o antigo (ccusage).**
+  Quando uma atualização do `oauth/usage` falhava pontualmente (timeout/rede), o último
+  resultado bom era descartado e o render caía no ccusage, alternando o layout. Agora o
+  último resultado válido do oauth é mantido por alguns ciclos (≈5×`oauthRefreshSeconds`),
+  então uma falha isolada não troca mais a fonte/layout.
+
 ## 0.14.1
 
 - **Cross-platform (Windows/Linux/macOS).** A leitura do token OAuth para o `api/oauth/usage`

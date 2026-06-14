@@ -232,6 +232,7 @@ export function activate(context: vscode.ExtensionContext) {
   let lastCcusage: CcusageResult | null = null;
   // Uso REAL do plano (igual /usage), via endpoint OAuth — fonte primária.
   let lastOAuth: OAuthUsageResult | null = null;
+  let lastOAuthOkMs = 0; // quando o oauth respondeu com sucesso pela última vez
   // Modelo atual em uso (lido do transcript; o ccusage mistura modelos do bloco).
   let currentModel: string | null = null;
   // Histórico diário (sparkline). Atualizado num intervalo mais folgado.
@@ -314,14 +315,34 @@ export function activate(context: vscode.ExtensionContext) {
   const refreshOAuth = async () => {
     if (!(cfg().get<boolean>("useOAuthUsage") ?? true)) {
       lastOAuth = null;
+      lastOAuthOkMs = 0;
+      render();
       return;
     }
-    lastOAuth = await fetchOAuthUsage();
+    const res = await fetchOAuthUsage();
+    if (res.available) {
+      // Sucesso: guarda o resultado bom e o momento.
+      lastOAuth = res;
+      lastOAuthOkMs = Date.now();
+    }
+    // Falha pontual: NÃO descarta o último resultado bom (evita o flicker
+    // entre o layout oauth e o ccusage). Só expira após oauthStaleMs.
     render();
   };
 
-  const oa = (): OAuthUsage | null =>
-    lastOAuth && lastOAuth.available ? lastOAuth : null;
+  // Mantém o último oauth bom enquanto não ficar velho demais — evita piscar
+  // de volta pro layout do ccusage quando uma atualização falha pontualmente.
+  const oa = (): OAuthUsage | null => {
+    if (!lastOAuth || !lastOAuth.available) {
+      return null;
+    }
+    const staleMs =
+      (cfg().get<number>("oauthRefreshSeconds") ?? 60) * 1000 * 5; // 5 ciclos
+    if (lastOAuthOkMs && Date.now() - lastOAuthOkMs > staleMs) {
+      return null; // velho demais → deixa cair pro fallback
+    }
+    return lastOAuth;
+  };
 
   /**
    * Deriva o comando `daily` do `ccusageCommand` (que é do `blocks --active`),
