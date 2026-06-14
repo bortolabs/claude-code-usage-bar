@@ -12,6 +12,7 @@ import {
 } from "./ccusage";
 import { evaluateAlerts, AlertResult } from "./alerts";
 import { readCurrentModel, prettyModel } from "./transcript";
+import { fetchOAuthUsage, OAuthUsageResult, OAuthUsage } from "./oauthUsage";
 
 /** Forma do JSON gravado por statusline-command.sh (bridge). */
 interface RateWindow {
@@ -229,6 +230,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   let lastState: UsageState | null = null;
   let lastCcusage: CcusageResult | null = null;
+  // Uso REAL do plano (igual /usage), via endpoint OAuth — fonte primária.
+  let lastOAuth: OAuthUsageResult | null = null;
   // Modelo atual em uso (lido do transcript; o ccusage mistura modelos do bloco).
   let currentModel: string | null = null;
   // Histórico diário (sparkline). Atualizado num intervalo mais folgado.
@@ -238,6 +241,7 @@ export function activate(context: vscode.ExtensionContext) {
   let tick: NodeJS.Timeout | undefined;
   let ccTick: NodeJS.Timeout | undefined;
   let dailyTick: NodeJS.Timeout | undefined;
+  let oauthTick: NodeJS.Timeout | undefined;
   // Alerta: controle de cooldown da notificação.
   let lastAlertKey = "";
   let lastAlertAtMs = 0;
@@ -250,6 +254,7 @@ export function activate(context: vscode.ExtensionContext) {
     readState();
     refreshCcusage();
     refreshDaily();
+    refreshOAuth();
   };
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -305,6 +310,18 @@ export function activate(context: vscode.ExtensionContext) {
     lastCcusage = await runCcusage(cmd);
     render();
   };
+
+  const refreshOAuth = async () => {
+    if (!(cfg().get<boolean>("useOAuthUsage") ?? true)) {
+      lastOAuth = null;
+      return;
+    }
+    lastOAuth = await fetchOAuthUsage();
+    render();
+  };
+
+  const oa = (): OAuthUsage | null =>
+    lastOAuth && lastOAuth.available ? lastOAuth : null;
 
   /**
    * Deriva o comando `daily` do `ccusageCommand` (que é do `blocks --active`),
@@ -383,11 +400,12 @@ export function activate(context: vscode.ExtensionContext) {
 
     const s = lastState;
     const block = cc();
+    const usage = oa(); // uso real do plano (oauth) — fonte primária
     const fresh = stateIsFresh(s);
-    const hasRate = fresh && stateHasRate(s);
+    const hasRate = (fresh && stateHasRate(s)) || !!usage;
 
     // Sem nenhuma fonte: placeholder.
-    if (!hasRate && !block && !fresh) {
+    if (!hasRate && !block && !fresh && !usage) {
       item.text = "$(circle-outline) Claude —";
       const md = new vscode.MarkdownString(
         "**Claude Code Usage**\n\nSem dados ainda. A extensão usa o **ccusage** (uso da sessão de 5h, calculado dos transcripts) e, quando você roda o Claude Code no terminal, os limites **5h/7d** da statusline.\n\n_Rode `npx ccusage blocks --active` no terminal para testar a fonte._"
@@ -413,10 +431,17 @@ export function activate(context: vscode.ExtensionContext) {
       }
     }
 
-    const mode = effectiveMode(hasRate);
+    // oauth/usage tem prioridade máxima → modo "plan" (anel = cota real 5h).
+    const mode = usage ? "plan" : effectiveMode(hasRate);
     const isSub = resolveAccountType() === "subscription";
-    const fiveHour = s?.five_hour?.used_percentage ?? null;
-    const sevenDay = s?.seven_day?.used_percentage ?? null;
+    // Limites: oauth primeiro, depois statusline.
+    const fiveHour =
+      usage?.fiveHour?.utilization ?? s?.five_hour?.used_percentage ?? null;
+    const sevenDay =
+      usage?.sevenDay?.utilization ?? s?.seven_day?.used_percentage ?? null;
+    // Reset real (epoch ms) da fonte oauth, se houver.
+    const fiveHourResetMs = usage?.fiveHour?.resetsAt ?? null;
+    const sevenDayResetMs = usage?.sevenDay?.resetsAt ?? null;
     const ctxPct = ctxPctOf(s);
     // Custo: prefere o do bloco ccusage (real do bloco de 5h); senão statusline.
     const cost = block?.costUSD ?? s?.cost_usd ?? 0;
@@ -522,10 +547,13 @@ export function activate(context: vscode.ExtensionContext) {
     let effective: number;
 
     if (mode === "plan") {
-      // Assinante via statusline (terminal): % real do limite 5h + reset.
+      // Anel = COTA REAL da sessão 5h (oauth/usage, igual /usage) ou statusline.
       ringPct = fiveHour;
       primary = fiveHour != null ? `${Math.round(fiveHour)}%` : "—";
-      const resetShort = fmtResetsShort(s?.five_hour?.resets_at);
+      // Reset: prefere o epoch real do oauth; senão o da statusline.
+      const resetShort = fiveHourResetMs
+        ? fmtDuration(fiveHourResetMs - Date.now())
+        : fmtResetsShort(s?.five_hour?.resets_at);
       suffix = resetShort ? ` · ${resetShort}` : "";
       centerLabel = primary;
       centerSub = resetShort
@@ -582,8 +610,13 @@ export function activate(context: vscode.ExtensionContext) {
           tokenCap, // teto de tokens vale em qualquer modo (inclui assinatura)
           fiveHour,
           sevenDay,
-          fiveHourResetsAt: s?.five_hour?.resets_at ?? null,
-          sevenDayResetsAt: s?.seven_day?.resets_at ?? null,
+          // resets em epoch SEGUNDOS: oauth (ms→s) tem prioridade.
+          fiveHourResetsAt: fiveHourResetMs
+            ? Math.floor(fiveHourResetMs / 1000)
+            : s?.five_hour?.resets_at ?? null,
+          sevenDayResetsAt: sevenDayResetMs
+            ? Math.floor(sevenDayResetMs / 1000)
+            : s?.seven_day?.resets_at ?? null,
         })
       : { active: false, message: "", reasons: [], key: "" };
 
@@ -678,6 +711,8 @@ export function activate(context: vscode.ExtensionContext) {
       projPct,
       etaMin,
       tokenCap,
+      fiveHourResetMs,
+      sevenDayResetMs,
       daily: lastDaily,
       modelName,
     };
@@ -709,6 +744,8 @@ export function activate(context: vscode.ExtensionContext) {
     projPct: number | null;
     etaMin: number | null;
     tokenCap: number;
+    fiveHourResetMs: number | null;
+    sevenDayResetMs: number | null;
     daily: CcusageDaily[];
     modelName: string | null;
   };
@@ -776,21 +813,33 @@ export function activate(context: vscode.ExtensionContext) {
     const rows: PanelData["rows"] = [];
     if (v.mode === "plan") {
       const s = v.state;
+      // Reset real (oauth) tem prioridade sobre o da statusline.
+      const reset5 = v.fiveHourResetMs
+        ? " · reseta em " + fmtDuration(v.fiveHourResetMs - Date.now())
+        : s?.five_hour?.resets_at
+        ? " · reseta " + fmtResetsAt(s.five_hour.resets_at)
+        : "";
+      const reset7 = v.sevenDayResetMs
+        ? " · reseta em " + fmtDuration(v.sevenDayResetMs - Date.now())
+        : s?.seven_day?.resets_at
+        ? " · reseta " + fmtResetsAt(s.seven_day.resets_at)
+        : "";
+      // Anel/linha principal = COTA (uso real). Esta é a barra "de uso".
       rows.push({
-        label: `Sessão (5h)${
-          s?.five_hour?.resets_at
-            ? " · reseta " + fmtResetsAt(s.five_hour.resets_at)
-            : ""
-        }`,
+        label: `Sessão (5h)${reset5}`,
         value: v.fiveHour != null ? `${Math.round(v.fiveHour)}%` : "—",
         pct: v.fiveHour,
       });
+      // Barra de TEMPO da sessão (a amarela que você quis manter), do ccusage.
+      if (v.block) {
+        rows.push({
+          label: "Tempo da sessão 5h",
+          value: `${Math.round(v.block.timePct)}% do tempo`,
+          pct: v.block.timePct,
+        });
+      }
       rows.push({
-        label: `Semana (7d)${
-          s?.seven_day?.resets_at
-            ? " · reseta " + fmtResetsAt(s.seven_day.resets_at)
-            : ""
-        }`,
+        label: `Semana (7d)${reset7}`,
         value: v.sevenDay != null ? `${Math.round(v.sevenDay)}%` : "—",
         pct: v.sevenDay,
       });
@@ -904,6 +953,7 @@ export function activate(context: vscode.ExtensionContext) {
       readState();
       refreshCcusage();
       refreshDaily();
+      refreshOAuth();
     }),
     vscode.commands.registerCommand("claudeUsageBar.toggleAlert", async () => {
       const cur = cfg().get<boolean>("burnRateAlertEnabled") ?? true;
@@ -954,6 +1004,7 @@ export function activate(context: vscode.ExtensionContext) {
       render();
       refreshCcusage();
       refreshDaily();
+      refreshOAuth();
     })
   );
 
@@ -983,10 +1034,21 @@ export function activate(context: vscode.ExtensionContext) {
     dispose: () => dailyTick && clearInterval(dailyTick),
   });
 
+  // oauth/usage: cota real do plano (fonte primária).
+  const oauthInterval = Math.max(
+    20,
+    cfg().get<number>("oauthRefreshSeconds") ?? 60
+  );
+  oauthTick = setInterval(refreshOAuth, oauthInterval * 1000);
+  context.subscriptions.push({
+    dispose: () => oauthTick && clearInterval(oauthTick),
+  });
+
   startWatch();
   readState();
   refreshCcusage();
   refreshDaily();
+  refreshOAuth();
 }
 
 export function deactivate() {

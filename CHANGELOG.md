@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.14.0
+
+- **Cota REAL do plano no anel (igual ao `/usage`), também no app/IDE.** A extensão agora
+  consulta o endpoint oficial `api/oauth/usage` — a mesma fonte do `/usage` — lendo o token
+  OAuth do Keychain do macOS. Resultado:
+  - **anel = `five_hour.utilization`** (a cota real da sessão de 5h, idêntica ao `/usage`);
+  - **reset real** (`resets_at` da Anthropic), corrigindo a divergência de tempo;
+  - **barra de tempo** da sessão (ccusage) continua, agora como linha separada no painel;
+  - 7d e extra-usage também disponíveis.
+  - Vira a **fonte primária** (acima de statusline e ccusage). Setting `useOAuthUsage`
+    (on por padrão) e `oauthRefreshSeconds`. macOS apenas (usa Keychain); fora disso,
+    cai no ccusage. O token fica local e só é enviado para `api.anthropic.com`.
+
 ## 0.13.0
 
 - **Tooltip do hover resumido.** Ao passar o mouse no item da status bar, o popover

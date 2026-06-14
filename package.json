@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage Bar",
   "description": "Mostra o uso da sessão do Claude Code (limites 5h/7d, contexto e custo) na status bar do VSCode — um anel de progresso igual ao /usage.",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -177,6 +177,17 @@
           "default": 60,
           "minimum": 15,
           "description": "Com que frequência (segundos) atualizar os dados do ccusage."
+        },
+        "claudeUsageBar.useOAuthUsage": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Usar o endpoint oficial `api/oauth/usage` (a mesma fonte do `/usage`) como fonte primária — mostra a **cota real** da sessão de 5h e da semana, idêntica ao `/usage`. Lê o token OAuth do Keychain do macOS (serviço `Claude Code-credentials`); o token fica local e só é enviado para `api.anthropic.com`. Quando disponível, o anel passa a ser a cota real."
+        },
+        "claudeUsageBar.oauthRefreshSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 20,
+          "description": "Com que frequência (segundos) consultar o endpoint oauth/usage."
         },
         "claudeUsageBar.burnRateAlertEnabled": {
           "type": "boolean",

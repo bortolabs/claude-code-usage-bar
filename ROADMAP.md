@@ -20,6 +20,7 @@ Ideias de features para o Claude Code Usage Bar. Marcadas conforme o status.
 | Aviso de fim de janela | Notifica quando falta pouco pro reset da sessão de 5h | 0.11 |
 | Estouro de tokens da sessão | Projeta tokens (ritmo × tempo) vs teto configurável; cor + alerta + ETA | 0.12 |
 | Tooltip do hover resumido | Popover enxuto (sessão 5h + reset, alerta se houver) com link pro painel | 0.13 |
+| Cota real via oauth/usage | Anel = cota real da sessão 5h (igual /usage) no app/IDE, via api/oauth/usage | 0.14 |
 
 ## 💡 Próximas ideias
 
@@ -30,17 +31,18 @@ Ideias de features para o Claude Code Usage Bar. Marcadas conforme o status.
 | 4 | **Breakdown por projeto** | Quais projetos/sessões consomem o bloco atual | Médio | ✅ `ccusage session` |
 | 10 | **Multi-conta / perfis** | Alternar entre contas (pessoal vs trabalho) | Alto | ⚠️ depende do setup |
 
-## 🚫 Descartadas
-
-| Feature | Por quê |
-| --- | --- |
-| rate_limits reais sem terminal | Só vêm dos headers da API; exigiria daemon com API key, gastaria token e seria frágil. A statusline (terminal) já cobre. |
-
 ## Notas técnicas
 
-- **Fonte primária**: `ccusage blocks --active --json` (sessão de 5h derivada dos transcripts).
-  Funciona em qualquer ambiente. A statusline (`~/.claude/usage-state.json`) só dispara no
-  Claude Code TUI do terminal — quando fresca, dá os limites reais 5h/7d e tem prioridade.
+- **Fontes, em ordem de prioridade**:
+  1. **`api/oauth/usage`** (v0.14) — cota REAL do plano (5h/7d), igual ao `/usage`. Lê o
+     token OAuth do Keychain (`Claude Code-credentials`, bloco `claudeAiOauth.accessToken`)
+     e faz `GET https://api.anthropic.com/api/oauth/usage` com header `anthropic-beta: oauth-2025-04-20`.
+     Campos: `five_hour.utilization`/`resets_at`, `seven_day`, `seven_day_sonnet`, `extra_usage`.
+     macOS apenas. Resolveu a antiga limitação de não ter a cota real fora do terminal.
+  2. **statusline** (`~/.claude/usage-state.json`) — só dispara no Claude Code TUI do terminal.
+  3. **ccusage** (`blocks --active --json`) — sessão de 5h derivada dos transcripts; usada
+     para a **barra de tempo** e como fallback. Funciona em qualquer ambiente.
+- O **anel** mostra a cota real (oauth) quando disponível; a **barra de tempo** vem do ccusage.
 - **Modelo atual**: lido do `.jsonl` mais recente em `~/.claude/projects/` (`src/transcript.ts`),
   porque o ccusage só expõe a lista de modelos do bloco inteiro (mistura opus/haiku/etc).
 - **Custo**: em assinatura é só equivalente de preço de API (não cobrança). Setting `accountType`.
