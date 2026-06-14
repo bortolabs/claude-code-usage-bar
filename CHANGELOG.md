@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.1
+
+- **Cross-platform (Windows/Linux/macOS).** A leitura do token OAuth para o `api/oauth/usage`
+  agora funciona nos três SOs: tenta `CLAUDE_CODE_OAUTH_TOKEN`, depois o arquivo
+  `~/.claude/.credentials.json` (fonte canônica em Linux/Windows), e por fim o Keychain
+  (macOS). A chamada HTTP passou a usar o módulo `https` nativo do Node (não depende mais
+  de `curl`, que pode faltar no Windows).
+
 ## 0.14.0
 
 - **Cota REAL do plano no anel (igual ao `/usage`), também no app/IDE.** A extensão agora

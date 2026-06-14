@@ -1,4 +1,8 @@
 import { exec } from "child_process";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import * as https from "https";
 
 /** Uma janela de limite retornada pelo endpoint oauth/usage. */
 export interface UsageWindow {
@@ -42,87 +46,153 @@ function parseWindow(w: unknown): UsageWindow | null {
   return { utilization: obj.utilization, resetsAt };
 }
 
-/**
- * Busca o uso REAL do plano (igual ao /usage) via endpoint OAuth da Anthropic.
- * Lê o token do Keychain do macOS (serviço "Claude Code-credentials") e chama
- * GET api/oauth/usage. É a mesma fonte que o /usage do Claude Code usa.
- *
- * macOS apenas (usa `security`). Em outros SOs, retorna indisponível.
- */
-export function fetchOAuthUsage(timeoutMs = 12000): Promise<OAuthUsageResult> {
+/** Diretórios onde o Claude Code pode guardar o .credentials.json. */
+function credentialFileCandidates(): string[] {
+  const home = os.homedir();
+  const candidates: string[] = [];
+  if (process.env.CLAUDE_CONFIG_DIR) {
+    candidates.push(
+      path.join(process.env.CLAUDE_CONFIG_DIR, ".credentials.json")
+    );
+  }
+  candidates.push(path.join(home, ".claude", ".credentials.json"));
+  candidates.push(path.join(home, ".config", "claude", ".credentials.json"));
+  return candidates;
+}
+
+/** Extrai claudeAiOauth.accessToken de um JSON de credenciais. */
+function tokenFromCredentialJson(raw: string): string | null {
+  try {
+    const j = JSON.parse(raw);
+    const t = j?.claudeAiOauth?.accessToken ?? j?.accessToken;
+    return typeof t === "string" && t ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Lê o token do arquivo .credentials.json (Linux/Windows/macOS). */
+function tokenFromFile(): string | null {
+  for (const p of credentialFileCandidates()) {
+    try {
+      const raw = fs.readFileSync(p, "utf8");
+      const t = tokenFromCredentialJson(raw);
+      if (t) {
+        return t;
+      }
+    } catch {
+      // arquivo não existe nesse caminho — tenta o próximo
+    }
+  }
+  return null;
+}
+
+/** Lê o token do Keychain do macOS (fallback quando não há arquivo). */
+function tokenFromKeychain(): Promise<string | null> {
   return new Promise((resolve) => {
     if (process.platform !== "darwin") {
-      resolve({
-        available: false,
-        reason: "oauth/usage só implementado no macOS (Keychain)",
-      });
+      resolve(null);
       return;
     }
-    // Pipeline: lê token do Keychain -> extrai accessToken do bloco claudeAiOauth
-    // -> chama o endpoint. Tudo num shell só (token nunca vira arg de processo).
-    // O JSON tem vários "accessToken" (Claude + servidores MCP). Isolamos o
-    // primeiro objeto após "claudeAiOauth" e pegamos o accessToken dele.
-    const extract = [
-      // 1) recorta de claudeAiOauth até o accessToken e captura o valor
-      "grep -o '\"claudeAiOauth\":{\"accessToken\":\"[^\"]*\"'",
-      "| sed -n 's/.*\"accessToken\":\"\\([^\"]*\\)\".*/\\1/p'",
-      "| head -1",
-    ].join(" ");
-    const script = [
-      'CRED=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)',
-      `; TOKEN=$(printf '%s' "$CRED" | ${extract})`,
-      '; [ -z "$TOKEN" ] && exit 7',
-      '; curl -sS --max-time 10 -H "Authorization: Bearer $TOKEN" -H "anthropic-beta: oauth-2025-04-20" "https://api.anthropic.com/api/oauth/usage"',
-    ].join(" ");
-
     exec(
-      script,
-      { timeout: timeoutMs, maxBuffer: 1024 * 1024, shell: "/bin/sh" },
+      'security find-generic-password -s "Claude Code-credentials" -w',
+      { timeout: 8000, maxBuffer: 1024 * 1024 },
       (err, stdout) => {
-        if (err) {
-          const code = (err as { code?: number }).code;
-          resolve({
-            available: false,
-            reason:
-              code === 7
-                ? "token OAuth não encontrado no Keychain"
-                : `falha ao consultar oauth/usage (${err.message.split("\n")[0]})`,
-          });
+        if (err || !stdout) {
+          resolve(null);
           return;
         }
-        try {
-          const j = JSON.parse(stdout);
-          const eu = j?.extra_usage;
-          resolve({
-            available: true,
-            fiveHour: parseWindow(j?.five_hour),
-            sevenDay: parseWindow(j?.seven_day),
-            sevenDaySonnet: parseWindow(j?.seven_day_sonnet),
-            sevenDayOpus: parseWindow(j?.seven_day_opus),
-            extraUsage:
-              eu && typeof eu === "object"
-                ? {
-                    enabled: !!eu.is_enabled,
-                    utilization:
-                      typeof eu.utilization === "number" ? eu.utilization : 0,
-                    usedCredits:
-                      typeof eu.used_credits === "number" ? eu.used_credits : 0,
-                    monthlyLimit:
-                      typeof eu.monthly_limit === "number"
-                        ? eu.monthly_limit
-                        : 0,
-                    currency:
-                      typeof eu.currency === "string" ? eu.currency : "USD",
-                  }
-                : null,
-          });
-        } catch {
-          resolve({
-            available: false,
-            reason: "resposta do oauth/usage não é JSON válido",
-          });
-        }
+        resolve(tokenFromCredentialJson(stdout.trim()));
       }
     );
   });
+}
+
+/** Resolve o token OAuth de forma cross-platform. */
+async function resolveToken(): Promise<string | null> {
+  const env = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  if (env && env.trim()) {
+    return env.trim();
+  }
+  return tokenFromFile() ?? (await tokenFromKeychain());
+}
+
+/** GET no endpoint de usage via https nativo (sem depender de curl). */
+function httpGetUsage(token: string, timeoutMs: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        method: "GET",
+        hostname: "api.anthropic.com",
+        path: "/api/oauth/usage",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "anthropic-beta": "oauth-2025-04-20",
+          "User-Agent": "claude-code-usage-bar",
+        },
+        timeout: timeoutMs,
+      },
+      (res) => {
+        let body = "";
+        res.on("data", (c) => (body += c));
+        res.on("end", () => {
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(body);
+          } else {
+            reject(new Error(`HTTP ${res.statusCode}`));
+          }
+        });
+      }
+    );
+    req.on("timeout", () => req.destroy(new Error("timeout")));
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+/**
+ * Busca o uso REAL do plano (igual ao /usage) via endpoint OAuth da Anthropic.
+ * Cross-platform: lê o token de CLAUDE_CODE_OAUTH_TOKEN, do arquivo
+ * ~/.claude/.credentials.json (Linux/Windows/macOS) ou do Keychain (macOS),
+ * e chama GET api/oauth/usage. Mesma fonte que o /usage do Claude Code usa.
+ */
+export async function fetchOAuthUsage(
+  timeoutMs = 12000
+): Promise<OAuthUsageResult> {
+  const token = await resolveToken();
+  if (!token) {
+    return {
+      available: false,
+      reason:
+        "token OAuth não encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)",
+    };
+  }
+  try {
+    const raw = await httpGetUsage(token, timeoutMs);
+    const j = JSON.parse(raw);
+    const eu = j?.extra_usage;
+    return {
+      available: true,
+      fiveHour: parseWindow(j?.five_hour),
+      sevenDay: parseWindow(j?.seven_day),
+      sevenDaySonnet: parseWindow(j?.seven_day_sonnet),
+      sevenDayOpus: parseWindow(j?.seven_day_opus),
+      extraUsage:
+        eu && typeof eu === "object"
+          ? {
+              enabled: !!eu.is_enabled,
+              utilization:
+                typeof eu.utilization === "number" ? eu.utilization : 0,
+              usedCredits:
+                typeof eu.used_credits === "number" ? eu.used_credits : 0,
+              monthlyLimit:
+                typeof eu.monthly_limit === "number" ? eu.monthly_limit : 0,
+              currency: typeof eu.currency === "string" ? eu.currency : "USD",
+            }
+          : null,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { available: false, reason: `falha ao consultar oauth/usage (${msg})` };
+  }
 }
