@@ -31,6 +31,10 @@ export interface PanelData {
   updatedAtMs: number | null;
   /** Histórico de uso dos últimos dias para o sparkline (pode ser vazio). */
   daily: { date: string; tokens: number }[];
+  /** Breakdown por projeto do bloco de 5h atual (#4). */
+  projects: { project: string; tokens: number }[];
+  /** Valores atuais dos settings (key → valor) para a aba Config. */
+  settings: Record<string, unknown>;
   footer: string;
 }
 
@@ -140,6 +144,34 @@ function panelHtml(): string {
   .toggle:hover { background: var(--vscode-button-secondaryHoverBackground, #3c3c3c); }
   .toggle.on { border-color: var(--ok); color: var(--vscode-foreground); }
   .toggle.off { opacity: .7; }
+  /* Abas */
+  .tabs { display: flex; gap: 4px; margin: 4px 0 12px; border-bottom: 1px solid var(--track); }
+  .tab {
+    font-family: var(--vscode-font-family); font-size: 12px;
+    padding: 6px 10px; cursor: pointer; border: none; background: none;
+    color: var(--vscode-descriptionForeground); border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab:hover { color: var(--vscode-foreground); }
+  .tab.active { color: var(--vscode-foreground); border-bottom-color: var(--ok); }
+  /* Form de configurações */
+  .cfg-section-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--vscode-descriptionForeground); margin: 14px 0 6px; }
+  .cfg-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 7px 0; }
+  .cfg-label { font-size: 12px; color: var(--vscode-foreground); flex: 1 1 auto; }
+  .cfg-ctrl { flex: 0 0 auto; }
+  .cfg-ctrl input[type=number], .cfg-ctrl input[type=text], .cfg-ctrl select {
+    font-family: var(--vscode-font-family); font-size: 12px;
+    background: var(--vscode-input-background, #2a2a2a);
+    color: var(--vscode-input-foreground, #ddd);
+    border: 1px solid var(--vscode-input-border, #444); border-radius: 5px;
+    padding: 3px 6px; max-width: 150px;
+  }
+  .cfg-ctrl input[type=number] { width: 80px; }
+  .cfg-ctrl input[type=color] { width: 34px; height: 24px; padding: 0; border: none; background: none; cursor: pointer; }
+  .cfg-ctrl input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }
+  .cmd-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .link-btn { background: none; border: none; color: var(--vscode-textLink-foreground, #4daafc); cursor: pointer; font-size: 12px; padding: 6px 0; text-align: left; }
+  .link-btn:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -149,6 +181,46 @@ function panelHtml(): string {
   const colorVar = { ok: 'var(--ok)', warn: 'var(--warn)', err: 'var(--err)' };
   let curStyle = 'ring';
   let updatedAtMs = null; // última atualização efetiva (epoch ms)
+  let lastData = null;    // último PanelData recebido (p/ re-render ao trocar de aba)
+  // Aba ativa persistida entre recriações da view.
+  const persisted = (vscode.getState && vscode.getState()) || {};
+  let activeTab = persisted.activeTab || 'sessao';
+
+  // Schema dos settings para a aba Config (key, label, tipo, opções).
+  const SETTINGS_SCHEMA = [
+    { section: 'Aparência', items: [
+      { key: 'ringTheme', label: 'Tema do anel', type: 'enum', options: ['semaforo','claude','mono','custom'] },
+      { key: 'ringColor', label: 'Cor do anel (mono/custom)', type: 'color' },
+      { key: 'barStyle', label: 'Estilo na status bar', type: 'enum', options: ['ring','bar','number','icon'] },
+      { key: 'alignment', label: 'Lado da status bar', type: 'enum', options: ['right','left'] },
+      { key: 'priority', label: 'Prioridade na status bar', type: 'number' },
+    ]},
+    { section: 'Fonte e atualização', items: [
+      { key: 'useOAuthUsage', label: 'Usar cota real (oauth/usage)', type: 'bool' },
+      { key: 'oauthRefreshSeconds', label: 'Atualizar oauth (s)', type: 'number' },
+      { key: 'ccusageCommand', label: 'Comando ccusage', type: 'string' },
+      { key: 'ccusageRefreshSeconds', label: 'Atualizar ccusage (s)', type: 'number' },
+      { key: 'stateFilePath', label: 'Arquivo de estado (statusline)', type: 'string' },
+      { key: 'staleAfterSeconds', label: 'Statusline fresca por (s)', type: 'number' },
+    ]},
+    { section: 'Conta e limites', items: [
+      { key: 'accountType', label: 'Tipo de conta', type: 'enum', options: ['auto','subscription','api'] },
+      { key: 'mode', label: 'Modo de exibição', type: 'enum', options: ['auto','subscriber','cost'] },
+      { key: 'costCapUsd', label: 'Teto de custo (USD)', type: 'number' },
+      { key: 'sessionTokenCap', label: 'Teto de tokens/sessão', type: 'number' },
+      { key: 'intenseTokensPerMin', label: 'Ritmo intenso (tok/min)', type: 'number' },
+    ]},
+    { section: 'Alertas e cores', items: [
+      { key: 'burnRateAlertEnabled', label: 'Alerta de burn rate', type: 'bool' },
+      { key: 'burnRateMaxPerHour', label: 'Limite de ritmo ($/h)', type: 'number' },
+      { key: 'alertCooldownMinutes', label: 'Cooldown do alerta (min)', type: 'number' },
+      { key: 'colorByProjection', label: 'Colorir por projeção', type: 'bool' },
+      { key: 'resetWarningMinutes', label: 'Aviso de fim de janela (min)', type: 'number' },
+      { key: 'blockSummaryEnabled', label: 'Resumo ao fechar o bloco', type: 'bool' },
+      { key: 'warnThreshold', label: 'Limiar amarelo (%)', type: 'number' },
+      { key: 'errorThreshold', label: 'Limiar vermelho (%)', type: 'number' },
+    ]},
+  ];
 
   // "há Xs / Xmin / Xh" a partir de um epoch ms.
   function fmtSince(ms) {
@@ -227,108 +299,190 @@ function panelHtml(): string {
     return '<div class="spark"><div class="styles-title">Últimos dias</div>' +
       '<div class="spark-bars">' + bars + '</div>' + labels + '</div>';
   }
-  function render(d) {
-    if (!d) return;
-    // Cor de override do tema (claude/mono/custom). null = semáforo normal.
-    const ringOverride = d.ringColorOverride || null;
-    const rows = (d.rows || []).map(function(row) {
-      const pct = row.pct == null ? null : Math.max(0, Math.min(100, row.pct));
-      const lvl = pct == null ? 'ok' : pct >= 85 ? 'err' : pct >= 60 ? 'warn' : 'ok';
-      // Mesma regra do anel: override quando o nível da barra não é crítico;
-      // senão classe de semáforo (bg-ok/bg-warn/bg-err). No 'err' fica vermelho.
-      const useOverride = ringOverride && lvl !== 'err';
-      const fillCls = useOverride ? '' : ' bg-' + lvl;
-      const fillStyle = 'width:' + pct + '%' +
-        (useOverride ? ';background:' + ringOverride : '');
-      const bar = pct == null ? '' :
-        '<div class="track"><div class="fill' + fillCls + '" style="' + fillStyle + '"></div></div>';
-      return '<div class="row"><div class="row-head"><span class="row-label">' + row.label +
-        '</span><span class="row-val">' + row.value + '</span></div>' + bar + '</div>';
+  const card = (inner, cls) =>
+    '<div class="card' + (cls ? ' ' + cls : '') + '">' + inner + '</div>';
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+  // Barra de uso (track + fill) com a regra de tema/semáforo.
+  function bar(pct, ringOverride) {
+    if (pct == null) return '';
+    pct = Math.max(0, Math.min(100, pct));
+    const lvl = pct >= 85 ? 'err' : pct >= 60 ? 'warn' : 'ok';
+    const useOverride = ringOverride && lvl !== 'err';
+    const fillCls = useOverride ? '' : ' bg-' + lvl;
+    const fillStyle = 'width:' + pct + '%' + (useOverride ? ';background:' + ringOverride : '');
+    return '<div class="track"><div class="fill' + fillCls + '" style="' + fillStyle + '"></div></div>';
+  }
+
+  // Card "Projetos nesta sessão" (#4): barras por projeto no bloco de 5h.
+  function projectsCard(projects) {
+    const list = (projects || []).filter(function(p){ return p && p.tokens > 0; });
+    if (!list.length) return '';
+    const max = Math.max.apply(null, list.map(function(p){ return p.tokens; }).concat([1]));
+    const rows = list.map(function(p){
+      const pct = (p.tokens / max) * 100;
+      return '<div class="row"><div class="row-head"><span class="row-label">' + esc(p.project) +
+        '</span><span class="row-val">' + fmtTok(p.tokens) + '</span></div>' + bar(pct, null) + '</div>';
     }).join('');
+    return card('<div class="styles-title">Projetos nesta sessão (5h)</div>' + rows);
+  }
+
+  // Aba Config: form de settings + comandos + link.
+  function configTab(settings) {
+    settings = settings || {};
+    var html = '';
+    SETTINGS_SCHEMA.forEach(function(sec){
+      html += '<div class="cfg-section-title">' + sec.section + '</div>';
+      sec.items.forEach(function(it){
+        const val = settings[it.key];
+        var ctrl = '';
+        if (it.type === 'bool') {
+          ctrl = '<input type="checkbox" data-key="' + it.key + '"' + (val ? ' checked' : '') + '>';
+        } else if (it.type === 'number') {
+          ctrl = '<input type="number" data-key="' + it.key + '" value="' + esc(val) + '">';
+        } else if (it.type === 'enum') {
+          ctrl = '<select data-key="' + it.key + '">' + it.options.map(function(o){
+            return '<option value="' + o + '"' + (o === val ? ' selected' : '') + '>' + o + '</option>';
+          }).join('') + '</select>';
+        } else if (it.type === 'color') {
+          const hex = (typeof val === 'string' && /^#[0-9a-fA-F]{6}$/.test(val)) ? val : '#4caf78';
+          ctrl = '<input type="color" data-key="' + it.key + '" value="' + hex + '">';
+        } else { // string
+          ctrl = '<input type="text" data-key="' + it.key + '" value="' + esc(val) + '">';
+        }
+        html += '<div class="cfg-row"><span class="cfg-label">' + it.label + '</span><span class="cfg-ctrl">' + ctrl + '</span></div>';
+      });
+    });
+    // Comandos + link
+    const cmds = '<div class="cfg-section-title">Comandos</div><div class="cmd-btns">' +
+      '<button class="sbtn" data-cmd="claudeUsageBar.refresh">↻ Atualizar</button>' +
+      '<button class="sbtn" data-cmd="claudeUsageBar.openState">Arquivo de estado</button>' +
+      '<button class="sbtn" data-cmd="claudeUsageBar.cycleStyle">Alternar estilo</button>' +
+      '<button class="sbtn" data-cmd="claudeUsageBar.toggleAlert">Liga/desliga alerta</button>' +
+      '</div>' +
+      '<button class="link-btn" id="openSettings">Abrir settings.json (claudeUsageBar) →</button>';
+    return card(html + cmds, 'controls');
+  }
+
+  function tabsBar() {
+    const tabs = [['sessao','Sessão'],['historico','Histórico'],['config','Config']];
+    return '<div class="tabs">' + tabs.map(function(t){
+      return '<button class="tab' + (t[0]===activeTab?' active':'') + '" data-tab="' + t[0] + '">' + t[1] + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function render(d) {
+    if (!d) { d = lastData; if (!d) return; }
+    lastData = d;
+    if (d.barStyle) curStyle = d.barStyle;
+    if (d.updatedAtMs) updatedAtMs = d.updatedAtMs;
+    const ringOverride = d.ringColorOverride || null;
+
     const header =
       '<div class="header"><span class="title">Claude Usage</span>' +
       '<div class="header-right">' +
       '<span id="lastUpd" class="last-upd"></span>' +
       '<button id="refreshBtn" class="refresh" title="Atualizar"><span class="ic">↻</span> Atualizar</button>' +
       '</div></div>';
+
+    // Alerta sempre visível (qualquer aba), pois é importante.
     let alertHtml = '';
     if (d.alert) {
       const extra = (d.alert.reasons || []).slice(1)
-        .map(function(r){ return '<div class="alert-reason">· ' + r + '</div>'; }).join('');
+        .map(function(r){ return '<div class="alert-reason">· ' + esc(r) + '</div>'; }).join('');
       const sev = d.alert.severity === 'err' ? '' : ' warn';
-      alertHtml = '<div class="alert' + sev + '"><div class="alert-title">⚠ ' + d.alert.message + '</div>' + extra + '</div>';
+      alertHtml = '<div class="alert' + sev + '"><div class="alert-title">⚠ ' + esc(d.alert.message) + '</div>' + extra + '</div>';
     }
-    const alertEnabled = d.alertEnabled !== false;
-    const burnHelp =
-      'Burn rate = seu ritmo de consumo. O alerta avisa quando, mantido o ritmo ' +
-      'atual, a projeção indica que você vai estourar um limite (cota da sessão, ' +
-      '$/h ou teto de tokens) ANTES do reset.';
-    const toggleHtml =
-      '<div class="toggle-row">' +
-      '<span class="toggle-label">Alerta de burn rate ' +
-      '<span class="help" title="' + burnHelp + '">ⓘ</span></span>' +
-      '<button id="alertToggle" class="toggle ' + (alertEnabled ? 'on' : 'off') +
-      '" title="' + burnHelp + '">' +
-      (alertEnabled ? '🔔 Ligado' : '🔕 Desligado') + '</button></div>';
-    // Cada seção num card próprio, para separação visual clara.
-    const card = (inner, cls) =>
-      '<div class="card' + (cls ? ' ' + cls : '') + '">' + inner + '</div>';
-    const sessionCard = card(
-      '<div class="ring-wrap">' +
+
+    let body = '';
+    if (activeTab === 'sessao') {
+      const rows = (d.rows || []).map(function(row) {
+        const pct = row.pct == null ? null : Math.max(0, Math.min(100, row.pct));
+        return '<div class="row"><div class="row-head"><span class="row-label">' + esc(row.label) +
+          '</span><span class="row-val">' + esc(row.value) + '</span></div>' + bar(pct, ringOverride) + '</div>';
+      }).join('');
+      body = card('<div class="ring-wrap">' +
         ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub, ringOverride) +
-        '</div>' + rows
-    );
-    const sparkHtml = sparkline(d.daily);
-    const historyCard = sparkHtml ? card(sparkHtml) : '';
-    // Estilo e alerta em cards separados.
-    const styleCard = card(styleButtons(), 'controls');
-    const alertCard = card(toggleHtml, 'controls');
+        '</div>' + rows);
+    } else if (activeTab === 'historico') {
+      const sparkHtml = sparkline(d.daily);
+      body = (sparkHtml ? card(sparkHtml) : '') + projectsCard(d.projects);
+      if (!body) body = '<div class="empty">Sem histórico ainda.</div>';
+    } else if (activeTab === 'config') {
+      const alertEnabled = d.alertEnabled !== false;
+      const styleCard = card(styleButtons());
+      const toggle = card(
+        '<div class="toggle-row"><span class="toggle-label">Alerta de burn rate</span>' +
+        '<button id="alertToggle" class="toggle ' + (alertEnabled ? 'on' : 'off') + '">' +
+        (alertEnabled ? '🔔 Ligado' : '🔕 Desligado') + '</button></div>', 'controls');
+      body = styleCard + toggle + configTab(d.settings);
+    }
+
     document.getElementById('app').innerHTML =
-      header +
-      alertHtml +
-      sessionCard +
-      historyCard +
-      styleCard +
-      alertCard +
-      '<div class="footer">' + (d.footer || '') + '</div>';
-    if (d.updatedAtMs) updatedAtMs = d.updatedAtMs;
+      header + alertHtml + tabsBar() + body +
+      '<div class="footer">' + esc(d.footer || '') + '</div>';
     tickLastUpd();
-    document.querySelectorAll('.sbtn').forEach(function(b){
+    wireEvents();
+  }
+
+  // (Re)liga todos os event listeners após cada render.
+  function wireEvents() {
+    document.querySelectorAll('.tab').forEach(function(t){
+      t.addEventListener('click', function(){
+        activeTab = t.getAttribute('data-tab');
+        if (vscode.setState) vscode.setState({ activeTab: activeTab });
+        render(lastData);
+      });
+    });
+    document.querySelectorAll('.sbtn[data-style]').forEach(function(b){
       b.addEventListener('click', function(){
         curStyle = b.getAttribute('data-style');
         vscode.postMessage({ type: 'setStyle', style: curStyle });
-        document.querySelectorAll('.sbtn').forEach(function(x){ x.classList.remove('active'); });
+        document.querySelectorAll('.sbtn[data-style]').forEach(function(x){ x.classList.remove('active'); });
         b.classList.add('active');
       });
     });
+    document.querySelectorAll('.sbtn[data-cmd]').forEach(function(b){
+      b.addEventListener('click', function(){
+        vscode.postMessage({ type: 'runCommand', command: b.getAttribute('data-cmd') });
+      });
+    });
+    const os = document.getElementById('openSettings');
+    if (os) os.addEventListener('click', function(){ vscode.postMessage({ type: 'openSettings' }); });
+    // controles de config
+    document.querySelectorAll('[data-key]').forEach(function(el){
+      const ev = (el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'color') ? 'change' : 'change';
+      el.addEventListener(ev, function(){
+        const key = el.getAttribute('data-key');
+        let value;
+        if (el.type === 'checkbox') value = el.checked;
+        else if (el.type === 'number') value = el.value === '' ? 0 : Number(el.value);
+        else value = el.value;
+        vscode.postMessage({ type: 'setConfig', key: key, value: value });
+      });
+    });
     const rb = document.getElementById('refreshBtn');
-    if (rb) {
-      rb.addEventListener('click', function(){
-        rb.classList.add('spinning');
-        setTimeout(function(){ rb.classList.remove('spinning'); }, 600);
-        // feedback imediato no texto (pisca verde "atualizando…")
-        var lu = document.getElementById('lastUpd');
-        if (lu) { lu.textContent = 'atualizando…'; lu.classList.add('flash');
-          setTimeout(function(){ lu.classList.remove('flash'); }, 1200); }
-        vscode.postMessage({ type: 'refresh' });
-      });
-    }
+    if (rb) rb.addEventListener('click', function(){
+      rb.classList.add('spinning');
+      setTimeout(function(){ rb.classList.remove('spinning'); }, 600);
+      var lu = document.getElementById('lastUpd');
+      if (lu) { lu.textContent = 'atualizando…'; lu.classList.add('flash');
+        setTimeout(function(){ lu.classList.remove('flash'); }, 1200); }
+      vscode.postMessage({ type: 'refresh' });
+    });
     const at = document.getElementById('alertToggle');
-    if (at) {
-      at.addEventListener('click', function(){
-        // feedback otimista imediato (o estado real volta no próximo render)
-        var on = at.classList.contains('on');
-        at.classList.toggle('on', !on);
-        at.classList.toggle('off', on);
-        at.textContent = on ? '🔕 Desligado' : '🔔 Ligado';
-        vscode.postMessage({ type: 'toggleAlert' });
-      });
-    }
+    if (at) at.addEventListener('click', function(){
+      var on = at.classList.contains('on');
+      at.classList.toggle('on', !on); at.classList.toggle('off', on);
+      at.textContent = on ? '🔕 Desligado' : '🔔 Ligado';
+      vscode.postMessage({ type: 'toggleAlert' });
+    });
   }
+
   window.addEventListener('message', function(e) {
     const m = e.data;
     if (m && m.type === 'data') {
-      if (m.barStyle) curStyle = m.barStyle;
+      if (m.barStyle) m.data.barStyle = m.barStyle;
       render(m.data);
     }
   });
@@ -343,6 +497,12 @@ function wireMessages(
   webview: vscode.Webview,
   onReady: () => void
 ): vscode.Disposable {
+  const ALLOWED_CMDS = new Set([
+    "claudeUsageBar.refresh",
+    "claudeUsageBar.openState",
+    "claudeUsageBar.cycleStyle",
+    "claudeUsageBar.toggleAlert",
+  ]);
   return webview.onDidReceiveMessage((msg) => {
     if (msg?.type === "setStyle" && typeof msg.style === "string") {
       vscode.commands.executeCommand("claudeUsageBar.setStyle", msg.style);
@@ -350,6 +510,18 @@ function wireMessages(
       vscode.commands.executeCommand("claudeUsageBar.refresh");
     } else if (msg?.type === "toggleAlert") {
       vscode.commands.executeCommand("claudeUsageBar.toggleAlert");
+    } else if (msg?.type === "runCommand" && ALLOWED_CMDS.has(msg.command)) {
+      vscode.commands.executeCommand(msg.command);
+    } else if (msg?.type === "setConfig" && typeof msg.key === "string") {
+      // Grava o setting alterado pela aba Config.
+      vscode.workspace
+        .getConfiguration("claudeUsageBar")
+        .update(msg.key, msg.value, vscode.ConfigurationTarget.Global);
+    } else if (msg?.type === "openSettings") {
+      vscode.commands.executeCommand(
+        "workbench.action.openSettings",
+        "claudeUsageBar"
+      );
     } else if (msg?.type === "ready") {
       onReady();
     }

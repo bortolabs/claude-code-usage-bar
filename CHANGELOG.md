@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.19.1
+
+- **Fix: falso "sessão de 5h encerrada".** O resumo de bloco (#9) disparava ao clicar em
+  Atualizar, mesmo sem a janela ter resetado. Causa: o `resets_at` do oauth varia alguns
+  ms a cada chamada, e a comparação era por igualdade exata. Agora só conta como janela
+  nova quando o reset salta ≥ 1h (um bloco de 5h novo reseta ~5h à frente); o drift de ms
+  é absorvido sem notificar.
+
+## 0.19.0
+
+- **Painel reorganizado em abas: Sessão · Histórico · Config.** A aba ativa persiste
+  entre recriações da view. O alerta de burn rate fica visível em qualquer aba.
+- **Breakdown por projeto (#4)** na aba Histórico: card "Projetos nesta sessão (5h)" com
+  os projetos que estão consumindo o bloco atual, com barras proporcionais. Calculado dos
+  transcripts (`~/.claude/projects`), filtrando pela janela de 5h real.
+- **Aba de Configurações visual:** edite todos os 24 settings por controles (toggles,
+  selects, números, cor), agrupados em seções (Aparência, Fonte, Conta, Alertas). Inclui
+  botões de comando (Atualizar, Arquivo de estado, Alternar estilo, Liga/desliga alerta)
+  e link para abrir o `settings.json` filtrado.
+
 ## 0.18.0
 
 - **Resumo ao fechar o bloco de 5h.** Quando a janela de 5h reseta, mostra uma notificação

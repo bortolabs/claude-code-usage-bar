@@ -13,6 +13,7 @@ import {
 import { evaluateAlerts, AlertResult } from "./alerts";
 import { readCurrentModel, prettyModel } from "./transcript";
 import { fetchOAuthUsage, OAuthUsageResult, OAuthUsage } from "./oauthUsage";
+import { readProjectBreakdown, ProjectUsage } from "./projectUsage";
 
 /** Forma do JSON gravado por statusline-command.sh (bridge). */
 interface RateWindow {
@@ -256,6 +257,8 @@ export function activate(context: vscode.ExtensionContext) {
   let currentModel: string | null = null;
   // Histórico diário (sparkline). Atualizado num intervalo mais folgado.
   let lastDaily: CcusageDaily[] = [];
+  // Breakdown por projeto do bloco de 5h atual (#4).
+  let lastProjects: ProjectUsage[] = [];
   let watcher: fs.FSWatcher | undefined;
   let debounce: NodeJS.Timeout | undefined;
   let tick: NodeJS.Timeout | undefined;
@@ -335,6 +338,20 @@ export function activate(context: vscode.ExtensionContext) {
     lastCcusage = await runCcusage(cmd);
     if (lastCcusage.available) {
       lastUpdateMs = Date.now();
+    }
+    // Breakdown por projeto (#4): janela = início do bloco de 5h atual.
+    // Prefere o início real do oauth (resetAt - 5h); senão o startMs do ccusage.
+    const o = oa();
+    const resetMs = o?.fiveHour?.resetsAt ?? null;
+    const windowStart = resetMs
+      ? resetMs - 5 * 3600 * 1000
+      : lastCcusage.available
+      ? lastCcusage.startMs
+      : Date.now() - 5 * 3600 * 1000;
+    try {
+      lastProjects = readProjectBreakdown(windowStart);
+    } catch {
+      lastProjects = [];
     }
     render();
   };
@@ -525,11 +542,16 @@ export function activate(context: vscode.ExtensionContext) {
     if (cfg().get<boolean>("blockSummaryEnabled") ?? true) {
       const windowKey = fiveHourResetMs ?? block?.endMs ?? 0;
       if (windowKey) {
+        // IMPORTANTE: o resets_at do oauth varia alguns ms a cada chamada dentro
+        // do MESMO bloco. Só consideramos "janela nova" quando o reset salta para
+        // bem depois do anterior (≥ 1h) — um bloco de 5h novo reseta ~5h à frente.
+        // Variação de ms/segundos é ruído da própria API e NÃO é reset.
+        const NEW_WINDOW_THRESHOLD_MS = 60 * 60 * 1000; // 1h
         if (curWindowResetMs === 0) {
           // primeira observação: começa a rastrear sem notificar
           curWindowResetMs = windowKey;
-        } else if (windowKey !== curWindowResetMs) {
-          // a janela virou → resume a anterior (se teve uso relevante)
+        } else if (windowKey - curWindowResetMs > NEW_WINDOW_THRESHOLD_MS) {
+          // a janela virou de verdade → resume a anterior (se teve uso relevante)
           if (curWindowPeakTokens > 0 || curWindowPeakPct > 0) {
             const partes: string[] = [];
             if (curWindowPeakPct > 0) {
@@ -550,6 +572,9 @@ export function activate(context: vscode.ExtensionContext) {
           curWindowPeakPct = 0;
           curWindowPeakTokens = 0;
           curWindowPeakCost = 0;
+        } else if (windowKey > curWindowResetMs) {
+          // mesma janela, só refresca o reset (absorve o drift de ms sem resetar)
+          curWindowResetMs = windowKey;
         }
         // acumula os picos da janela em curso
         curWindowPeakPct = Math.max(curWindowPeakPct, fiveHour ?? 0);
@@ -1050,11 +1075,35 @@ export function activate(context: vscode.ExtensionContext) {
         : null,
       alertEnabled: v.alertEnabled,
       daily,
+      projects: lastProjects.map((p) => ({
+        project: p.project,
+        tokens: p.tokens,
+      })),
+      settings: collectSettings(),
       updatedAtMs: lastUpdateMs || null,
       footer: `fonte: ${src}${
         v.state?.ts ? " · statusline " + fmtAgo(v.state.ts) : ""
       }`,
     };
+  };
+
+  // Coleta os valores atuais dos settings p/ preencher a aba Config.
+  const collectSettings = (): Record<string, unknown> => {
+    const keys = [
+      "ringTheme", "ringColor", "barStyle", "alignment", "priority",
+      "useOAuthUsage", "oauthRefreshSeconds", "ccusageCommand",
+      "ccusageRefreshSeconds", "stateFilePath", "staleAfterSeconds",
+      "accountType", "mode", "costCapUsd", "sessionTokenCap",
+      "intenseTokensPerMin", "burnRateAlertEnabled", "burnRateMaxPerHour",
+      "alertCooldownMinutes", "colorByProjection", "resetWarningMinutes",
+      "blockSummaryEnabled", "warnThreshold", "errorThreshold",
+    ];
+    const c = cfg();
+    const out: Record<string, unknown> = {};
+    for (const k of keys) {
+      out[k] = c.get(k);
+    }
+    return out;
   };
 
   const startWatch = () => {

@@ -125,10 +125,14 @@ Você escolhe como ver:
   - `bar` → `█░░░░ 6% · 4h42`
   - `number` → `6% · 4h42`
   - `icon` → ícone + número
-- **Ícone na Activity Bar** (lateral esquerda) — abre uma view dedicada com o painel
-  completo: anel SVG, barras, faixa de alerta e **botões para trocar o estilo da status
-  bar**, tudo ao vivo. Clicar no item da status bar (ou _Claude Usage: Abrir painel_)
-  revela essa view.
+- **Ícone na Activity Bar** (lateral esquerda) — abre o painel completo, organizado em
+  **3 abas** (a aba ativa é lembrada):
+  - **Sessão** — anel SVG + uso 5h/7d + tempo da sessão.
+  - **Histórico** — sparkline dos últimos dias + **breakdown por projeto** do bloco de 5h
+    ("Projetos nesta sessão"), mostrando quais projetos estão consumindo a janela atual.
+  - **Config** — edite todos os settings por controles visuais (toggles, selects, números,
+    cor), com botões de comando e link para o `settings.json`.
+  Clicar no item da status bar (ou _Claude Usage: Abrir painel_) revela essa view.
 
 ## Custo: assinatura vs API
 
