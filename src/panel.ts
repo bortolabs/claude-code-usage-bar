@@ -11,6 +11,13 @@ export interface PanelData {
   centerSub: string;
   /** Cor do anel: "ok" | "warn" | "err". */
   level: "ok" | "warn" | "err";
+  /**
+   * Cor (hex) a usar no anel/barras quando o nível NÃO for crítico (err),
+   * vinda do tema configurado (claude/mono/custom). `null` = usar o semáforo
+   * normal (cor por nível). No nível `err` esta cor é ignorada e usa-se sempre
+   * o vermelho (`--err`), para não perder o sinal de estouro.
+   */
+  ringColorOverride: string | null;
   rows: { label: string; value: string; pct: number | null }[];
   /** Faixa de alerta de burn rate (null = sem alerta). */
   alert: {
@@ -160,10 +167,14 @@ function panelHtml(): string {
   }
   setInterval(tickLastUpd, 1000);
 
-  function ringSvg(pct, level, centerLabel, centerSub) {
+  function ringSvg(pct, level, centerLabel, centerSub, colorOverride) {
     const r = 70, c = 2 * Math.PI * r, p = Math.max(0, Math.min(100, pct == null ? 0 : pct));
     const off = c * (1 - p / 100);
-    const col = colorVar[level] || colorVar.ok;
+    // Tema do anel: se há cor de override E o nível não é crítico, usa-a; senão
+    // mantém o semáforo (cor por nível). No 'err' sempre fica vermelho.
+    const col = (colorOverride && level !== 'err')
+      ? colorOverride
+      : (colorVar[level] || colorVar.ok);
     // Quebra o subtítulo no "·" em até 2 linhas pra não estourar sobre o anel.
     const subParts = String(centerSub || '').split('·').map(function(s){ return s.trim(); }).filter(Boolean);
     const subLines = subParts.length <= 1
@@ -218,11 +229,19 @@ function panelHtml(): string {
   }
   function render(d) {
     if (!d) return;
+    // Cor de override do tema (claude/mono/custom). null = semáforo normal.
+    const ringOverride = d.ringColorOverride || null;
     const rows = (d.rows || []).map(function(row) {
       const pct = row.pct == null ? null : Math.max(0, Math.min(100, row.pct));
       const lvl = pct == null ? 'ok' : pct >= 85 ? 'err' : pct >= 60 ? 'warn' : 'ok';
+      // Mesma regra do anel: override quando o nível da barra não é crítico;
+      // senão classe de semáforo (bg-ok/bg-warn/bg-err). No 'err' fica vermelho.
+      const useOverride = ringOverride && lvl !== 'err';
+      const fillCls = useOverride ? '' : ' bg-' + lvl;
+      const fillStyle = 'width:' + pct + '%' +
+        (useOverride ? ';background:' + ringOverride : '');
       const bar = pct == null ? '' :
-        '<div class="track"><div class="fill bg-' + lvl + '" style="width:' + pct + '%"></div></div>';
+        '<div class="track"><div class="fill' + fillCls + '" style="' + fillStyle + '"></div></div>';
       return '<div class="row"><div class="row-head"><span class="row-label">' + row.label +
         '</span><span class="row-val">' + row.value + '</span></div>' + bar + '</div>';
     }).join('');
@@ -256,7 +275,7 @@ function panelHtml(): string {
       '<div class="card' + (cls ? ' ' + cls : '') + '">' + inner + '</div>';
     const sessionCard = card(
       '<div class="ring-wrap">' +
-        ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub) +
+        ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub, ringOverride) +
         '</div>' + rows
     );
     const sparkHtml = sparkline(d.daily);

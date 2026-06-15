@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage Bar",
   "description": "Mostra o uso da sessão do Claude Code (limites 5h/7d, contexto e custo) na status bar do VSCode — um anel de progresso igual ao /usage.",
-  "version": "0.16.2",
+  "version": "0.18.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -228,6 +228,33 @@
           "default": 10,
           "minimum": 0,
           "markdownDescription": "Avisa quando faltar este tempo (minutos) para a **sessão de 5h resetar** — útil para emendar trabalho pesado logo após a janela nova. `0` desativa o aviso."
+        },
+        "claudeUsageBar.ringTheme": {
+          "type": "string",
+          "enum": [
+            "semaforo",
+            "claude",
+            "mono",
+            "custom"
+          ],
+          "enumDescriptions": [
+            "Semáforo (padrão): cor por nível — verde até o aviso, amarelo, vermelho no crítico.",
+            "Claude: laranja do Claude (#D97757) como cor única; ainda fica vermelho no nível crítico.",
+            "Mono: uma cor única definida em ringColor; ainda fica vermelho no nível crítico.",
+            "Custom: idem mono (alias) — usa a cor de ringColor; ainda fica vermelho no nível crítico."
+          ],
+          "default": "semaforo",
+          "markdownDescription": "Tema de cor do **anel e das barras** no painel. **semaforo** (padrão) mantém o comportamento atual (verde/amarelo/vermelho conforme o nível). **claude** usa o laranja do Claude (`#D97757`) como cor base. **mono**/**custom** usam a cor definida em `#claudeUsageBar.ringColor#`. Em todos os temas, o nível **crítico** (estouro) continua **vermelho** para não perder o sinal de alerta."
+        },
+        "claudeUsageBar.ringColor": {
+          "type": "string",
+          "default": "#4caf78",
+          "markdownDescription": "Cor (hex `#RRGGBB`) do anel/barras quando `#claudeUsageBar.ringTheme#` for **mono** ou **custom**. Ignorado nos demais temas. Se o valor não for um hex válido de 6 dígitos, é descartado (cai para o padrão) para não quebrar o desenho."
+        },
+        "claudeUsageBar.blockSummaryEnabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Ao **fechar uma sessão de 5h** (quando a janela reseta), mostra um resumo do que ela consumiu (cota, tokens e custo equivalente de pico)."
         }
       }
     }

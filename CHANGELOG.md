@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.18.0
+
+- **Resumo ao fechar o bloco de 5h.** Quando a janela de 5h reseta, mostra uma notificação
+  com o que a sessão consumiu (pico de cota, tokens e custo equivalente). Setting
+  `blockSummaryEnabled` (on por padrão).
+
+## 0.17.0
+
+- **Tema do anel configurável.** Novo setting `ringTheme`: `semaforo` (padrão, verde/amarelo/
+  vermelho), `claude` (laranja do Claude), `mono`/`custom` (cor própria via `ringColor`).
+  Em qualquer tema, o nível **crítico** continua **vermelho** para não perder o sinal de alerta.
+
 ## 0.16.2
 
 - **Linha "Uso de tokens da sessão"** agora mostra **% + tokens** (ex: "17% · 58.97M

@@ -28,13 +28,13 @@ Ideias de features para o Claude Code Usage Bar. Marcadas conforme o status.
 | "Atualizado há Xs" | Cronômetro vivo ao lado do botão Atualizar | 0.16 |
 | Subtítulo do anel em 2 linhas | "sessão 5h" / "reseta Xh" sem estourar sobre o anel | 0.16.1 |
 | Uso com "% · tokens" + card do alerta | 1ª barra mostra % e tokens; alerta em card próprio | 0.16.2 |
+| Tema do anel | Cor configurável: semáforo / claude (laranja) / mono / custom; crítico sempre vermelho | 0.17 |
+| Resumo ao fechar o bloco | Notifica o consumo (cota/tokens/custo) quando a sessão de 5h reseta | 0.18 |
 
 ## 💡 Próximas ideias
 
 | # | Feature | O que faz | Esforço | Viável? |
 | --- | --- | --- | --- | --- |
-| 9 | **Resumo ao fechar o bloco** | Quando um bloco de 5h fecha: "essa sessão usou 42M tokens / ~$32 equivalente" | Médio | ✅ `ccusage blocks` |
-| 5 | **Tema do anel** | Cor configurável (ex: laranja do Claude) em vez de verde/amarelo/vermelho | Baixo | ✅ |
 | 4 | **Breakdown por projeto** | Quais projetos/sessões consomem o bloco atual | Médio | ✅ `ccusage session` |
 | 10 | **Multi-conta / perfis** | Alternar entre contas (pessoal vs trabalho) | Alto | ⚠️ depende do setup |
 

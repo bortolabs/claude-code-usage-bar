@@ -267,6 +267,11 @@ export function activate(context: vscode.ExtensionContext) {
   let lastAlertAtMs = 0;
   // Aviso de fim de janela (#8): endMs do bloco já avisado (1x por janela).
   let resetWarnedEndMs = 0;
+  // Resumo ao fechar o bloco (#9): rastreia a janela atual e o pico de uso nela.
+  let curWindowResetMs = 0; // reset (epoch ms) da janela 5h atualmente em curso
+  let curWindowPeakPct = 0; // maior % de cota observado na janela atual
+  let curWindowPeakTokens = 0; // maior nº de tokens observado na janela atual
+  let curWindowPeakCost = 0; // maior custo equivalente observado na janela atual
 
   // View ancorada na Activity Bar (sidebar esquerda).
   const viewProvider = new UsageViewProvider();
@@ -417,6 +422,31 @@ export function activate(context: vscode.ExtensionContext) {
     return "subscription";
   };
 
+  // Hex válido de 6 dígitos (ex: #D97757). Usado para validar a cor do tema.
+  const HEX6 = /^#[0-9a-fA-F]{6}$/;
+  // Laranja oficial do Claude, usado no tema "claude".
+  const CLAUDE_ORANGE = "#D97757";
+
+  /**
+   * Resolve a cor de override do anel/barras a partir do tema configurado.
+   * Retorna `null` no tema "semaforo" (mantém o comportamento atual: cor por
+   * nível). Nos temas "claude"/"mono"/"custom" devolve a cor base — que o painel
+   * aplica apenas quando o nível NÃO é crítico (no `err` continua vermelho).
+   * Hex inválido em mono/custom é descartado (cai para `null`) p/ não quebrar o SVG.
+   */
+  const resolveRingColorOverride = (): string | null => {
+    const theme = (cfg().get<string>("ringTheme") ?? "semaforo").trim();
+    if (theme === "semaforo") {
+      return null;
+    }
+    if (theme === "claude") {
+      return CLAUDE_ORANGE;
+    }
+    // "mono" e "custom" (alias): cor definida pelo usuário, se for hex válido.
+    const color = (cfg().get<string>("ringColor") || "").trim();
+    return HEX6.test(color) ? color : null;
+  };
+
   const ctxPctOf = (s: UsageState | null): number | null => {
     if (!s) {
       return null;
@@ -489,6 +519,48 @@ export function activate(context: vscode.ExtensionContext) {
     const ctxPct = ctxPctOf(s);
     // Custo: prefere o do bloco ccusage (real do bloco de 5h); senão statusline.
     const cost = block?.costUSD ?? s?.cost_usd ?? 0;
+
+    // Resumo ao fechar o bloco (#9): quando a janela de 5h vira (reset mudou),
+    // notifica o que a janela anterior consumiu e reinicia o rastreio.
+    if (cfg().get<boolean>("blockSummaryEnabled") ?? true) {
+      const windowKey = fiveHourResetMs ?? block?.endMs ?? 0;
+      if (windowKey) {
+        if (curWindowResetMs === 0) {
+          // primeira observação: começa a rastrear sem notificar
+          curWindowResetMs = windowKey;
+        } else if (windowKey !== curWindowResetMs) {
+          // a janela virou → resume a anterior (se teve uso relevante)
+          if (curWindowPeakTokens > 0 || curWindowPeakPct > 0) {
+            const partes: string[] = [];
+            if (curWindowPeakPct > 0) {
+              partes.push(`${Math.round(curWindowPeakPct)}% da cota`);
+            }
+            if (curWindowPeakTokens > 0) {
+              partes.push(`${fmtTokens(curWindowPeakTokens)} tokens`);
+            }
+            if (curWindowPeakCost > 0) {
+              partes.push(`~${fmtUsd(curWindowPeakCost)} equiv.`);
+            }
+            vscode.window.showInformationMessage(
+              `Claude Usage — sessão de 5h encerrada: ${partes.join(" · ")}. Janela nova começou.`
+            );
+          }
+          // reinicia para a nova janela
+          curWindowResetMs = windowKey;
+          curWindowPeakPct = 0;
+          curWindowPeakTokens = 0;
+          curWindowPeakCost = 0;
+        }
+        // acumula os picos da janela em curso
+        curWindowPeakPct = Math.max(curWindowPeakPct, fiveHour ?? 0);
+        curWindowPeakTokens = Math.max(
+          curWindowPeakTokens,
+          block?.totalTokens ?? 0
+        );
+        curWindowPeakCost = Math.max(curWindowPeakCost, cost);
+      }
+    }
+
     // Em assinatura, o custo NÃO entra na cor (não é cobrança).
     const costPctForColor =
       !isSub && costCap > 0 ? Math.min(100, (cost / costCap) * 100) : 0;
@@ -960,6 +1032,8 @@ export function activate(context: vscode.ExtensionContext) {
       centerLabel: v.centerLabel,
       centerSub: v.centerSub,
       level: v.level,
+      // Cor do tema do anel/barras (claude/mono/custom); null = semáforo normal.
+      ringColorOverride: resolveRingColorOverride(),
       rows,
       alert: v.alert.active
         ? {
