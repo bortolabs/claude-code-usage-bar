@@ -198,6 +198,24 @@ function etaToLimitMin(
   return Math.max(0, Math.round(secsToFull / 60));
 }
 
+/**
+ * % de tempo decorrido da janela de 5h. Usa o reset REAL (oauth) como âncora:
+ * decorrido = 5h - tempo_restante. Cai no timePct do ccusage só se não houver
+ * reset do oauth. Evita a divergência logo após o reset (bloco fixo do ccusage).
+ */
+function sessionTimePct(
+  fiveHourResetMs: number | null,
+  block: CcusageData | null
+): number | null {
+  const WINDOW_MS = 5 * 3600 * 1000;
+  if (fiveHourResetMs) {
+    const remaining = fiveHourResetMs - Date.now();
+    const elapsed = WINDOW_MS - remaining;
+    return Math.max(0, Math.min(100, (elapsed / WINDOW_MS) * 100));
+  }
+  return block ? block.timePct : null;
+}
+
 function fmtAgo(ts: number | undefined): string {
   if (!ts) {
     return "—";
@@ -233,6 +251,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Uso REAL do plano (igual /usage), via endpoint OAuth — fonte primária.
   let lastOAuth: OAuthUsageResult | null = null;
   let lastOAuthOkMs = 0; // quando o oauth respondeu com sucesso pela última vez
+  let lastUpdateMs = 0; // última vez que QUALQUER fonte trouxe dados (p/ "atualizado há Xs")
   // Modelo atual em uso (lido do transcript; o ccusage mistura modelos do bloco).
   let currentModel: string | null = null;
   // Histórico diário (sparkline). Atualizado num intervalo mais folgado.
@@ -309,6 +328,9 @@ export function activate(context: vscode.ExtensionContext) {
       (cfg().get<string>("ccusageCommand") || "").trim() ||
       "npx -y ccusage@latest blocks --active --json";
     lastCcusage = await runCcusage(cmd);
+    if (lastCcusage.available) {
+      lastUpdateMs = Date.now();
+    }
     render();
   };
 
@@ -324,6 +346,7 @@ export function activate(context: vscode.ExtensionContext) {
       // Sucesso: guarda o resultado bom e o momento.
       lastOAuth = res;
       lastOAuthOkMs = Date.now();
+      lastUpdateMs = Date.now();
     }
     // Falha pontual: NÃO descarta o último resultado bom (evita o flicker
     // entre o layout oauth e o ccusage). Só expira após oauthStaleMs.
@@ -648,7 +671,10 @@ export function activate(context: vscode.ExtensionContext) {
     let level: "ok" | "warn" | "err" =
       effective >= err ? "err" : effective >= warn ? "warn" : "ok";
     if (alert.active) {
-      level = "err"; // alerta sempre pinta de vermelho
+      // Estouro JÁ consumado (uso atual crítico) = vermelho.
+      // Apenas PROJEÇÃO de estouro = amarelo (warning), menos agressivo.
+      const alreadyOver = Math.max(fiveHour ?? 0, sevenDay ?? 0) >= err;
+      level = alreadyOver ? "err" : "warn";
     }
     if (level === "err") {
       item.color = new vscode.ThemeColor("statusBarItem.errorForeground");
@@ -834,29 +860,30 @@ export function activate(context: vscode.ExtensionContext) {
     const rows: PanelData["rows"] = [];
     if (v.mode === "plan") {
       const s = v.state;
-      // Reset real (oauth) tem prioridade sobre o da statusline.
-      const reset5 = v.fiveHourResetMs
-        ? " · reseta em " + fmtDuration(v.fiveHourResetMs - Date.now())
-        : s?.five_hour?.resets_at
-        ? " · reseta " + fmtResetsAt(s.five_hour.resets_at)
-        : "";
+      // Reset real (oauth) tem prioridade sobre o da statusline (só p/ a 7d aqui;
+      // o reset da 5h já aparece no grifo).
       const reset7 = v.sevenDayResetMs
         ? " · reseta em " + fmtDuration(v.sevenDayResetMs - Date.now())
         : s?.seven_day?.resets_at
         ? " · reseta " + fmtResetsAt(s.seven_day.resets_at)
         : "";
-      // Anel/linha principal = COTA (uso real). Esta é a barra "de uso".
+      // Barra "de uso" = COTA real (mesmo % do anel/grifo). Mostra % + tokens.
+      // O reset não vai aqui — já aparece no grifo acima.
+      const usoPct = v.fiveHour != null ? `${Math.round(v.fiveHour)}%` : "—";
+      const usoTok = v.block ? ` · ${fmtTokens(v.block.totalTokens)} tokens` : "";
       rows.push({
-        label: `Sessão (5h)${reset5}`,
-        value: v.fiveHour != null ? `${Math.round(v.fiveHour)}%` : "—",
-        pct: v.fiveHour,
+        label: "Uso de tokens da sessão",
+        value: `${usoPct}${usoTok}`,
+        pct: v.fiveHour, // barra colore pela cota
       });
-      // Barra de TEMPO da sessão (a amarela que você quis manter), do ccusage.
-      if (v.block) {
+      // Barra de TEMPO da sessão: calculada pela janela REAL (reset do oauth),
+      // não pelo bloco fixo do ccusage — senão diverge logo após o reset.
+      const timePct = sessionTimePct(v.fiveHourResetMs, v.block);
+      if (timePct != null) {
         rows.push({
           label: "Tempo da sessão 5h",
-          value: `${Math.round(v.block.timePct)}% do tempo`,
-          pct: v.block.timePct,
+          value: `${Math.round(timePct)}% do tempo`,
+          pct: timePct,
         });
       }
       rows.push({
@@ -935,10 +962,21 @@ export function activate(context: vscode.ExtensionContext) {
       level: v.level,
       rows,
       alert: v.alert.active
-        ? { message: v.alert.message, reasons: v.alert.reasons }
+        ? {
+            message: v.alert.message,
+            reasons: v.alert.reasons,
+            // Projeção = warning (amarelo); estouro já consumado = erro (vermelho).
+            severity: (
+              Math.max(v.fiveHour ?? 0, v.sevenDay ?? 0) >=
+              (cfg().get<number>("errorThreshold") ?? 85)
+            )
+              ? ("err" as const)
+              : ("warn" as const),
+          }
         : null,
       alertEnabled: v.alertEnabled,
       daily,
+      updatedAtMs: lastUpdateMs || null,
       footer: `fonte: ${src}${
         v.state?.ts ? " · statusline " + fmtAgo(v.state.ts) : ""
       }`,

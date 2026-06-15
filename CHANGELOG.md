@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.16.2
+
+- **Linha "Uso de tokens da sessão"** agora mostra **% + tokens** (ex: "17% · 58.97M
+  tokens") — coerente com a barra/grifo — e deixou de repetir o "reseta em Xh" (que já
+  está no grifo).
+- **Alerta de burn rate em card próprio**, separado do card de estilos da status bar.
+
+## 0.16.1
+
+- **Subtítulo do anel em duas linhas.** "sessão 5h · reseta 4h23" quebra no "·" para
+  "sessão 5h" / "reseta 4h23", evitando que o texto estoure e se sobreponha ao anel.
+
+## 0.16.0
+
+- **"Atualizado há Xs" ao lado do botão Atualizar**, com cronômetro vivo (incrementa
+  sozinho a cada 1s). Conta desde a última vez que os dados foram efetivamente buscados.
+  Ao clicar em Atualizar, mostra "atualizando…" em verde como feedback imediato.
+
+## 0.15.1
+
+- **Alerta de projeção em amarelo, não vermelho.** Quando o alerta é só uma *projeção*
+  de estouro (uso atual ainda baixo), o indicador e a faixa do painel ficam **amarelos**
+  (warning). O vermelho fica reservado para estouro já consumado (uso ≥ limite de erro).
+- **Tooltip explicando "burn rate"** no toggle de Ligar/Desligar (ícone ⓘ + hover).
+
+## 0.15.0
+
+- **Tempo da sessão agora usa a janela REAL** (reset do `oauth/usage`), não o bloco fixo
+  por relógio do ccusage. Logo após um reset, "Tempo da sessão 5h" mostra ~0% (antes podia
+  mostrar 10%+ porque o bloco do ccusage começa na hora cheia).
+- **1ª barra deixou de ser redundante**: agora mostra "Uso de tokens da sessão · X tokens"
+  (o % da cota já está no anel/grifo logo acima).
+- **Layout em cards**: sessão, histórico e controles ficam em cards separados — o "Alerta
+  de burn rate" não fica mais grudado nos botões de estilo.
+
 ## 0.14.2
 
 - **Fix: o painel piscava entre o layout novo (oauth/cota real) e o antigo (ccusage).**

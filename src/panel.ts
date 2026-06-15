@@ -13,9 +13,15 @@ export interface PanelData {
   level: "ok" | "warn" | "err";
   rows: { label: string; value: string; pct: number | null }[];
   /** Faixa de alerta de burn rate (null = sem alerta). */
-  alert: { message: string; reasons: string[] } | null;
+  alert: {
+    message: string;
+    reasons: string[];
+    severity: "warn" | "err";
+  } | null;
   /** Estado do alerta de burn rate (para o toggle do painel). */
   alertEnabled: boolean;
+  /** Epoch ms da última atualização efetiva (para "atualizado há Xs"). */
+  updatedAtMs: number | null;
   /** Histórico de uso dos últimos dias para o sparkline (pode ser vazio). */
   daily: { date: string; tokens: number }[];
   footer: string;
@@ -76,8 +82,11 @@ function panelHtml(): string {
   .sbtn:hover { background: var(--vscode-button-secondaryHoverBackground, #3c3c3c); }
   .sbtn.active { border-color: var(--ok); color: var(--vscode-foreground); }
   hr { border: none; border-top: 1px solid var(--track); margin: 14px 0; }
-  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; gap: 8px; }
+  .header-right { display: flex; align-items: center; gap: 8px; }
   .title { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--vscode-descriptionForeground); }
+  .last-upd { font-size: 10.5px; color: var(--vscode-descriptionForeground); white-space: nowrap; opacity: .8; }
+  .last-upd.flash { color: var(--ok); opacity: 1; }
   .refresh {
     display: inline-flex; align-items: center; gap: 5px;
     font-family: var(--vscode-font-family); font-size: 12px;
@@ -94,10 +103,27 @@ function panelHtml(): string {
     border: 1px solid var(--err);
     border-radius: 8px; padding: 9px 11px; margin-bottom: 14px;
   }
+  .alert.warn { background: color-mix(in srgb, var(--warn) 16%, transparent); border-color: var(--warn); }
   .alert-title { font-size: 12.5px; font-weight: 600; color: var(--err); margin-bottom: 2px; }
+  .alert.warn .alert-title { color: var(--warn); }
   .alert-reason { font-size: 11.5px; color: var(--vscode-foreground); opacity: .85; }
+  /* Cards de separação por seção. */
+  .card {
+    background: var(--vscode-editorWidget-background, rgba(255,255,255,0.03));
+    border: 1px solid var(--vscode-editorWidget-border, rgba(255,255,255,0.07));
+    border-radius: 10px;
+    padding: 12px 12px 6px;
+    margin-bottom: 12px;
+  }
+  .card.controls { padding-bottom: 12px; }
+  .card .row:first-child { margin-top: 0; }
+  .card .spark { margin: 2px 0; }
+  .card .styles { margin: 0; }
+  .card.controls .toggle-row { margin: 0; }
   .toggle-row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 2px; }
   .toggle-label { font-size: 12px; color: var(--vscode-descriptionForeground); }
+  .help { cursor: help; opacity: .6; font-size: 11px; }
+  .help:hover { opacity: 1; }
   .toggle {
     font-family: var(--vscode-font-family); font-size: 12px;
     padding: 4px 10px; border-radius: 6px; cursor: pointer; border: 1px solid transparent;
@@ -115,19 +141,45 @@ function panelHtml(): string {
   const vscode = acquireVsCodeApi();
   const colorVar = { ok: 'var(--ok)', warn: 'var(--warn)', err: 'var(--err)' };
   let curStyle = 'ring';
+  let updatedAtMs = null; // última atualização efetiva (epoch ms)
+
+  // "há Xs / Xmin / Xh" a partir de um epoch ms.
+  function fmtSince(ms) {
+    if (!ms) return '';
+    var s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+    if (s < 60) return 'há ' + s + 's';
+    var m = Math.round(s / 60);
+    if (m < 60) return 'há ' + m + 'min';
+    var h = Math.round(m / 60);
+    return 'há ' + h + 'h';
+  }
+  // Atualiza só o texto do "atualizado há Xs" (chamado a cada 1s).
+  function tickLastUpd() {
+    var el = document.getElementById('lastUpd');
+    if (el) el.textContent = updatedAtMs ? 'atualizado ' + fmtSince(updatedAtMs) : '';
+  }
+  setInterval(tickLastUpd, 1000);
 
   function ringSvg(pct, level, centerLabel, centerSub) {
     const r = 70, c = 2 * Math.PI * r, p = Math.max(0, Math.min(100, pct == null ? 0 : pct));
     const off = c * (1 - p / 100);
     const col = colorVar[level] || colorVar.ok;
+    // Quebra o subtítulo no "·" em até 2 linhas pra não estourar sobre o anel.
+    const subParts = String(centerSub || '').split('·').map(function(s){ return s.trim(); }).filter(Boolean);
+    const subLines = subParts.length <= 1
+      ? '<text x="90" y="106" text-anchor="middle" class="center-sub">' + (subParts[0] || '') + '</text>'
+      : '<text x="90" y="104" text-anchor="middle" class="center-sub">' + subParts[0] +
+        '</text><text x="90" y="118" text-anchor="middle" class="center-sub">' + subParts.slice(1).join(' · ') + '</text>';
+    // Com 2 linhas, sobe um pouco o número pra centralizar o conjunto.
+    const numY = subParts.length <= 1 ? 86 : 82;
     return \`
     <svg viewBox="0 0 180 180" style="width:min(180px,70%);height:auto">
       <circle cx="90" cy="90" r="\${r}" fill="none" stroke="var(--track)" stroke-width="14"/>
       <circle cx="90" cy="90" r="\${r}" fill="none" stroke="\${col}" stroke-width="14"
         stroke-linecap="round" stroke-dasharray="\${c}" stroke-dashoffset="\${off}"
         transform="rotate(-90 90 90)" style="transition: stroke-dashoffset .4s ease"/>
-      <text x="90" y="88" text-anchor="middle" class="center-num" fill="var(--vscode-foreground)">\${centerLabel}</text>
-      <text x="90" y="108" text-anchor="middle" class="center-sub">\${centerSub}</text>
+      <text x="90" y="\${numY}" text-anchor="middle" class="center-num" fill="var(--vscode-foreground)">\${centerLabel}</text>
+      \${subLines}
     </svg>\`;
   }
   function styleButtons() {
@@ -176,23 +228,52 @@ function panelHtml(): string {
     }).join('');
     const header =
       '<div class="header"><span class="title">Claude Usage</span>' +
-      '<button id="refreshBtn" class="refresh" title="Atualizar"><span class="ic">↻</span> Atualizar</button></div>';
+      '<div class="header-right">' +
+      '<span id="lastUpd" class="last-upd"></span>' +
+      '<button id="refreshBtn" class="refresh" title="Atualizar"><span class="ic">↻</span> Atualizar</button>' +
+      '</div></div>';
     let alertHtml = '';
     if (d.alert) {
       const extra = (d.alert.reasons || []).slice(1)
         .map(function(r){ return '<div class="alert-reason">· ' + r + '</div>'; }).join('');
-      alertHtml = '<div class="alert"><div class="alert-title">⚠ ' + d.alert.message + '</div>' + extra + '</div>';
+      const sev = d.alert.severity === 'err' ? '' : ' warn';
+      alertHtml = '<div class="alert' + sev + '"><div class="alert-title">⚠ ' + d.alert.message + '</div>' + extra + '</div>';
     }
     const alertEnabled = d.alertEnabled !== false;
+    const burnHelp =
+      'Burn rate = seu ritmo de consumo. O alerta avisa quando, mantido o ritmo ' +
+      'atual, a projeção indica que você vai estourar um limite (cota da sessão, ' +
+      '$/h ou teto de tokens) ANTES do reset.';
     const toggleHtml =
-      '<div class="toggle-row"><span class="toggle-label">Alerta de burn rate</span>' +
-      '<button id="alertToggle" class="toggle ' + (alertEnabled ? 'on' : 'off') + '">' +
+      '<div class="toggle-row">' +
+      '<span class="toggle-label">Alerta de burn rate ' +
+      '<span class="help" title="' + burnHelp + '">ⓘ</span></span>' +
+      '<button id="alertToggle" class="toggle ' + (alertEnabled ? 'on' : 'off') +
+      '" title="' + burnHelp + '">' +
       (alertEnabled ? '🔔 Ligado' : '🔕 Desligado') + '</button></div>';
+    // Cada seção num card próprio, para separação visual clara.
+    const card = (inner, cls) =>
+      '<div class="card' + (cls ? ' ' + cls : '') + '">' + inner + '</div>';
+    const sessionCard = card(
+      '<div class="ring-wrap">' +
+        ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub) +
+        '</div>' + rows
+    );
+    const sparkHtml = sparkline(d.daily);
+    const historyCard = sparkHtml ? card(sparkHtml) : '';
+    // Estilo e alerta em cards separados.
+    const styleCard = card(styleButtons(), 'controls');
+    const alertCard = card(toggleHtml, 'controls');
     document.getElementById('app').innerHTML =
-      header + alertHtml +
-      '<div class="ring-wrap">' + ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub) + '</div>' +
-      rows + sparkline(d.daily) + '<hr>' + styleButtons() + toggleHtml +
+      header +
+      alertHtml +
+      sessionCard +
+      historyCard +
+      styleCard +
+      alertCard +
       '<div class="footer">' + (d.footer || '') + '</div>';
+    if (d.updatedAtMs) updatedAtMs = d.updatedAtMs;
+    tickLastUpd();
     document.querySelectorAll('.sbtn').forEach(function(b){
       b.addEventListener('click', function(){
         curStyle = b.getAttribute('data-style');
@@ -206,6 +287,10 @@ function panelHtml(): string {
       rb.addEventListener('click', function(){
         rb.classList.add('spinning');
         setTimeout(function(){ rb.classList.remove('spinning'); }, 600);
+        // feedback imediato no texto (pisca verde "atualizando…")
+        var lu = document.getElementById('lastUpd');
+        if (lu) { lu.textContent = 'atualizando…'; lu.classList.add('flash');
+          setTimeout(function(){ lu.classList.remove('flash'); }, 1200); }
         vscode.postMessage({ type: 'refresh' });
       });
     }
