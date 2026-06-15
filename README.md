@@ -4,43 +4,41 @@ Um indicador na **status bar do VSCode** que dá feedback visual constante do us
 do [Claude Code](https://claude.com/claude-code) — um anel de progresso + número, sem você
 precisar parar pra rodar `/usage`.
 
-Funciona para **todos os tipos de conta** e em **qualquer ambiente**, adaptando a fonte:
+Mostra a **cota real da sessão** — o mesmo número do `/usage` — em **qualquer ambiente**
+(app, IDE ou terminal). O anel é o uso da sessão de 5h; a barra de tempo mostra quanto da
+janela já passou.
 
-| Situação | O que mostra | Exemplo |
-| --- | --- | --- |
-| **App / IDE** (qualquer conta) | Sessão de **5h** via ccusage: % de tempo decorrido + tempo até resetar | `◑ 6% · 4h42` |
-| **Terminal** (assinante Pro/Max) | Limite real do plano: janela **5h** + tempo até resetar (igual ao `/usage`) | `◕ 63% · 40m` |
+| No anel | Exemplo |
+| --- | --- |
+| **% de uso da sessão de 5h** (igual ao `/usage`) + tempo até resetar | `◕ 17% · reseta 4h20` |
 
-A fonte é escolhida automaticamente: se a statusline do terminal tem dados frescos com os
-limites do plano, usa eles; senão, usa o ccusage (sempre disponível).
-
-Passe o mouse para ver o breakdown completo: limites 5h/7d (ou custo vs teto), uso da janela
-de contexto, tokens da última chamada, custo, modelo e sessão.
+Passe o mouse para ver o resumo; clique para abrir o painel com o breakdown completo
+(uso 5h/7d, tempo da sessão, custo equivalente, tokens, modelo, histórico).
 
 ## Como funciona
 
-A extensão tem **duas fontes**, e usa a melhor disponível:
+A extensão usa, em ordem de prioridade, a melhor fonte disponível:
 
-1. **ccusage** (sempre disponível) — calcula a **sessão de 5h** a partir dos transcripts
-   do Claude Code (`ccusage blocks --active`). Dá o **% de tempo decorrido da sessão**,
-   o **tempo até resetar** e o **custo real** do bloco. Funciona em qualquer ambiente
-   (app, IDE ou terminal). Requer `npx`/`ccusage` disponível.
-2. **statusline** (só no terminal/TUI) — quando você roda o Claude Code no terminal, a
-   statusline expõe os **limites reais do plano** (`rate_limits.five_hour/seven_day`,
-   os mesmos do `/usage`). Quando esse dado está fresco, ele tem prioridade.
+1. **`api/oauth/usage`** (fonte primária) — o **mesmo endpoint que o `/usage` consulta**.
+   Dá a **cota real** da sessão de 5h e da semana (7d), com o `resets_at` oficial. Lê o
+   token OAuth localmente (env `CLAUDE_CODE_OAUTH_TOKEN`, ou `~/.claude/.credentials.json`,
+   ou Keychain no macOS) e chama o endpoint — o token só vai para `api.anthropic.com`.
+2. **statusline** (`~/.claude/usage-state.json`) — quando você roda o Claude Code no
+   terminal/TUI, ela expõe os mesmos limites; usada se o oauth não estiver disponível.
+3. **ccusage** (`ccusage blocks --active`) — deriva a sessão de 5h dos transcripts; usada
+   para a **barra de tempo** e como fallback do uso. Requer `npx`/`ccusage`.
 
 ```
-   transcripts (.jsonl)            statusline (só no terminal TUI)
-        │ ccusage blocks                  │ grava ~/.claude/usage-state.json
-        ▼                                 ▼
-        └──────────►  Claude Code Usage Bar (VSCode)  ◄──────────┘
-                 (prefere statusline fresca; senão ccusage)
+   api/oauth/usage          statusline (terminal)        transcripts (.jsonl)
+   (cota real 5h/7d)        ~/.claude/usage-state.json   ccusage blocks (tempo/fallback)
+        │                          │                            │
+        └──────────────►  Claude Code Usage Bar (VSCode)  ◄─────┘
+                 (oauth > statusline > ccusage)
 ```
 
-> **Por que duas fontes?** Os limites 5h/7d que o `/usage` mostra só existem nos headers
-> HTTP da resposta da API e só são expostos pela **statusline — que só roda no terminal**.
-> No app/IDE a statusline não dispara por turno, então a sessão de 5h é derivada dos
-> transcripts pelo ccusage, garantindo feedback constante em qualquer lugar.
+> O **anel** mostra a cota real (oauth); a **barra de tempo** vem do ccusage (janela real
+> ancorada no reset do oauth). Em **assinatura**, o custo em `$` é só "equivalente API"
+> (referência), não cobrança — veja a seção de custo abaixo.
 
 ## Instalação
 
@@ -170,6 +168,8 @@ bar, e uma faixa no topo do painel. Desligue com `burnRateAlertEnabled: false`.
 | --- | --- | --- |
 | `claudeUsageBar.ccusageCommand` | `npx -y ccusage@latest blocks --active --json` | Comando do ccusage. Aponte p/ um binário global p/ evitar latência do npx. |
 | `claudeUsageBar.ccusageRefreshSeconds` | `60` | Frequência de atualização do ccusage. |
+| `claudeUsageBar.useOAuthUsage` | `true` | Usa `api/oauth/usage` (cota real, igual ao `/usage`) como fonte primária. |
+| `claudeUsageBar.oauthRefreshSeconds` | `60` | Frequência de consulta ao endpoint oauth/usage. |
 | `claudeUsageBar.accountType` | `auto` | `subscription` (custo = referência, sem teto/alerta) ou `api` (custo real). `auto` = assinatura. |
 | `claudeUsageBar.mode` | `auto` | `auto` decide a fonte; `subscriber` força limites 5h/7d; `cost` força custo. |
 | `claudeUsageBar.barStyle` | `ring` | Estilo na status bar: `ring`, `bar`, `number` ou `icon`. |
@@ -183,6 +183,9 @@ bar, e uma faixa no topo do painel. Desligue com `burnRateAlertEnabled: false`.
 | `claudeUsageBar.intenseTokensPerMin` | `50000` | Ritmo tokens/min = 100% na cor por projeção (assinatura no app). |
 | `claudeUsageBar.sessionTokenCap` | `0` | Teto de tokens por sessão de 5h (ex: `150000000`). Projeta o estouro de tokens no ritmo atual. `0` desativa. |
 | `claudeUsageBar.resetWarningMinutes` | `10` | Avisa quando faltar este tempo pro reset da sessão de 5h. `0` desativa. |
+| `claudeUsageBar.burnRateAlertEnabled` | `true` | Liga/desliga o alerta de burn rate (projeção de estouro). |
+| `claudeUsageBar.burnRateMaxPerHour` | `20` | Alerta de ritmo: `$/h` acima disso dispara (em assinatura, só se definido). |
+| `claudeUsageBar.alertCooldownMinutes` | `15` | Tempo mínimo entre notificações de alerta. |
 | `claudeUsageBar.staleAfterSeconds` | `900` | Janela em que o dado da statusline é considerado fresco. |
 
 ## Limitações

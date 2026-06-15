@@ -21,6 +21,13 @@ Ideias de features para o Claude Code Usage Bar. Marcadas conforme o status.
 | Estouro de tokens da sessão | Projeta tokens (ritmo × tempo) vs teto configurável; cor + alerta + ETA | 0.12 |
 | Tooltip do hover resumido | Popover enxuto (sessão 5h + reset, alerta se houver) com link pro painel | 0.13 |
 | Cota real via oauth/usage | Anel = cota real da sessão 5h (igual /usage) no app/IDE, via api/oauth/usage | 0.14 |
+| Cross-platform (Win/Linux/mac) | Token lido de env / .credentials.json / Keychain; HTTP via https nativo | 0.14.1 |
+| Tempo pela janela real | "Tempo da sessão 5h" calculado pelo reset do oauth (não pelo bloco fixo do ccusage) | 0.15 |
+| Layout em cards | Sessão, histórico e controles em cards separados | 0.15 |
+| Alerta de projeção em amarelo | Vermelho só p/ estouro consumado; projeção fica warning | 0.15.1 |
+| "Atualizado há Xs" | Cronômetro vivo ao lado do botão Atualizar | 0.16 |
+| Subtítulo do anel em 2 linhas | "sessão 5h" / "reseta Xh" sem estourar sobre o anel | 0.16.1 |
+| Uso com "% · tokens" + card do alerta | 1ª barra mostra % e tokens; alerta em card próprio | 0.16.2 |
 
 ## 💡 Próximas ideias
 
