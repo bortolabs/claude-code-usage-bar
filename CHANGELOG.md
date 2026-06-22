@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.21.1
+
+- **Screenshots na página do Marketplace + README.** Galeria com o painel (aba Sessão),
+  a aba Status (status.claude.com), a aba Config e o Histórico/projetos da sessão, para
+  o usuário ver a extensão antes de instalar. As imagens ficam em `media/screenshots/`
+  (servidas via URL do GitHub; ficam fora do `.vsix` para não pesar o pacote).
+- Bandeiras dos idiomas suportados na seção de idiomas do README.
+
 ## 0.21.0
 
 - **Suporte a múltiplos idiomas (i18n).** A extensão agora segue o idioma do VS Code.

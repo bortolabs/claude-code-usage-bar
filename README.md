@@ -10,8 +10,25 @@ precisar parar pra rodar `/usage`.
 **Instale:** no VSCode → Extensions → busque **"Claude Code Usage & Status"** → Install.
 Ou pela [página do Marketplace](https://marketplace.visualstudio.com/items?itemName=bortolabs.claude-code-usage-bar).
 
-**Idiomas / Languages:** a interface segue o idioma do VS Code — **Português** (base),
-**English, Español, Français, Deutsch**. Sem tradução para o idioma ativo, cai no português.
+**Idiomas / Languages:** a interface segue o idioma do VS Code —
+🇧🇷 **Português** (base), 🇺🇸 **English**, 🇪🇸 **Español**, 🇫🇷 **Français**, 🇩🇪 **Deutsch**.
+Sem tradução para o idioma ativo, cai no português.
+
+## Screenshots
+
+Painel na aba **Sessão** (anel + barras de uso) e a aba **Status** (status.claude.com):
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/01-painel-sessao.png" width="380" alt="Painel na aba Sessão: anel de progresso de 21%, barras de uso de tokens, tempo da sessão e semana, com alerta de projeção de burn rate">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/02-status.png" width="380" alt="Aba Status: Todos os sistemas operacionais, incidentes ativos, componentes e histórico recente do status.claude.com">
+</p>
+
+Configuração visual (aba **Config**) e **Histórico** com projetos da sessão:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/03-config.png" width="380" alt="Aba Config: estilo na status bar, aparência, fonte e atualização, conta e limites">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/04-historico.png" width="380" alt="Aba Histórico: sparkline dos últimos dias e barras de consumo por projeto na sessão de 5h">
+</p>
 
 Mostra a **cota real da sessão** — o mesmo número do `/usage` — em **qualquer ambiente**
 (app, IDE ou terminal). O anel é o uso da sessão de 5h; a barra de tempo mostra quanto da

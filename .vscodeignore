@@ -9,3 +9,4 @@ scripts/**
 node_modules/**
 ROADMAP.md
 **/.DS_Store
+media/screenshots/**
