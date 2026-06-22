@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.21.0
+
+- **Suporte a múltiplos idiomas (i18n).** A extensão agora segue o idioma do VS Code.
+  Além do **português** (base), foram adicionados **English, Español, Français e Deutsch**
+  — cobrindo a status bar, o tooltip, as notificações, todo o painel (abas, configurações,
+  status) e a tela de Configurações/Command Palette do VS Code.
+  - Infraestrutura padrão do VS Code: `vscode.l10n` para as strings de runtime (com bundles
+    em `l10n/bundle.l10n.<lang>.json`) e `package.nls.<lang>.json` para o manifesto.
+  - O painel (webview) recebe um dicionário já traduzido pelo host, mantendo uma única
+    fonte de tradução.
+  - **Escalável:** adicionar um novo idioma = adicionar dois arquivos JSON de tradução,
+    sem mexer no código. Quando não há tradução para o idioma do usuário, cai no português.
+
 ## 0.20.1
 
 - **Fix: aba Config "não salvava" as alterações.** As mudanças até eram gravadas

@@ -10,6 +10,9 @@ precisar parar pra rodar `/usage`.
 **Instale:** no VSCode → Extensions → busque **"Claude Code Usage & Status"** → Install.
 Ou pela [página do Marketplace](https://marketplace.visualstudio.com/items?itemName=bortolabs.claude-code-usage-bar).
 
+**Idiomas / Languages:** a interface segue o idioma do VS Code — **Português** (base),
+**English, Español, Français, Deutsch**. Sem tradução para o idioma ativo, cai no português.
+
 Mostra a **cota real da sessão** — o mesmo número do `/usage` — em **qualquer ambiente**
 (app, IDE ou terminal). O anel é o uso da sessão de 5h; a barra de tempo mostra quanto da
 janela já passou.
