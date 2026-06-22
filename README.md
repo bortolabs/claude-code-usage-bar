@@ -1,8 +1,14 @@
 # Claude Code Usage & Status
 
+[![Marketplace](https://img.shields.io/visual-studio-marketplace/v/bortolabs.claude-code-usage-bar?label=VS%20Code%20Marketplace&color=0066b8)](https://marketplace.visualstudio.com/items?itemName=bortolabs.claude-code-usage-bar)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/bortolabs.claude-code-usage-bar?color=4caf78)](https://marketplace.visualstudio.com/items?itemName=bortolabs.claude-code-usage-bar)
+
 Um indicador na **status bar do VSCode** que dá feedback visual constante do uso da sessão
 do [Claude Code](https://claude.com/claude-code) — um anel de progresso + número, sem você
 precisar parar pra rodar `/usage`.
+
+**Instale:** no VSCode → Extensions → busque **"Claude Code Usage & Status"** → Install.
+Ou pela [página do Marketplace](https://marketplace.visualstudio.com/items?itemName=bortolabs.claude-code-usage-bar).
 
 Mostra a **cota real da sessão** — o mesmo número do `/usage` — em **qualquer ambiente**
 (app, IDE ou terminal). O anel é o uso da sessão de 5h; a barra de tempo mostra quanto da
@@ -44,6 +50,9 @@ A extensão usa, em ordem de prioridade, a melhor fonte disponível:
 
 ### 1. A extensão
 
+- **Marketplace (recomendado):** no VSCode → `Extensions` → busque
+  **"Claude Code Usage & Status"** → `Install`. Ou pela
+  [página do Marketplace](https://marketplace.visualstudio.com/items?itemName=bortolabs.claude-code-usage-bar).
 - **Via VSIX:** baixe o `.vsix` em [Releases](https://github.com/bortolabs/claude-code-usage-bar/releases),
   então no VSCode: `Extensions` → menu `…` → `Install from VSIX…`.
 - **Do código:** `npm install && npm run compile`, depois abra a pasta e tecle `F5`
