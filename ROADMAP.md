@@ -1,6 +1,6 @@
 # Roadmap
 
-Ideias de features para o Claude Code Usage Bar. Marcadas conforme o status.
+Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status.
 
 ## ✅ Feito
 
@@ -33,6 +33,7 @@ Ideias de features para o Claude Code Usage Bar. Marcadas conforme o status.
 | Painel em abas | Sessão · Histórico · Config (aba ativa persiste) | 0.19 |
 | Breakdown por projeto (#4) | Card "Projetos nesta sessão (5h)" — uso por projeto, dos transcripts | 0.19 |
 | Aba de Configurações visual | Edita os 24 settings + botões de comando + link settings.json | 0.19 |
+| Aba Status + aviso de incidentes | status.claude.com: status geral, componentes, incidentes, histórico; badge + notificação | 0.20 |
 
 ## 💡 Próximas ideias
 

@@ -1,8 +1,8 @@
 {
   "name": "claude-code-usage-bar",
-  "displayName": "Claude Code Usage Bar",
-  "description": "Mostra o uso da sessão do Claude Code (limites 5h/7d, contexto e custo) na status bar do VSCode — um anel de progresso igual ao /usage.",
-  "version": "0.19.1",
+  "displayName": "Claude Code Usage & Status",
+  "description": "Uso da sessão do Claude Code (limites 5h/7d, tokens e custo) na status bar — anel de progresso igual ao /usage — mais o status do ecossistema Anthropic (status.claude.com).",
+  "version": "0.20.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -255,6 +255,27 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Ao **fechar uma sessão de 5h** (quando a janela reseta), mostra um resumo do que ela consumiu (cota, tokens e custo equivalente de pico)."
+        },
+        "claudeUsageBar.statusCheckEnabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Monitorar o status da Anthropic (`status.claude.com`) e mostrar a aba **Status** no painel."
+        },
+        "claudeUsageBar.statusBadgeEnabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Mostrar um badge (☁) no indicador da status bar quando há incidente/degradação na Anthropic."
+        },
+        "claudeUsageBar.statusNotifyEnabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Notificar (uma vez por incidente) quando surgir um novo problema no ecossistema Anthropic."
+        },
+        "claudeUsageBar.statusRefreshSeconds": {
+          "type": "number",
+          "default": 120,
+          "minimum": 30,
+          "description": "Com que frequência (segundos) consultar o status.claude.com."
         }
       }
     }

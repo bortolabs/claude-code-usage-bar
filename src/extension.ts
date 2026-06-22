@@ -14,6 +14,7 @@ import { evaluateAlerts, AlertResult } from "./alerts";
 import { readCurrentModel, prettyModel } from "./transcript";
 import { fetchOAuthUsage, OAuthUsageResult, OAuthUsage } from "./oauthUsage";
 import { readProjectBreakdown, ProjectUsage } from "./projectUsage";
+import { fetchStatus, StatusResult, StatusData, hasIssue } from "./status";
 
 /** Forma do JSON gravado por statusline-command.sh (bridge). */
 interface RateWindow {
@@ -217,6 +218,19 @@ function sessionTimePct(
   return block ? block.timePct : null;
 }
 
+/** Traduz o impacto de incidente (vindo em inglês da API) para PT-BR. */
+function impactPt(imp: string): string {
+  return (
+    {
+      none: "sem impacto",
+      minor: "impacto menor",
+      major: "impacto alto",
+      critical: "crítico",
+      maintenance: "manutenção",
+    } as Record<string, string>
+  )[imp] || imp;
+}
+
 function fmtAgo(ts: number | undefined): string {
   if (!ts) {
     return "—";
@@ -259,12 +273,16 @@ export function activate(context: vscode.ExtensionContext) {
   let lastDaily: CcusageDaily[] = [];
   // Breakdown por projeto do bloco de 5h atual (#4).
   let lastProjects: ProjectUsage[] = [];
+  // Status da Anthropic (status.claude.com) + dedupe da notificação.
+  let lastStatus: StatusResult | null = null;
+  let notifiedIncidentIds = new Set<string>();
   let watcher: fs.FSWatcher | undefined;
   let debounce: NodeJS.Timeout | undefined;
   let tick: NodeJS.Timeout | undefined;
   let ccTick: NodeJS.Timeout | undefined;
   let dailyTick: NodeJS.Timeout | undefined;
   let oauthTick: NodeJS.Timeout | undefined;
+  let statusTick: NodeJS.Timeout | undefined;
   // Alerta: controle de cooldown da notificação.
   let lastAlertKey = "";
   let lastAlertAtMs = 0;
@@ -283,6 +301,7 @@ export function activate(context: vscode.ExtensionContext) {
     refreshCcusage();
     refreshDaily();
     refreshOAuth();
+    refreshStatus();
   };
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -388,6 +407,47 @@ export function activate(context: vscode.ExtensionContext) {
     }
     return lastOAuth;
   };
+
+  // Status da Anthropic (status.claude.com). Atualiza badge + notifica incidentes.
+  const refreshStatus = async () => {
+    if (!(cfg().get<boolean>("statusCheckEnabled") ?? true)) {
+      lastStatus = null;
+      render();
+      return;
+    }
+    const res = await fetchStatus();
+    lastStatus = res;
+    // Notificação 1x por incidente novo (se habilitado).
+    if (res.available && (cfg().get<boolean>("statusNotifyEnabled") ?? true)) {
+      for (const inc of res.incidents) {
+        if (!notifiedIncidentIds.has(inc.id)) {
+          notifiedIncidentIds.add(inc.id);
+          const link = inc.shortlink || "https://status.claude.com";
+          vscode.window
+            .showWarningMessage(
+              `Anthropic — ${inc.name} (${impactPt(inc.impact)})`,
+              "Ver status"
+            )
+            .then((c) => {
+              if (c === "Ver status") {
+                vscode.env.openExternal(vscode.Uri.parse(link));
+              }
+            });
+        }
+      }
+      // Limpa ids de incidentes que já resolveram (libera nova notificação futura).
+      const activeIds = new Set(res.incidents.map((i) => i.id));
+      notifiedIncidentIds.forEach((id) => {
+        if (!activeIds.has(id)) {
+          notifiedIncidentIds.delete(id);
+        }
+      });
+    }
+    render();
+  };
+
+  const st = (): StatusData | null =>
+    lastStatus && lastStatus.available ? lastStatus : null;
 
   /**
    * Deriva o comando `daily` do `ccusageCommand` (que é do `blocks --active`),
@@ -761,8 +821,16 @@ export function activate(context: vscode.ExtensionContext) {
         })
       : { active: false, message: "", reasons: [], key: "" };
 
-    // Ícone de alerta antecede o texto quando ativo.
-    item.text = (alert.active ? "$(warning) " : "") +
+    // Badge de status da Anthropic (se habilitado e há incidente).
+    const statusBadgeOn = c.get<boolean>("statusBadgeEnabled") ?? true;
+    const status = st();
+    const statusIssue = !!status && statusBadgeOn && hasIssue(status);
+    const statusBadge = statusIssue ? "$(cloud) " : "";
+
+    // Ícone de alerta de burn rate antecede o texto quando ativo.
+    item.text =
+      statusBadge +
+      (alert.active ? "$(warning) " : "") +
       styleText(style, ringPct, primary, suffix);
 
     let level: "ok" | "warn" | "err" =
@@ -1080,6 +1148,25 @@ export function activate(context: vscode.ExtensionContext) {
         tokens: p.tokens,
       })),
       settings: collectSettings(),
+      status: (() => {
+        const s = st();
+        if (!s) {
+          return null;
+        }
+        return {
+          indicator: s.indicator,
+          description: s.description,
+          components: s.components,
+          incidents: s.incidents.map((i) => ({
+            name: i.name,
+            impact: i.impact,
+            status: i.status,
+            shortlink: i.shortlink,
+            lastUpdate: i.lastUpdate,
+          })),
+          recent: s.recent,
+        };
+      })(),
       updatedAtMs: lastUpdateMs || null,
       footer: `fonte: ${src}${
         v.state?.ts ? " · statusline " + fmtAgo(v.state.ts) : ""
@@ -1097,6 +1184,8 @@ export function activate(context: vscode.ExtensionContext) {
       "intenseTokensPerMin", "burnRateAlertEnabled", "burnRateMaxPerHour",
       "alertCooldownMinutes", "colorByProjection", "resetWarningMinutes",
       "blockSummaryEnabled", "warnThreshold", "errorThreshold",
+      "statusCheckEnabled", "statusBadgeEnabled", "statusNotifyEnabled",
+      "statusRefreshSeconds",
     ];
     const c = cfg();
     const out: Record<string, unknown> = {};
@@ -1136,6 +1225,7 @@ export function activate(context: vscode.ExtensionContext) {
       refreshCcusage();
       refreshDaily();
       refreshOAuth();
+      refreshStatus();
     }),
     vscode.commands.registerCommand("claudeUsageBar.toggleAlert", async () => {
       const cur = cfg().get<boolean>("burnRateAlertEnabled") ?? true;
@@ -1187,6 +1277,7 @@ export function activate(context: vscode.ExtensionContext) {
       refreshCcusage();
       refreshDaily();
       refreshOAuth();
+      refreshStatus();
     })
   );
 
@@ -1226,11 +1317,22 @@ export function activate(context: vscode.ExtensionContext) {
     dispose: () => oauthTick && clearInterval(oauthTick),
   });
 
+  // Status da Anthropic: muda pouco, então intervalo mais folgado (default 120s).
+  const statusInterval = Math.max(
+    30,
+    cfg().get<number>("statusRefreshSeconds") ?? 120
+  );
+  statusTick = setInterval(refreshStatus, statusInterval * 1000);
+  context.subscriptions.push({
+    dispose: () => statusTick && clearInterval(statusTick),
+  });
+
   startWatch();
   readState();
   refreshCcusage();
   refreshDaily();
   refreshOAuth();
+  refreshStatus();
 }
 
 export function deactivate() {

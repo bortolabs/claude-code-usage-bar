@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.20.0
+
+- **Renomeado para "Claude Code Usage & Status"** (displayName) — refletindo que o plugin
+  agora cobre uso E status. O id interno (`claude-code-usage-bar`) e o repositório
+  permanecem, então instalações e links não quebram.
+- **Aba Status + aviso de incidentes da Anthropic.** Nova aba **Status** no painel que lê
+  `status.claude.com` (API pública do Statuspage) e mostra: status geral, componentes
+  (claude.ai, API, Claude Code, Console…), incidentes ativos e histórico recente, com link
+  para a página oficial.
+  - **Badge ☁** no indicador da status bar quando há incidente/degradação.
+  - **Notificação** (1× por incidente, com dedupe) quando surge um novo problema.
+  - Tudo configurável: `statusCheckEnabled`, `statusBadgeEnabled`, `statusNotifyEnabled`,
+    `statusRefreshSeconds`.
+  - Interface em **PT-BR** (status, impacto, componentes traduzidos; o nome/descrição do
+    incidente vêm em inglês da própria Anthropic).
+  - Motivação: saber na hora que uma queda é da Anthropic (não do plugin/sua máquina).
+
 ## 0.19.1
 
 - **Fix: falso "sessão de 5h encerrada".** O resumo de bloco (#9) disparava ao clicar em

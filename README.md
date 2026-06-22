@@ -1,4 +1,4 @@
-# Claude Code Usage Bar
+# Claude Code Usage & Status
 
 Um indicador na **status bar do VSCode** que dá feedback visual constante do uso da sessão
 do [Claude Code](https://claude.com/claude-code) — um anel de progresso + número, sem você
@@ -126,10 +126,12 @@ Você escolhe como ver:
   - `number` → `6% · 4h42`
   - `icon` → ícone + número
 - **Ícone na Activity Bar** (lateral esquerda) — abre o painel completo, organizado em
-  **3 abas** (a aba ativa é lembrada):
+  **4 abas** (a aba ativa é lembrada):
   - **Sessão** — anel SVG + uso 5h/7d + tempo da sessão.
   - **Histórico** — sparkline dos últimos dias + **breakdown por projeto** do bloco de 5h
     ("Projetos nesta sessão"), mostrando quais projetos estão consumindo a janela atual.
+  - **Status** — status da Anthropic (`status.claude.com`): geral, componentes, incidentes
+    ativos e histórico. Avisa com badge ☁ na status bar e notificação quando há problema.
   - **Config** — edite todos os settings por controles visuais (toggles, selects, números,
     cor), com botões de comando e link para o `settings.json`.
   Clicar no item da status bar (ou _Claude Usage: Abrir painel_) revela essa view.
@@ -193,6 +195,10 @@ bar, e uma faixa no topo do painel. Desligue com `burnRateAlertEnabled: false`.
 | `claudeUsageBar.ringTheme` | `semaforo` | Cor do anel: `semaforo`, `claude` (laranja), `mono`/`custom` (cor própria). Crítico sempre vermelho. |
 | `claudeUsageBar.ringColor` | `#4caf78` | Cor hex usada quando `ringTheme` é `mono`/`custom`. |
 | `claudeUsageBar.blockSummaryEnabled` | `true` | Mostra resumo do consumo quando a sessão de 5h fecha. |
+| `claudeUsageBar.statusCheckEnabled` | `true` | Monitora o status da Anthropic (`status.claude.com`) e mostra a aba Status. |
+| `claudeUsageBar.statusBadgeEnabled` | `true` | Badge ☁ na status bar quando há incidente. |
+| `claudeUsageBar.statusNotifyEnabled` | `true` | Notifica (1× por incidente) novos problemas no ecossistema Anthropic. |
+| `claudeUsageBar.statusRefreshSeconds` | `120` | Frequência de consulta ao status.claude.com. |
 | `claudeUsageBar.staleAfterSeconds` | `900` | Janela em que o dado da statusline é considerado fresco. |
 
 ## Limitações

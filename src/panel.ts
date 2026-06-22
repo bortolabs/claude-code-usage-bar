@@ -35,6 +35,20 @@ export interface PanelData {
   projects: { project: string; tokens: number }[];
   /** Valores atuais dos settings (key → valor) para a aba Config. */
   settings: Record<string, unknown>;
+  /** Status da Anthropic (status.claude.com). null = desabilitado/indisponível. */
+  status: {
+    indicator: string;
+    description: string;
+    components: { name: string; status: string }[];
+    incidents: {
+      name: string;
+      impact: string;
+      status: string;
+      shortlink: string | null;
+      lastUpdate: string | null;
+    }[];
+    recent: { name: string; impact: string; resolvedAt: string | null }[];
+  } | null;
   footer: string;
 }
 
@@ -172,6 +186,19 @@ function panelHtml(): string {
   .cmd-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
   .link-btn { background: none; border: none; color: var(--vscode-textLink-foreground, #4daafc); cursor: pointer; font-size: 12px; padding: 6px 0; text-align: left; }
   .link-btn:hover { text-decoration: underline; }
+  /* Aba Status */
+  .st-overall { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .st-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+  .st-comp { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; margin: 5px 0; }
+  .st-comp-status { font-size: 11px; opacity: .85; }
+  .st-inc { border-left: 3px solid var(--warn); padding: 4px 0 4px 9px; margin: 8px 0; }
+  .st-inc.major, .st-inc.critical { border-left-color: var(--err); }
+  .st-inc-name { font-size: 12.5px; font-weight: 600; }
+  .st-inc-meta { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 2px; }
+  .st-recent { font-size: 11.5px; color: var(--vscode-descriptionForeground); margin: 3px 0; }
+  /* cores por estado */
+  .stc-ok { color: var(--ok); } .stc-warn { color: var(--warn); } .stc-err { color: var(--err); }
+  .bgc-ok { background: var(--ok); } .bgc-warn { background: var(--warn); } .bgc-err { background: var(--err); }
 </style>
 </head>
 <body>
@@ -219,6 +246,12 @@ function panelHtml(): string {
       { key: 'blockSummaryEnabled', label: 'Resumo ao fechar o bloco', type: 'bool' },
       { key: 'warnThreshold', label: 'Limiar amarelo (%)', type: 'number' },
       { key: 'errorThreshold', label: 'Limiar vermelho (%)', type: 'number' },
+    ]},
+    { section: 'Status da Anthropic', items: [
+      { key: 'statusCheckEnabled', label: 'Monitorar status', type: 'bool' },
+      { key: 'statusBadgeEnabled', label: 'Badge na status bar', type: 'bool' },
+      { key: 'statusNotifyEnabled', label: 'Notificar incidentes', type: 'bool' },
+      { key: 'statusRefreshSeconds', label: 'Atualizar status (s)', type: 'number' },
     ]},
   ];
 
@@ -364,10 +397,107 @@ function panelHtml(): string {
     return card(html + cmds, 'controls');
   }
 
-  function tabsBar() {
-    const tabs = [['sessao','Sessão'],['historico','Histórico'],['config','Config']];
+  // Mapeia status de componente Statuspage para cor (ok/warn/err).
+  function stColor(status) {
+    if (status === 'operational') return 'ok';
+    if (status === 'major_outage' || status === 'critical') return 'err';
+    return 'warn'; // degraded_performance, partial_outage, under_maintenance...
+  }
+  function stLabel(status) {
+    return ({
+      operational: 'operacional',
+      degraded_performance: 'degradado',
+      partial_outage: 'instável',
+      major_outage: 'fora do ar',
+      under_maintenance: 'manutenção',
+    })[status] || status;
+  }
+  function indicatorColor(ind) {
+    if (ind === 'none') return 'ok';
+    if (ind === 'major' || ind === 'critical') return 'err';
+    return 'warn';
+  }
+  // Traduções dos rótulos vindos da API (status.claude.com em inglês).
+  function indicatorLabel(ind) {
+    return ({
+      none: 'Todos os sistemas operacionais',
+      minor: 'Interrupção menor',
+      major: 'Interrupção significativa',
+      critical: 'Interrupção crítica',
+      maintenance: 'Em manutenção',
+    })[ind] || ind;
+  }
+  function impactLabel(imp) {
+    return ({
+      none: 'sem impacto',
+      minor: 'impacto menor',
+      major: 'impacto alto',
+      critical: 'crítico',
+      maintenance: 'manutenção',
+    })[imp] || imp;
+  }
+  function incStatusLabel(st) {
+    return ({
+      investigating: 'investigando',
+      identified: 'identificado',
+      monitoring: 'monitorando',
+      resolved: 'resolvido',
+      scheduled: 'agendado',
+      in_progress: 'em andamento',
+      verifying: 'verificando',
+      completed: 'concluído',
+    })[st] || st;
+  }
+
+  // Aba Status: status geral + componentes + incidentes + histórico.
+  function statusTab(s) {
+    if (!s) {
+      return '<div class="empty">Verificação de status desligada ou indisponível.</div>' +
+        card('<button class="link-btn" id="openStatusPage">Abrir status.claude.com →</button>', 'controls');
+    }
+    const ic = indicatorColor(s.indicator);
+    const dot = '<span class="st-dot bgc-' + ic + '"></span>';
+    // Usa o rótulo traduzido pelo indicador (a description vem em inglês da API).
+    let html = card(
+      '<div class="st-overall">' + dot + '<span class="stc-' + ic + '">' + esc(indicatorLabel(s.indicator)) + '</span></div>'
+    );
+    // Incidentes ativos. O NOME e o corpo da atualização são texto livre da
+    // Anthropic (ficam em inglês); impacto e status são traduzidos.
+    if (s.incidents && s.incidents.length) {
+      const inc = s.incidents.map(function(i){
+        const cls = (i.impact === 'major' || i.impact === 'critical') ? ' major' : '';
+        const upd = i.lastUpdate ? '<div class="st-inc-meta">' + esc(i.lastUpdate.slice(0,160)) + '</div>' : '';
+        return '<div class="st-inc' + cls + '"><div class="st-inc-name">' + esc(i.name) + '</div>' +
+          '<div class="st-inc-meta">' + esc(impactLabel(i.impact)) + ' · ' + esc(incStatusLabel(i.status)) + '</div>' + upd + '</div>';
+      }).join('');
+      html += card('<div class="styles-title">Incidentes ativos</div>' + inc);
+    }
+    // Componentes
+    if (s.components && s.components.length) {
+      const comps = s.components.map(function(c){
+        const col = stColor(c.status);
+        return '<div class="st-comp"><span>' + esc(c.name) + '</span>' +
+          '<span class="st-comp-status stc-' + col + '">' + esc(stLabel(c.status)) + '</span></div>';
+      }).join('');
+      html += card('<div class="styles-title">Componentes</div>' + comps);
+    }
+    // Histórico recente (resolvidos)
+    if (s.recent && s.recent.length) {
+      const rec = s.recent.map(function(r){
+        const d = r.resolvedAt ? r.resolvedAt.slice(0,10) : '';
+        return '<div class="st-recent">✓ ' + esc(r.name) + (d ? ' · ' + d : '') + '</div>';
+      }).join('');
+      html += card('<div class="styles-title">Resolvidos recentemente</div>' + rec);
+    }
+    html += card('<button class="link-btn" id="openStatusPage">Abrir status.claude.com →</button>', 'controls');
+    return html;
+  }
+
+  function tabsBar(statusIssue) {
+    const tabs = [['sessao','Sessão'],['historico','Histórico'],['status','Status'],['config','Config']];
     return '<div class="tabs">' + tabs.map(function(t){
-      return '<button class="tab' + (t[0]===activeTab?' active':'') + '" data-tab="' + t[0] + '">' + t[1] + '</button>';
+      const badge = (t[0]==='status' && statusIssue) ? ' ⚠' : '';
+      return '<button class="tab' + (t[0]===activeTab?' active':'') + '" data-tab="' + t[0] + '">' + t[1] + badge + '</button>';
     }).join('') + '</div>';
   }
 
@@ -408,6 +538,8 @@ function panelHtml(): string {
       const sparkHtml = sparkline(d.daily);
       body = (sparkHtml ? card(sparkHtml) : '') + projectsCard(d.projects);
       if (!body) body = '<div class="empty">Sem histórico ainda.</div>';
+    } else if (activeTab === 'status') {
+      body = statusTab(d.status);
     } else if (activeTab === 'config') {
       const alertEnabled = d.alertEnabled !== false;
       const styleCard = card(styleButtons());
@@ -418,8 +550,11 @@ function panelHtml(): string {
       body = styleCard + toggle + configTab(d.settings);
     }
 
+    // Badge ⚠ na aba Status quando há incidente/degradação.
+    const statusIssue = !!(d.status && (d.status.indicator !== 'none' ||
+      (d.status.incidents && d.status.incidents.length)));
     document.getElementById('app').innerHTML =
-      header + alertHtml + tabsBar() + body +
+      header + alertHtml + tabsBar(statusIssue) + body +
       '<div class="footer">' + esc(d.footer || '') + '</div>';
     tickLastUpd();
     wireEvents();
@@ -449,6 +584,8 @@ function panelHtml(): string {
     });
     const os = document.getElementById('openSettings');
     if (os) os.addEventListener('click', function(){ vscode.postMessage({ type: 'openSettings' }); });
+    const sp = document.getElementById('openStatusPage');
+    if (sp) sp.addEventListener('click', function(){ vscode.postMessage({ type: 'openStatusPage' }); });
     // controles de config
     document.querySelectorAll('[data-key]').forEach(function(el){
       const ev = (el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'color') ? 'change' : 'change';
@@ -522,6 +659,8 @@ function wireMessages(
         "workbench.action.openSettings",
         "claudeUsageBar"
       );
+    } else if (msg?.type === "openStatusPage") {
+      vscode.env.openExternal(vscode.Uri.parse("https://status.claude.com"));
     } else if (msg?.type === "ready") {
       onReady();
     }
