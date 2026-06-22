@@ -1,23 +1,25 @@
 name: Publish extension
 
-# Ao enviar uma tag de versão (ex.: v0.20.1), este workflow:
-#   1. compila e publica a extensão no Visual Studio Marketplace (vsce); e
-#   2. cria um GitHub Release com as notas da versão extraídas do CHANGELOG.md.
+# Publica a extensão no Visual Studio Marketplace (vsce) e cria um GitHub Release
+# com as notas da versão extraídas do CHANGELOG.md.
 #
-# Fluxo de release:
-#   1. bump da "version" no package.json (+ CHANGELOG) e merge na master
-#   2. git tag v0.20.1 && git push origin v0.20.1
-#   3. este workflow publica e cria o release sozinho
+# Dois gatilhos:
+#   - push de tag "v*.*.*"  -> release por tag (valida que a tag == version)
+#   - workflow_dispatch     -> publica a version atual do package.json e cria a
+#                              tag/release correspondente (Actions > Run workflow)
 #
-# Pré-requisito: cadastrar o secret VSCE_PAT no repositório
-# (Settings > Secrets and variables > Actions). É um Personal Access Token do
-# Azure DevOps (https://dev.azure.com) com escopo "Marketplace > Manage",
-# para o publisher "bortolabs". (O GitHub Release usa o GITHUB_TOKEN automático.)
+# A versão publicada vem SEMPRE do package.json; faça o bump (+ CHANGELOG) antes.
+#
+# Pré-requisito: secret VSCE_PAT no repositório (Settings > Secrets and variables >
+# Actions). É um Personal Access Token do Azure DevOps (https://dev.azure.com) com
+# escopo "Marketplace > Manage", para o publisher "bortolabs". (O Release usa o
+# GITHUB_TOKEN automático.)
 
 on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -25,8 +27,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # contents: write é necessário para criar o GitHub Release (sobrepõe o
-    # default read acima só para este job).
+    # contents: write é necessário para criar a tag/Release.
     permissions:
       contents: write
     steps:
@@ -42,14 +43,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Trava de segurança: evita publicar uma versão diferente da que a tag diz.
-      - name: Verifica tag x version do package.json
+      # Fonte da verdade da versão: o package.json.
+      - name: Resolve versão
+        id: ver
+        run: |
+          V="$(node -p "require('./package.json').version")"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "tag=v$V" >> "$GITHUB_OUTPUT"
+          echo "Versão a publicar: v$V"
+
+      # Em push de TAG, garante que a tag corresponde à version do package.json.
+      - name: Verifica tag x version (push de tag)
+        if: github.event_name == 'push'
         run: |
           TAG="${GITHUB_REF_NAME#v}"
-          PKG="$(node -p "require('./package.json').version")"
-          echo "tag=$TAG  package.json=$PKG"
-          if [ "$TAG" != "$PKG" ]; then
-            echo "::error::A tag ($TAG) não corresponde à version do package.json ($PKG). Faça o bump antes de tagear."
+          if [ "$TAG" != "${{ steps.ver.outputs.version }}" ]; then
+            echo "::error::A tag ($TAG) não corresponde à version do package.json (${{ steps.ver.outputs.version }}). Faça o bump antes de tagear."
             exit 1
           fi
 
@@ -64,21 +73,23 @@ jobs:
       # o próximo "## "), para usar como corpo do GitHub Release.
       - name: Extrai notas do CHANGELOG
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          awk -v ver="## $VERSION" '
+          awk -v ver="## ${{ steps.ver.outputs.version }}" '
             $0 == ver { flag = 1; next }
             /^## / && flag { flag = 0 }
             flag { print }
           ' CHANGELOG.md > release-notes.md
           # Fallback: se a seção não existir/estiver vazia, não falha o release.
           if [ ! -s release-notes.md ]; then
-            echo "Release $VERSION" > release-notes.md
+            echo "Release ${{ steps.ver.outputs.version }}" > release-notes.md
           fi
           echo "----- notas do release -----"
           cat release-notes.md
 
+      # Cria a tag (se ainda não existir, no caso do dispatch) e o Release.
       - name: Cria o GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ github.ref_name }}
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           body_path: release-notes.md
