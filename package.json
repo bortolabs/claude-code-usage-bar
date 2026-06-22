@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "Uso da sessão do Claude Code (limites 5h/7d, tokens e custo) na status bar — anel de progresso igual ao /usage — mais o status do ecossistema Anthropic (status.claude.com).",
-  "version": "0.20.0",
+  "version": "0.20.1",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",

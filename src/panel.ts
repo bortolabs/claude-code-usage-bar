@@ -501,9 +501,21 @@ function panelHtml(): string {
     }).join('') + '</div>';
   }
 
-  function render(d) {
+  function render(d, force) {
     if (!d) { d = lastData; if (!d) return; }
     lastData = d;
+    // Na aba Config NÃO reconstruímos o conteúdo a cada atualização de dados
+    // vinda da extensão (ticks de ccusage/oauth/status ou o "eco" do próprio
+    // setConfig que acabou de salvar). Recriar o formulário apagaria o que o
+    // usuário está digitando/marcando e tiraria o foco do campo — dando a falsa
+    // impressão de que as configurações "não salvam". O form é (re)montado só
+    // ao ENTRAR na aba (force=true, vindo do clique na aba); enquanto ela está
+    // aberta apenas guardamos os dados novos em lastData (já feito acima) e os
+    // reaplicamos quando o usuário troca de aba e volta. Se o form ainda não
+    // está na tela (1ª montagem), deixamos renderizar normalmente.
+    if (activeTab === 'config' && !force && document.querySelector('[data-key]')) {
+      return;
+    }
     if (d.barStyle) curStyle = d.barStyle;
     if (d.updatedAtMs) updatedAtMs = d.updatedAtMs;
     const ringOverride = d.ringColorOverride || null;
@@ -566,7 +578,9 @@ function panelHtml(): string {
       t.addEventListener('click', function(){
         activeTab = t.getAttribute('data-tab');
         if (vscode.setState) vscode.setState({ activeTab: activeTab });
-        render(lastData);
+        // force=true: trocar de aba SEMPRE (re)monta o conteúdo, inclusive o
+        // formulário da Config com os valores já salvos/atualizados.
+        render(lastData, true);
       });
     });
     document.querySelectorAll('.sbtn[data-style]').forEach(function(b){

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.20.1
+
+- **Fix: aba Config "não salvava" as alterações.** As mudanças até eram gravadas
+  (`config.update` no `change` de cada controle), mas o formulário inteiro era
+  **reconstruído a cada atualização de dados** vinda da extensão (ticks de
+  ccusage/oauth/status e o "eco" do próprio save). Esse re-render pisava nos
+  itens ainda em processo de salvamento (saves são assíncronos) e apagava o que
+  estava sendo digitado num campo numérico antes do `blur` — revertendo
+  marcações e o valor digitado, dando a impressão de que nada era salvo. Agora o
+  formulário só é (re)montado ao **entrar** na aba Config; enquanto ela está
+  aberta, os dados novos são guardados e reaplicados ao trocar de aba e voltar,
+  preservando o foco e as edições em andamento.
+
 ## 0.20.0
 
 - **Renomeado para "Claude Code Usage & Status"** (displayName) — refletindo que o plugin
