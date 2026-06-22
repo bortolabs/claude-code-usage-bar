@@ -1,8 +1,8 @@
 {
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
-  "description": "Uso da sessão do Claude Code (limites 5h/7d, tokens e custo) na status bar — anel de progresso igual ao /usage — mais o status do ecossistema Anthropic (status.claude.com).",
-  "version": "0.20.1",
+  "description": "%extension.description%",
+  "version": "0.21.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -50,36 +50,36 @@
     "commands": [
       {
         "command": "claudeUsageBar.refresh",
-        "title": "Claude Usage: Atualizar agora"
+        "title": "%cmd.refresh.title%"
       },
       {
         "command": "claudeUsageBar.openState",
-        "title": "Claude Usage: Abrir arquivo de estado"
+        "title": "%cmd.openState.title%"
       },
       {
         "command": "claudeUsageBar.openPanel",
-        "title": "Claude Usage: Abrir painel (anel SVG)"
+        "title": "%cmd.openPanel.title%"
       },
       {
         "command": "claudeUsageBar.cycleStyle",
-        "title": "Claude Usage: Alternar estilo da status bar"
+        "title": "%cmd.cycleStyle.title%"
       },
       {
         "command": "claudeUsageBar.setStyle",
-        "title": "Claude Usage: Definir estilo da status bar"
+        "title": "%cmd.setStyle.title%"
       },
       {
         "command": "claudeUsageBar.toggleAlert",
-        "title": "Claude Usage: Ligar/desligar alerta de burn rate"
+        "title": "%cmd.toggleAlert.title%"
       }
     ],
     "configuration": {
-      "title": "Claude Code Usage Bar",
+      "title": "%config.title%",
       "properties": {
         "claudeUsageBar.stateFilePath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Caminho do arquivo de estado gravado pela statusline do Claude Code. Vazio = `~/.claude/usage-state.json`."
+          "markdownDescription": "%config.stateFilePath.desc%"
         },
         "claudeUsageBar.accountType": {
           "type": "string",
@@ -89,12 +89,12 @@
             "api"
           ],
           "enumDescriptions": [
-            "Detecta automaticamente (assinatura se houver limites de plano)",
-            "Assinatura (Pro/Max): você já paga o mensal — o $ é só 'equivalente API' informativo, sem teto nem alerta de custo. O foco é tempo/limites do plano.",
-            "API/pay-as-you-go: o $ é dinheiro real, com teto e alerta de custo."
+            "%config.accountType.enum.auto%",
+            "%config.accountType.enum.subscription%",
+            "%config.accountType.enum.api%"
           ],
           "default": "auto",
-          "markdownDescription": "Tipo de conta. Em **assinatura**, o custo em dólar é apenas o equivalente em preço de API (referência do quanto você economiza) — não é cobrança, então não há teto nem alerta de custo. Em **api**, o custo é real."
+          "markdownDescription": "%config.accountType.desc%"
         },
         "claudeUsageBar.mode": {
           "type": "string",
@@ -104,18 +104,18 @@
             "cost"
           ],
           "enumDescriptions": [
-            "Detecta automaticamente: assinante (Pro/Max) mostra limites 5h/7d; conta API mostra custo $",
-            "Força o modo assinante: anel = janela 5h, número = janela 7d (igual ao /usage)",
-            "Força o modo custo: anel = contexto, número = custo $ acumulado da sessão"
+            "%config.mode.enum.auto%",
+            "%config.mode.enum.subscriber%",
+            "%config.mode.enum.cost%"
           ],
           "default": "auto",
-          "markdownDescription": "Como exibir. **auto** (recomendado) escolhe pelo que o Claude Code entrega: contas com assinatura têm limites de plano (`rate_limits`) e mostram 5h/7d; contas API/pay-as-you-go não têm limite e mostram custo `$` com o anel refletindo o contexto."
+          "markdownDescription": "%config.mode.desc%"
         },
         "claudeUsageBar.costCapUsd": {
           "type": "number",
           "default": 5,
           "minimum": 0,
-          "markdownDescription": "Teto de custo (USD) por sessão usado **apenas no modo custo / contas API** para colorir o indicador conforme o gasto se aproxima desse valor. `0` desativa o aviso por custo."
+          "markdownDescription": "%config.costCapUsd.desc%"
         },
         "claudeUsageBar.barStyle": {
           "type": "string",
@@ -126,27 +126,27 @@
             "icon"
           ],
           "enumDescriptions": [
-            "Anel de progresso em texto (◕ 38%)",
-            "Mini barra em blocos (███░░ 38%)",
-            "Só o número (38%)",
-            "Ícone + número ($(pulse) 38%)"
+            "%config.barStyle.enum.ring%",
+            "%config.barStyle.enum.bar%",
+            "%config.barStyle.enum.number%",
+            "%config.barStyle.enum.icon%"
           ],
           "default": "ring",
-          "markdownDescription": "Estilo do indicador **na status bar**. Para o anel SVG grande, abra o painel (clique no item ou comando _Claude Usage: Abrir painel_)."
+          "markdownDescription": "%config.barStyle.desc%"
         },
         "claudeUsageBar.warnThreshold": {
           "type": "number",
           "default": 60,
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentual a partir do qual o indicador fica amarelo."
+          "description": "%config.warnThreshold.desc%"
         },
         "claudeUsageBar.errorThreshold": {
           "type": "number",
           "default": 85,
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentual a partir do qual o indicador fica vermelho."
+          "description": "%config.errorThreshold.desc%"
         },
         "claudeUsageBar.alignment": {
           "type": "string",
@@ -155,79 +155,79 @@
             "left"
           ],
           "default": "right",
-          "description": "Lado da status bar onde o indicador aparece."
+          "description": "%config.alignment.desc%"
         },
         "claudeUsageBar.priority": {
           "type": "number",
           "default": 100,
-          "description": "Prioridade do item na status bar (maior = mais para a borda)."
+          "description": "%config.priority.desc%"
         },
         "claudeUsageBar.staleAfterSeconds": {
           "type": "number",
           "default": 900,
-          "description": "Janela em que o dado da statusline é considerado fresco. Acima disso, usa o ccusage."
+          "description": "%config.staleAfterSeconds.desc%"
         },
         "claudeUsageBar.ccusageCommand": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Comando para obter o bloco de sessão (5h). Vazio = `npx -y ccusage@latest blocks --active --json`. Aponte para um `ccusage` instalado globalmente para evitar a latência do npx (ex: `ccusage blocks --active --json`)."
+          "markdownDescription": "%config.ccusageCommand.desc%"
         },
         "claudeUsageBar.ccusageRefreshSeconds": {
           "type": "number",
           "default": 60,
           "minimum": 15,
-          "description": "Com que frequência (segundos) atualizar os dados do ccusage."
+          "description": "%config.ccusageRefreshSeconds.desc%"
         },
         "claudeUsageBar.useOAuthUsage": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Usar o endpoint oficial `api/oauth/usage` (a mesma fonte do `/usage`) como fonte primária — mostra a **cota real** da sessão de 5h e da semana, idêntica ao `/usage`. Lê o token OAuth do Keychain do macOS (serviço `Claude Code-credentials`); o token fica local e só é enviado para `api.anthropic.com`. Quando disponível, o anel passa a ser a cota real."
+          "markdownDescription": "%config.useOAuthUsage.desc%"
         },
         "claudeUsageBar.oauthRefreshSeconds": {
           "type": "number",
           "default": 60,
           "minimum": 20,
-          "description": "Com que frequência (segundos) consultar o endpoint oauth/usage."
+          "description": "%config.oauthRefreshSeconds.desc%"
         },
         "claudeUsageBar.burnRateAlertEnabled": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Avisar quando o ritmo de gasto projeta estourar um limite antes do reset (custo, $/h ou limites do plano)."
+          "markdownDescription": "%config.burnRateAlertEnabled.desc%"
         },
         "claudeUsageBar.burnRateMaxPerHour": {
           "type": "number",
           "default": 20,
           "minimum": 0,
-          "markdownDescription": "Alerta quando o ritmo (`$/h`) passa deste valor. `0` desativa esse gatilho específico."
+          "markdownDescription": "%config.burnRateMaxPerHour.desc%"
         },
         "claudeUsageBar.alertCooldownMinutes": {
           "type": "number",
           "default": 15,
           "minimum": 1,
-          "description": "Tempo mínimo (minutos) entre notificações de alerta, para não repetir demais."
+          "description": "%config.alertCooldownMinutes.desc%"
         },
         "claudeUsageBar.colorByProjection": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Colorir o indicador pela **projeção** de estouro (não só pelo valor atual). A cor usa o pior entre o uso atual e a projeção até o reset."
+          "markdownDescription": "%config.colorByProjection.desc%"
         },
         "claudeUsageBar.intenseTokensPerMin": {
           "type": "number",
           "default": 50000,
           "minimum": 1000,
-          "markdownDescription": "Ritmo de tokens/min considerado 'intenso' (= 100% na cor por projeção) para contas de **assinatura no app**, onde não há limite real de plano. Usado só como proxy de intensidade."
+          "markdownDescription": "%config.intenseTokensPerMin.desc%"
         },
         "claudeUsageBar.sessionTokenCap": {
           "type": "number",
           "default": 0,
           "minimum": 0,
-          "markdownDescription": "Teto de **tokens por sessão de 5h** (ex: `150000000` para 150M). Quando definido, o indicador projeta — no ritmo atual — quantos tokens você terá usado no fim da janela e alerta/colore se a projeção passar do teto, com ETA ('estoura em ~Xmin'). `0` desativa. Útil em assinatura, onde não há limite de tokens oficial."
+          "markdownDescription": "%config.sessionTokenCap.desc%"
         },
         "claudeUsageBar.resetWarningMinutes": {
           "type": "number",
           "default": 10,
           "minimum": 0,
-          "markdownDescription": "Avisa quando faltar este tempo (minutos) para a **sessão de 5h resetar** — útil para emendar trabalho pesado logo após a janela nova. `0` desativa o aviso."
+          "markdownDescription": "%config.resetWarningMinutes.desc%"
         },
         "claudeUsageBar.ringTheme": {
           "type": "string",
@@ -238,44 +238,44 @@
             "custom"
           ],
           "enumDescriptions": [
-            "Semáforo (padrão): cor por nível — verde até o aviso, amarelo, vermelho no crítico.",
-            "Claude: laranja do Claude (#D97757) como cor única; ainda fica vermelho no nível crítico.",
-            "Mono: uma cor única definida em ringColor; ainda fica vermelho no nível crítico.",
-            "Custom: idem mono (alias) — usa a cor de ringColor; ainda fica vermelho no nível crítico."
+            "%config.ringTheme.enum.semaforo%",
+            "%config.ringTheme.enum.claude%",
+            "%config.ringTheme.enum.mono%",
+            "%config.ringTheme.enum.custom%"
           ],
           "default": "semaforo",
-          "markdownDescription": "Tema de cor do **anel e das barras** no painel. **semaforo** (padrão) mantém o comportamento atual (verde/amarelo/vermelho conforme o nível). **claude** usa o laranja do Claude (`#D97757`) como cor base. **mono**/**custom** usam a cor definida em `#claudeUsageBar.ringColor#`. Em todos os temas, o nível **crítico** (estouro) continua **vermelho** para não perder o sinal de alerta."
+          "markdownDescription": "%config.ringTheme.desc%"
         },
         "claudeUsageBar.ringColor": {
           "type": "string",
           "default": "#4caf78",
-          "markdownDescription": "Cor (hex `#RRGGBB`) do anel/barras quando `#claudeUsageBar.ringTheme#` for **mono** ou **custom**. Ignorado nos demais temas. Se o valor não for um hex válido de 6 dígitos, é descartado (cai para o padrão) para não quebrar o desenho."
+          "markdownDescription": "%config.ringColor.desc%"
         },
         "claudeUsageBar.blockSummaryEnabled": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Ao **fechar uma sessão de 5h** (quando a janela reseta), mostra um resumo do que ela consumiu (cota, tokens e custo equivalente de pico)."
+          "markdownDescription": "%config.blockSummaryEnabled.desc%"
         },
         "claudeUsageBar.statusCheckEnabled": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Monitorar o status da Anthropic (`status.claude.com`) e mostrar a aba **Status** no painel."
+          "markdownDescription": "%config.statusCheckEnabled.desc%"
         },
         "claudeUsageBar.statusBadgeEnabled": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Mostrar um badge (☁) no indicador da status bar quando há incidente/degradação na Anthropic."
+          "markdownDescription": "%config.statusBadgeEnabled.desc%"
         },
         "claudeUsageBar.statusNotifyEnabled": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Notificar (uma vez por incidente) quando surgir um novo problema no ecossistema Anthropic."
+          "markdownDescription": "%config.statusNotifyEnabled.desc%"
         },
         "claudeUsageBar.statusRefreshSeconds": {
           "type": "number",
           "default": 120,
           "minimum": 30,
-          "description": "Com que frequência (segundos) consultar o status.claude.com."
+          "description": "%config.statusRefreshSeconds.desc%"
         }
       }
     }
@@ -289,5 +289,6 @@
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.84.0",
     "typescript": "^5.4.0"
-  }
+  },
+  "l10n": "./l10n"
 }

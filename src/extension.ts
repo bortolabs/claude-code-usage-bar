@@ -112,7 +112,7 @@ function fmtResetsAt(epochSeconds: number | null | undefined): string {
   if (!epochSeconds) {
     return "—";
   }
-  return "em " + fmtDuration(epochSeconds * 1000 - Date.now());
+  return vscode.l10n.t("em {0}", fmtDuration(epochSeconds * 1000 - Date.now()));
 }
 
 /** Duração curta a partir de ms: "40m", "2h13", "3d". */
@@ -218,15 +218,15 @@ function sessionTimePct(
   return block ? block.timePct : null;
 }
 
-/** Traduz o impacto de incidente (vindo em inglês da API) para PT-BR. */
+/** Traduz o impacto de incidente (vindo em inglês da API) para o idioma ativo. */
 function impactPt(imp: string): string {
   return (
     {
-      none: "sem impacto",
-      minor: "impacto menor",
-      major: "impacto alto",
-      critical: "crítico",
-      maintenance: "manutenção",
+      none: vscode.l10n.t("sem impacto"),
+      minor: vscode.l10n.t("impacto menor"),
+      major: vscode.l10n.t("impacto alto"),
+      critical: vscode.l10n.t("crítico"),
+      maintenance: vscode.l10n.t("manutenção"),
     } as Record<string, string>
   )[imp] || imp;
 }
@@ -237,14 +237,14 @@ function fmtAgo(ts: number | undefined): string {
   }
   const sec = Math.max(0, Math.round(Date.now() / 1000 - ts));
   if (sec < 60) {
-    return `há ${sec}s`;
+    return vscode.l10n.t("há {0}s", sec);
   }
   const min = Math.round(sec / 60);
   if (min < 60) {
-    return `há ${min}min`;
+    return vscode.l10n.t("há {0}min", min);
   }
   const h = Math.round(min / 60);
-  return `há ${h}h`;
+  return vscode.l10n.t("há {0}h", h);
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -423,13 +423,18 @@ export function activate(context: vscode.ExtensionContext) {
         if (!notifiedIncidentIds.has(inc.id)) {
           notifiedIncidentIds.add(inc.id);
           const link = inc.shortlink || "https://status.claude.com";
+          const btnStatus = vscode.l10n.t("Ver status");
           vscode.window
             .showWarningMessage(
-              `Anthropic — ${inc.name} (${impactPt(inc.impact)})`,
-              "Ver status"
+              vscode.l10n.t(
+                "Anthropic — {0} ({1})",
+                inc.name,
+                impactPt(inc.impact)
+              ),
+              btnStatus
             )
             .then((c) => {
-              if (c === "Ver status") {
+              if (c === btnStatus) {
                 vscode.env.openExternal(vscode.Uri.parse(link));
               }
             });
@@ -559,7 +564,9 @@ export function activate(context: vscode.ExtensionContext) {
     if (!hasRate && !block && !fresh && !usage) {
       item.text = "$(circle-outline) Claude —";
       const md = new vscode.MarkdownString(
-        "**Claude Code Usage**\n\nSem dados ainda. A extensão usa o **ccusage** (uso da sessão de 5h, calculado dos transcripts) e, quando você roda o Claude Code no terminal, os limites **5h/7d** da statusline.\n\n_Rode `npx ccusage blocks --active` no terminal para testar a fonte._"
+        vscode.l10n.t(
+          "**Claude Code Usage**\n\nSem dados ainda. A extensão usa o **ccusage** (uso da sessão de 5h, calculado dos transcripts) e, quando você roda o Claude Code no terminal, os limites **5h/7d** da statusline.\n\n_Rode `npx ccusage blocks --active` no terminal para testar a fonte._"
+        )
       );
       md.isTrusted = true;
       item.tooltip = md;
@@ -575,9 +582,10 @@ export function activate(context: vscode.ExtensionContext) {
       if (within && resetWarnedEndMs !== block.endMs) {
         resetWarnedEndMs = block.endMs; // só uma vez por janela
         vscode.window.showInformationMessage(
-          `Claude Usage — sua sessão de 5h reseta em ~${fmtDuration(
-            block.remainingMinutes * 60000
-          )}.`
+          vscode.l10n.t(
+            "Claude Usage — sua sessão de 5h reseta em ~{0}.",
+            fmtDuration(block.remainingMinutes * 60000)
+          )
         );
       }
     }
@@ -615,16 +623,23 @@ export function activate(context: vscode.ExtensionContext) {
           if (curWindowPeakTokens > 0 || curWindowPeakPct > 0) {
             const partes: string[] = [];
             if (curWindowPeakPct > 0) {
-              partes.push(`${Math.round(curWindowPeakPct)}% da cota`);
+              partes.push(
+                vscode.l10n.t("{0}% da cota", Math.round(curWindowPeakPct))
+              );
             }
             if (curWindowPeakTokens > 0) {
-              partes.push(`${fmtTokens(curWindowPeakTokens)} tokens`);
+              partes.push(
+                vscode.l10n.t("{0} tokens", fmtTokens(curWindowPeakTokens))
+              );
             }
             if (curWindowPeakCost > 0) {
-              partes.push(`~${fmtUsd(curWindowPeakCost)} equiv.`);
+              partes.push(vscode.l10n.t("~{0} equiv.", fmtUsd(curWindowPeakCost)));
             }
             vscode.window.showInformationMessage(
-              `Claude Usage — sessão de 5h encerrada: ${partes.join(" · ")}. Janela nova começou.`
+              vscode.l10n.t(
+                "Claude Usage — sessão de 5h encerrada: {0}. Janela nova começou.",
+                partes.join(" · ")
+              )
             );
           }
           // reinicia para a nova janela
@@ -758,8 +773,8 @@ export function activate(context: vscode.ExtensionContext) {
       suffix = resetShort ? ` · ${resetShort}` : "";
       centerLabel = primary;
       centerSub = resetShort
-        ? `sessão 5h · reseta ${resetShort}`
-        : "sessão · 5h";
+        ? vscode.l10n.t("sessão 5h · reseta {0}", resetShort)
+        : vscode.l10n.t("sessão · 5h");
       effective = Math.max(fiveHour ?? 0, sevenDay ?? 0, projForColor);
     } else if (block) {
       // App/IDE: ccusage. Herói = % de TEMPO da sessão de 5h + tempo restante.
@@ -768,7 +783,7 @@ export function activate(context: vscode.ExtensionContext) {
       const resetShort = fmtDuration(block.remainingMinutes * 60000);
       suffix = ` · ${resetShort}`;
       centerLabel = primary;
-      centerSub = `sessão 5h · reseta ${resetShort}`;
+      centerSub = vscode.l10n.t("sessão 5h · reseta {0}", resetShort);
       effective = Math.max(block.timePct, costPctForColor, projForColor);
     } else {
       // Só statusline fresca sem rate (raro).
@@ -778,14 +793,14 @@ export function activate(context: vscode.ExtensionContext) {
         primary = ctxPct != null ? `${Math.round(ctxPct)}%` : "—";
         suffix = "";
         centerLabel = primary;
-        centerSub = "contexto";
+        centerSub = vscode.l10n.t("contexto");
         effective = ctxPct ?? 0;
       } else {
         ringPct = ctxPct;
         primary = fmtUsd(cost);
         suffix = "";
         centerLabel = fmtUsd(cost);
-        centerSub = "custo da sessão";
+        centerSub = vscode.l10n.t("custo da sessão");
         effective = Math.max(ctxPct ?? 0, costPctForColor);
       }
     }
@@ -870,22 +885,25 @@ export function activate(context: vscode.ExtensionContext) {
         // Incorpora a ETA na mensagem quando há previsão de estouro (#7).
         const etaSuffix =
           etaMin != null
-            ? ` — estoura em ~${fmtDuration(etaMin * 60000)}`
+            ? vscode.l10n.t(" — estoura em ~{0}", fmtDuration(etaMin * 60000))
             : "";
+        const btnOpen = vscode.l10n.t("Abrir painel");
+        const btnSnooze = vscode.l10n.t("Silenciar 1h");
+        const btnOff = vscode.l10n.t("Desligar alertas");
         vscode.window
           .showWarningMessage(
-            `Claude Usage — ${alert.message}${etaSuffix}`,
-            "Abrir painel",
-            "Silenciar 1h",
-            "Desligar alertas"
+            vscode.l10n.t("Claude Usage — {0}", `${alert.message}${etaSuffix}`),
+            btnOpen,
+            btnSnooze,
+            btnOff
           )
           .then((choice) => {
-            if (choice === "Abrir painel") {
+            if (choice === btnOpen) {
               vscode.commands.executeCommand("claudeUsageBar.openPanel");
-            } else if (choice === "Silenciar 1h") {
+            } else if (choice === btnSnooze) {
               // empurra o cooldown 1h pra frente
               lastAlertAtMs = Date.now() + 60 * 60_000 - cooldownMs;
-            } else if (choice === "Desligar alertas") {
+            } else if (choice === btnOff) {
               cfg().update(
                 "burnRateAlertEnabled",
                 false,
@@ -978,28 +996,38 @@ export function activate(context: vscode.ExtensionContext) {
     if (v.mode === "plan") {
       const pct = v.fiveHour != null ? `${Math.round(v.fiveHour)}%` : "—";
       const reset = v.state?.five_hour?.resets_at
-        ? ` · reseta ${fmtResetsAt(v.state.five_hour.resets_at)}`
+        ? " · " + vscode.l10n.t("reseta {0}", fmtResetsAt(v.state.five_hour.resets_at))
         : "";
-      lines.push(`**Sessão 5h:** ${pct}${bar(v.fiveHour)}${reset}`);
+      lines.push(
+        vscode.l10n.t("**Sessão 5h:** {0}", `${pct}${bar(v.fiveHour)}${reset}`)
+      );
       if (v.sevenDay != null) {
-        lines.push(`**Semana 7d:** ${Math.round(v.sevenDay)}%${bar(v.sevenDay)}`);
+        lines.push(
+          vscode.l10n.t(
+            "**Semana 7d:** {0}",
+            `${Math.round(v.sevenDay)}%${bar(v.sevenDay)}`
+          )
+        );
       }
     } else if (v.block) {
       const b = v.block;
       lines.push(
-        `**Sessão 5h:** ${Math.round(b.timePct)}% do tempo${bar(
-          b.timePct
-        )} · reseta em ${fmtDuration(b.remainingMinutes * 60000)}`
+        vscode.l10n.t(
+          "**Sessão 5h:** {0}% do tempo{1} · reseta em {2}",
+          Math.round(b.timePct),
+          bar(b.timePct),
+          fmtDuration(b.remainingMinutes * 60000)
+        )
       );
     } else {
-      lines.push("Sem dados da sessão ainda.");
+      lines.push(vscode.l10n.t("Sem dados da sessão ainda."));
     }
 
     // Alerta / projeção — só quando ativo (linha curta).
     if (v.alert.active) {
       const eta =
         v.etaMin != null
-          ? ` · estoura em ~${fmtDuration(v.etaMin * 60000)}`
+          ? vscode.l10n.t(" · estoura em ~{0}", fmtDuration(v.etaMin * 60000))
           : "";
       lines.push(`$(warning) **${v.alert.message}**${eta}`);
     } else if (v.projPct != null && v.projPct >= 60) {
@@ -1007,12 +1035,16 @@ export function activate(context: vscode.ExtensionContext) {
         v.etaMin != null
           ? ` · ~${fmtDuration(v.etaMin * 60000)}`
           : "";
-      lines.push(`↗ ritmo projeta ~${Math.round(v.projPct)}%${eta}`);
+      lines.push(
+        vscode.l10n.t("↗ ritmo projeta ~{0}%{1}", Math.round(v.projPct), eta)
+      );
     }
 
     // Link clicável para o painel completo.
     lines.push(
-      `[$(graph) Abrir painel](command:claudeUsageBar.openPanel) · _detalhes completos_`
+      vscode.l10n.t(
+        "[$(graph) Abrir painel](command:claudeUsageBar.openPanel) · _detalhes completos_"
+      )
     );
 
     const md = new vscode.MarkdownString(lines.join("\n\n"));
@@ -1028,16 +1060,22 @@ export function activate(context: vscode.ExtensionContext) {
       // Reset real (oauth) tem prioridade sobre o da statusline (só p/ a 7d aqui;
       // o reset da 5h já aparece no grifo).
       const reset7 = v.sevenDayResetMs
-        ? " · reseta em " + fmtDuration(v.sevenDayResetMs - Date.now())
+        ? " · " +
+          vscode.l10n.t(
+            "reseta em {0}",
+            fmtDuration(v.sevenDayResetMs - Date.now())
+          )
         : s?.seven_day?.resets_at
-        ? " · reseta " + fmtResetsAt(s.seven_day.resets_at)
+        ? " · " + vscode.l10n.t("reseta {0}", fmtResetsAt(s.seven_day.resets_at))
         : "";
       // Barra "de uso" = COTA real (mesmo % do anel/grifo). Mostra % + tokens.
       // O reset não vai aqui — já aparece no grifo acima.
       const usoPct = v.fiveHour != null ? `${Math.round(v.fiveHour)}%` : "—";
-      const usoTok = v.block ? ` · ${fmtTokens(v.block.totalTokens)} tokens` : "";
+      const usoTok = v.block
+        ? " · " + vscode.l10n.t("{0} tokens", fmtTokens(v.block.totalTokens))
+        : "";
       rows.push({
-        label: "Uso de tokens da sessão",
+        label: vscode.l10n.t("Uso de tokens da sessão"),
         value: `${usoPct}${usoTok}`,
         pct: v.fiveHour, // barra colore pela cota
       });
@@ -1046,29 +1084,30 @@ export function activate(context: vscode.ExtensionContext) {
       const timePct = sessionTimePct(v.fiveHourResetMs, v.block);
       if (timePct != null) {
         rows.push({
-          label: "Tempo da sessão 5h",
-          value: `${Math.round(timePct)}% do tempo`,
+          label: vscode.l10n.t("Tempo da sessão 5h"),
+          value: vscode.l10n.t("{0}% do tempo", Math.round(timePct)),
           pct: timePct,
         });
       }
       rows.push({
-        label: `Semana (7d)${reset7}`,
+        label: `${vscode.l10n.t("Semana (7d)")}${reset7}`,
         value: v.sevenDay != null ? `${Math.round(v.sevenDay)}%` : "—",
         pct: v.sevenDay,
       });
     } else if (v.block) {
       const b = v.block;
       rows.push({
-        label: `Sessão 5h · reseta em ${fmtDuration(
-          b.remainingMinutes * 60000
-        )}`,
-        value: `${Math.round(b.timePct)}% do tempo`,
+        label: vscode.l10n.t(
+          "Sessão 5h · reseta em {0}",
+          fmtDuration(b.remainingMinutes * 60000)
+        ),
+        value: vscode.l10n.t("{0}% do tempo", Math.round(b.timePct)),
         pct: b.timePct,
       });
       if (v.isSub) {
         // Assinatura: $ é só referência; sem teto/barra/cor.
         rows.push({
-          label: "Equivalente API (sua assinatura cobre)",
+          label: vscode.l10n.t("Equivalente API (sua assinatura cobre)"),
           value: `~${fmtUsd(b.costUSD)}`,
           pct: null,
         });
@@ -1076,13 +1115,16 @@ export function activate(context: vscode.ExtensionContext) {
         const capPct =
           v.costCap > 0 ? Math.min(100, (b.costUSD / v.costCap) * 100) : null;
         rows.push({
-          label: v.costCap > 0 ? `Custo / teto ${fmtUsd(v.costCap)}` : "Custo",
+          label:
+            v.costCap > 0
+              ? vscode.l10n.t("Custo / teto {0}", fmtUsd(v.costCap))
+              : vscode.l10n.t("Custo"),
           value: fmtUsd(b.costUSD),
           pct: capPct,
         });
         if (b.burnCostPerHour != null) {
           rows.push({
-            label: "Ritmo (projeção do bloco)",
+            label: vscode.l10n.t("Ritmo (projeção do bloco)"),
             value: `${fmtUsd(b.burnCostPerHour)}/h → ${fmtUsd(
               b.projectedCost ?? undefined
             )}`,
@@ -1091,7 +1133,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }
       rows.push({
-        label: "Tokens no bloco",
+        label: vscode.l10n.t("Tokens no bloco"),
         value: fmtTokens(b.totalTokens),
         pct: null,
       });
@@ -1099,21 +1141,21 @@ export function activate(context: vscode.ExtensionContext) {
 
     if (v.ctxPct != null) {
       rows.push({
-        label: "Contexto",
+        label: vscode.l10n.t("Contexto"),
         value: `${Math.round(v.ctxPct)}%`,
         pct: v.ctxPct,
       });
     }
     const model = prettyModel(v.modelName);
     if (model) {
-      rows.push({ label: "Modelo", value: model, pct: null });
+      rows.push({ label: vscode.l10n.t("Modelo"), value: model, pct: null });
     }
 
     const src = v.usingCcusage
       ? "ccusage"
       : v.mode === "plan"
-      ? "statusline (plano)"
-      : "statusline";
+      ? vscode.l10n.t("statusline (plano)")
+      : vscode.l10n.t("statusline");
     // Últimos ~7 dias pro sparkline: só o que o gráfico precisa (data + tokens).
     const daily = v.daily.slice(-7).map((d) => ({
       date: d.date,
@@ -1168,9 +1210,11 @@ export function activate(context: vscode.ExtensionContext) {
         };
       })(),
       updatedAtMs: lastUpdateMs || null,
-      footer: `fonte: ${src}${
-        v.state?.ts ? " · statusline " + fmtAgo(v.state.ts) : ""
-      }`,
+      footer:
+        vscode.l10n.t("fonte: {0}", src) +
+        (v.state?.ts
+          ? " · " + vscode.l10n.t("statusline {0}", fmtAgo(v.state.ts))
+          : ""),
     };
   };
 
@@ -1238,7 +1282,9 @@ export function activate(context: vscode.ExtensionContext) {
       render();
       // Feedback claro e visível (não só a mensagem fugaz da status bar).
       vscode.window.showInformationMessage(
-        `Claude Usage: alerta de burn rate ${next ? "LIGADO 🔔" : "DESLIGADO 🔕"}.`
+        next
+          ? vscode.l10n.t("Claude Usage: alerta de burn rate LIGADO 🔔.")
+          : vscode.l10n.t("Claude Usage: alerta de burn rate DESLIGADO 🔕.")
       );
     }),
     vscode.commands.registerCommand("claudeUsageBar.openState", async () => {
@@ -1249,7 +1295,9 @@ export function activate(context: vscode.ExtensionContext) {
         await vscode.window.showTextDocument(doc);
       } catch {
         vscode.window.showInformationMessage(
-          "Arquivo de estado da statusline ainda não existe (só é gravado ao usar o Claude Code no terminal)."
+          vscode.l10n.t(
+            "Arquivo de estado da statusline ainda não existe (só é gravado ao usar o Claude Code no terminal)."
+          )
         );
       }
     }),

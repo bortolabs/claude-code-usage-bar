@@ -1,3 +1,4 @@
+import * as vscode from "vscode";
 import { CcusageData } from "./ccusage";
 
 export interface AlertInput {
@@ -77,9 +78,11 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
   if (input.block && input.costCap > 0 && input.block.projectedCost != null) {
     if (input.block.projectedCost > input.costCap) {
       reasons.push(
-        `Nesse ritmo: ${fmtUsd(input.block.projectedCost)} até o reset (teto ${fmtUsd(
-          input.costCap
-        )})`
+        vscode.l10n.t(
+          "Nesse ritmo: {0} até o reset (teto {1})",
+          fmtUsd(input.block.projectedCost),
+          fmtUsd(input.costCap)
+        )
       );
       keys.push("cost");
     }
@@ -93,9 +96,11 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
     input.block.projectedTokens > input.tokenCap
   ) {
     reasons.push(
-      `Nesse ritmo: ${fmtTok(input.block.projectedTokens)} tokens até o reset (teto ${fmtTok(
-        input.tokenCap
-      )})`
+      vscode.l10n.t(
+        "Nesse ritmo: {0} tokens até o reset (teto {1})",
+        fmtTok(input.block.projectedTokens),
+        fmtTok(input.tokenCap)
+      )
     );
     keys.push("tokens");
   }
@@ -108,9 +113,11 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
     input.block.burnCostPerHour > input.maxPerHour
   ) {
     reasons.push(
-      `Ritmo alto: ${fmtUsd(input.block.burnCostPerHour)}/h (limite ${fmtUsd(
-        input.maxPerHour
-      )}/h)`
+      vscode.l10n.t(
+        "Ritmo alto: {0}/h (limite {1}/h)",
+        fmtUsd(input.block.burnCostPerHour),
+        fmtUsd(input.maxPerHour)
+      )
     );
     keys.push("rate");
   }
@@ -122,7 +129,9 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
     5 * 3600
   );
   if (proj5h != null && proj5h >= 100) {
-    reasons.push(`Sessão 5h projeta atingir 100% antes do reset`);
+    reasons.push(
+      vscode.l10n.t("Sessão 5h projeta atingir 100% antes do reset")
+    );
     keys.push("plan5h");
   }
   const proj7d = projectLimitPct(
@@ -131,7 +140,9 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
     7 * 24 * 3600
   );
   if (proj7d != null && proj7d >= 100) {
-    reasons.push(`Limite semanal projeta atingir 100% antes do reset`);
+    reasons.push(
+      vscode.l10n.t("Limite semanal projeta atingir 100% antes do reset")
+    );
     keys.push("plan7d");
   }
 

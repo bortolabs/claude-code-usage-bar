@@ -52,9 +52,132 @@ export interface PanelData {
   footer: string;
 }
 
+/**
+ * Dicionário de strings do painel, já traduzidas para o idioma ativo do VS Code
+ * (via `vscode.l10n.t`). É montado no host e injetado no webview como `const L`,
+ * já que o webview roda num contexto separado e não tem acesso ao `l10n`.
+ * Português é o idioma-base; adicionar um idioma = um arquivo `l10n/bundle.l10n.<lang>.json`.
+ */
+function panelStrings() {
+  return {
+    waiting: vscode.l10n.t("Aguardando dados do Claude Code…"),
+    title: vscode.l10n.t("Claude Usage"),
+    refresh: vscode.l10n.t("Atualizar"),
+    updating: vscode.l10n.t("atualizando…"),
+    updated: vscode.l10n.t("atualizado {0}"),
+    agoS: vscode.l10n.t("há {0}s"),
+    agoMin: vscode.l10n.t("há {0}min"),
+    agoH: vscode.l10n.t("há {0}h"),
+    tabs: {
+      sessao: vscode.l10n.t("Sessão"),
+      historico: vscode.l10n.t("Histórico"),
+      status: vscode.l10n.t("Status"),
+      config: vscode.l10n.t("Config"),
+    },
+    stylesTitle: vscode.l10n.t("Estilo na status bar"),
+    styles: {
+      ring: vscode.l10n.t("◕ anel"),
+      bar: vscode.l10n.t("▰ barra"),
+      number: vscode.l10n.t("% número"),
+      icon: vscode.l10n.t("⚡ ícone"),
+    },
+    lastDays: vscode.l10n.t("Últimos dias"),
+    tokens: vscode.l10n.t("{0} tokens"),
+    projectsTitle: vscode.l10n.t("Projetos nesta sessão (5h)"),
+    noHistory: vscode.l10n.t("Sem histórico ainda."),
+    sec: {
+      appearance: vscode.l10n.t("Aparência"),
+      source: vscode.l10n.t("Fonte e atualização"),
+      account: vscode.l10n.t("Conta e limites"),
+      alerts: vscode.l10n.t("Alertas e cores"),
+      status: vscode.l10n.t("Status da Anthropic"),
+    },
+    cfg: {
+      ringTheme: vscode.l10n.t("Tema do anel"),
+      ringColor: vscode.l10n.t("Cor do anel (mono/custom)"),
+      barStyle: vscode.l10n.t("Estilo na status bar"),
+      alignment: vscode.l10n.t("Lado da status bar"),
+      priority: vscode.l10n.t("Prioridade na status bar"),
+      useOAuthUsage: vscode.l10n.t("Usar cota real (oauth/usage)"),
+      oauthRefreshSeconds: vscode.l10n.t("Atualizar oauth (s)"),
+      ccusageCommand: vscode.l10n.t("Comando ccusage"),
+      ccusageRefreshSeconds: vscode.l10n.t("Atualizar ccusage (s)"),
+      stateFilePath: vscode.l10n.t("Arquivo de estado (statusline)"),
+      staleAfterSeconds: vscode.l10n.t("Statusline fresca por (s)"),
+      accountType: vscode.l10n.t("Tipo de conta"),
+      mode: vscode.l10n.t("Modo de exibição"),
+      costCapUsd: vscode.l10n.t("Teto de custo (USD)"),
+      sessionTokenCap: vscode.l10n.t("Teto de tokens/sessão"),
+      intenseTokensPerMin: vscode.l10n.t("Ritmo intenso (tok/min)"),
+      burnRateAlertEnabled: vscode.l10n.t("Alerta de burn rate"),
+      burnRateMaxPerHour: vscode.l10n.t("Limite de ritmo ($/h)"),
+      alertCooldownMinutes: vscode.l10n.t("Cooldown do alerta (min)"),
+      colorByProjection: vscode.l10n.t("Colorir por projeção"),
+      resetWarningMinutes: vscode.l10n.t("Aviso de fim de janela (min)"),
+      blockSummaryEnabled: vscode.l10n.t("Resumo ao fechar o bloco"),
+      warnThreshold: vscode.l10n.t("Limiar amarelo (%)"),
+      errorThreshold: vscode.l10n.t("Limiar vermelho (%)"),
+      statusCheckEnabled: vscode.l10n.t("Monitorar status"),
+      statusBadgeEnabled: vscode.l10n.t("Badge na status bar"),
+      statusNotifyEnabled: vscode.l10n.t("Notificar incidentes"),
+      statusRefreshSeconds: vscode.l10n.t("Atualizar status (s)"),
+    },
+    cmdsTitle: vscode.l10n.t("Comandos"),
+    cmd: {
+      refresh: vscode.l10n.t("↻ Atualizar"),
+      state: vscode.l10n.t("Arquivo de estado"),
+      cycle: vscode.l10n.t("Alternar estilo"),
+      toggle: vscode.l10n.t("Liga/desliga alerta"),
+    },
+    openSettings: vscode.l10n.t("Abrir settings.json (claudeUsageBar) →"),
+    alertLabel: vscode.l10n.t("Alerta de burn rate"),
+    alertOn: vscode.l10n.t("🔔 Ligado"),
+    alertOff: vscode.l10n.t("🔕 Desligado"),
+    st: {
+      disabled: vscode.l10n.t("Verificação de status desligada ou indisponível."),
+      openPage: vscode.l10n.t("Abrir status.claude.com →"),
+      incidents: vscode.l10n.t("Incidentes ativos"),
+      components: vscode.l10n.t("Componentes"),
+      recent: vscode.l10n.t("Resolvidos recentemente"),
+    },
+    comp: {
+      operational: vscode.l10n.t("operacional"),
+      degraded_performance: vscode.l10n.t("degradado"),
+      partial_outage: vscode.l10n.t("instável"),
+      major_outage: vscode.l10n.t("fora do ar"),
+      under_maintenance: vscode.l10n.t("manutenção"),
+    },
+    indicator: {
+      none: vscode.l10n.t("Todos os sistemas operacionais"),
+      minor: vscode.l10n.t("Interrupção menor"),
+      major: vscode.l10n.t("Interrupção significativa"),
+      critical: vscode.l10n.t("Interrupção crítica"),
+      maintenance: vscode.l10n.t("Em manutenção"),
+    },
+    impact: {
+      none: vscode.l10n.t("sem impacto"),
+      minor: vscode.l10n.t("impacto menor"),
+      major: vscode.l10n.t("impacto alto"),
+      critical: vscode.l10n.t("crítico"),
+      maintenance: vscode.l10n.t("manutenção"),
+    },
+    incStatus: {
+      investigating: vscode.l10n.t("investigando"),
+      identified: vscode.l10n.t("identificado"),
+      monitoring: vscode.l10n.t("monitorando"),
+      resolved: vscode.l10n.t("resolvido"),
+      scheduled: vscode.l10n.t("agendado"),
+      in_progress: vscode.l10n.t("em andamento"),
+      verifying: vscode.l10n.t("verificando"),
+      completed: vscode.l10n.t("concluído"),
+    },
+  };
+}
+
 /** HTML compartilhado entre a view da sidebar e (se usado) um painel. */
 function panelHtml(): string {
   const nonce = String(Date.now()) + "x";
+  const loc = panelStrings();
   return `<!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -202,9 +325,11 @@ function panelHtml(): string {
 </style>
 </head>
 <body>
-  <div id="app"><div class="empty">Aguardando dados do Claude Code…</div></div>
+  <div id="app"><div class="empty">${loc.waiting}</div></div>
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
+  // Strings já traduzidas (idioma ativo do VS Code), injetadas pelo host.
+  const L = ${JSON.stringify(loc)};
   const colorVar = { ok: 'var(--ok)', warn: 'var(--warn)', err: 'var(--err)' };
   let curStyle = 'ring';
   let updatedAtMs = null; // última atualização efetiva (epoch ms)
@@ -215,60 +340,62 @@ function panelHtml(): string {
 
   // Schema dos settings para a aba Config (key, label, tipo, opções).
   const SETTINGS_SCHEMA = [
-    { section: 'Aparência', items: [
-      { key: 'ringTheme', label: 'Tema do anel', type: 'enum', options: ['semaforo','claude','mono','custom'] },
-      { key: 'ringColor', label: 'Cor do anel (mono/custom)', type: 'color' },
-      { key: 'barStyle', label: 'Estilo na status bar', type: 'enum', options: ['ring','bar','number','icon'] },
-      { key: 'alignment', label: 'Lado da status bar', type: 'enum', options: ['right','left'] },
-      { key: 'priority', label: 'Prioridade na status bar', type: 'number' },
+    { section: L.sec.appearance, items: [
+      { key: 'ringTheme', label: L.cfg.ringTheme, type: 'enum', options: ['semaforo','claude','mono','custom'] },
+      { key: 'ringColor', label: L.cfg.ringColor, type: 'color' },
+      { key: 'barStyle', label: L.cfg.barStyle, type: 'enum', options: ['ring','bar','number','icon'] },
+      { key: 'alignment', label: L.cfg.alignment, type: 'enum', options: ['right','left'] },
+      { key: 'priority', label: L.cfg.priority, type: 'number' },
     ]},
-    { section: 'Fonte e atualização', items: [
-      { key: 'useOAuthUsage', label: 'Usar cota real (oauth/usage)', type: 'bool' },
-      { key: 'oauthRefreshSeconds', label: 'Atualizar oauth (s)', type: 'number' },
-      { key: 'ccusageCommand', label: 'Comando ccusage', type: 'string' },
-      { key: 'ccusageRefreshSeconds', label: 'Atualizar ccusage (s)', type: 'number' },
-      { key: 'stateFilePath', label: 'Arquivo de estado (statusline)', type: 'string' },
-      { key: 'staleAfterSeconds', label: 'Statusline fresca por (s)', type: 'number' },
+    { section: L.sec.source, items: [
+      { key: 'useOAuthUsage', label: L.cfg.useOAuthUsage, type: 'bool' },
+      { key: 'oauthRefreshSeconds', label: L.cfg.oauthRefreshSeconds, type: 'number' },
+      { key: 'ccusageCommand', label: L.cfg.ccusageCommand, type: 'string' },
+      { key: 'ccusageRefreshSeconds', label: L.cfg.ccusageRefreshSeconds, type: 'number' },
+      { key: 'stateFilePath', label: L.cfg.stateFilePath, type: 'string' },
+      { key: 'staleAfterSeconds', label: L.cfg.staleAfterSeconds, type: 'number' },
     ]},
-    { section: 'Conta e limites', items: [
-      { key: 'accountType', label: 'Tipo de conta', type: 'enum', options: ['auto','subscription','api'] },
-      { key: 'mode', label: 'Modo de exibição', type: 'enum', options: ['auto','subscriber','cost'] },
-      { key: 'costCapUsd', label: 'Teto de custo (USD)', type: 'number' },
-      { key: 'sessionTokenCap', label: 'Teto de tokens/sessão', type: 'number' },
-      { key: 'intenseTokensPerMin', label: 'Ritmo intenso (tok/min)', type: 'number' },
+    { section: L.sec.account, items: [
+      { key: 'accountType', label: L.cfg.accountType, type: 'enum', options: ['auto','subscription','api'] },
+      { key: 'mode', label: L.cfg.mode, type: 'enum', options: ['auto','subscriber','cost'] },
+      { key: 'costCapUsd', label: L.cfg.costCapUsd, type: 'number' },
+      { key: 'sessionTokenCap', label: L.cfg.sessionTokenCap, type: 'number' },
+      { key: 'intenseTokensPerMin', label: L.cfg.intenseTokensPerMin, type: 'number' },
     ]},
-    { section: 'Alertas e cores', items: [
-      { key: 'burnRateAlertEnabled', label: 'Alerta de burn rate', type: 'bool' },
-      { key: 'burnRateMaxPerHour', label: 'Limite de ritmo ($/h)', type: 'number' },
-      { key: 'alertCooldownMinutes', label: 'Cooldown do alerta (min)', type: 'number' },
-      { key: 'colorByProjection', label: 'Colorir por projeção', type: 'bool' },
-      { key: 'resetWarningMinutes', label: 'Aviso de fim de janela (min)', type: 'number' },
-      { key: 'blockSummaryEnabled', label: 'Resumo ao fechar o bloco', type: 'bool' },
-      { key: 'warnThreshold', label: 'Limiar amarelo (%)', type: 'number' },
-      { key: 'errorThreshold', label: 'Limiar vermelho (%)', type: 'number' },
+    { section: L.sec.alerts, items: [
+      { key: 'burnRateAlertEnabled', label: L.cfg.burnRateAlertEnabled, type: 'bool' },
+      { key: 'burnRateMaxPerHour', label: L.cfg.burnRateMaxPerHour, type: 'number' },
+      { key: 'alertCooldownMinutes', label: L.cfg.alertCooldownMinutes, type: 'number' },
+      { key: 'colorByProjection', label: L.cfg.colorByProjection, type: 'bool' },
+      { key: 'resetWarningMinutes', label: L.cfg.resetWarningMinutes, type: 'number' },
+      { key: 'blockSummaryEnabled', label: L.cfg.blockSummaryEnabled, type: 'bool' },
+      { key: 'warnThreshold', label: L.cfg.warnThreshold, type: 'number' },
+      { key: 'errorThreshold', label: L.cfg.errorThreshold, type: 'number' },
     ]},
-    { section: 'Status da Anthropic', items: [
-      { key: 'statusCheckEnabled', label: 'Monitorar status', type: 'bool' },
-      { key: 'statusBadgeEnabled', label: 'Badge na status bar', type: 'bool' },
-      { key: 'statusNotifyEnabled', label: 'Notificar incidentes', type: 'bool' },
-      { key: 'statusRefreshSeconds', label: 'Atualizar status (s)', type: 'number' },
+    { section: L.sec.status, items: [
+      { key: 'statusCheckEnabled', label: L.cfg.statusCheckEnabled, type: 'bool' },
+      { key: 'statusBadgeEnabled', label: L.cfg.statusBadgeEnabled, type: 'bool' },
+      { key: 'statusNotifyEnabled', label: L.cfg.statusNotifyEnabled, type: 'bool' },
+      { key: 'statusRefreshSeconds', label: L.cfg.statusRefreshSeconds, type: 'number' },
     ]},
   ];
 
+  // Substitui {0} numa string-template (mesmo formato do vscode.l10n.t).
+  function fmt(tpl, v) { return String(tpl).replace('{0}', v); }
   // "há Xs / Xmin / Xh" a partir de um epoch ms.
   function fmtSince(ms) {
     if (!ms) return '';
     var s = Math.max(0, Math.round((Date.now() - ms) / 1000));
-    if (s < 60) return 'há ' + s + 's';
+    if (s < 60) return fmt(L.agoS, s);
     var m = Math.round(s / 60);
-    if (m < 60) return 'há ' + m + 'min';
+    if (m < 60) return fmt(L.agoMin, m);
     var h = Math.round(m / 60);
-    return 'há ' + h + 'h';
+    return fmt(L.agoH, h);
   }
   // Atualiza só o texto do "atualizado há Xs" (chamado a cada 1s).
   function tickLastUpd() {
     var el = document.getElementById('lastUpd');
-    if (el) el.textContent = updatedAtMs ? 'atualizado ' + fmtSince(updatedAtMs) : '';
+    if (el) el.textContent = updatedAtMs ? fmt(L.updated, fmtSince(updatedAtMs)) : '';
   }
   setInterval(tickLastUpd, 1000);
 
@@ -299,8 +426,8 @@ function panelHtml(): string {
     </svg>\`;
   }
   function styleButtons() {
-    const opts = [['ring','◕ anel'],['bar','▰ barra'],['number','% número'],['icon','⚡ ícone']];
-    return '<div class="styles"><div class="styles-title">Estilo na status bar</div><div class="style-btns">' +
+    const opts = [['ring',L.styles.ring],['bar',L.styles.bar],['number',L.styles.number],['icon',L.styles.icon]];
+    return '<div class="styles"><div class="styles-title">' + esc(L.stylesTitle) + '</div><div class="style-btns">' +
       opts.map(function(o){
         return '<button class="sbtn' + (o[0]===curStyle?' active':'') + '" data-style="' + o[0] + '">' + o[1] + '</button>';
       }).join('') + '</div></div>';
@@ -321,7 +448,7 @@ function panelHtml(): string {
     const bars = days.map(function(d, i) {
       const h = Math.max(2, Math.round((d.tokens / max) * 100));
       const today = i === days.length - 1 ? ' today' : '';
-      const tip = (d.date || '') + ' · ' + fmtTok(d.tokens) + ' tokens';
+      const tip = (d.date || '') + ' · ' + fmt(L.tokens, fmtTok(d.tokens));
       return '<div class="spark-bar' + today + '" style="height:' + h + '%" title="' + tip + '"></div>';
     }).join('');
     // rótulos só nas pontas (primeiro e último dia), pra não poluir.
@@ -329,7 +456,7 @@ function panelHtml(): string {
     const last = days[days.length - 1].date || '';
     const labels = '<div class="spark-labels"><span>' + first.slice(5) +
       '</span><span>' + last.slice(5) + '</span></div>';
-    return '<div class="spark"><div class="styles-title">Últimos dias</div>' +
+    return '<div class="spark"><div class="styles-title">' + esc(L.lastDays) + '</div>' +
       '<div class="spark-bars">' + bars + '</div>' + labels + '</div>';
   }
   const card = (inner, cls) =>
@@ -357,7 +484,7 @@ function panelHtml(): string {
       return '<div class="row"><div class="row-head"><span class="row-label">' + esc(p.project) +
         '</span><span class="row-val">' + fmtTok(p.tokens) + '</span></div>' + bar(pct, null) + '</div>';
     }).join('');
-    return card('<div class="styles-title">Projetos nesta sessão (5h)</div>' + rows);
+    return card('<div class="styles-title">' + esc(L.projectsTitle) + '</div>' + rows);
   }
 
   // Aba Config: form de settings + comandos + link.
@@ -387,13 +514,13 @@ function panelHtml(): string {
       });
     });
     // Comandos + link
-    const cmds = '<div class="cfg-section-title">Comandos</div><div class="cmd-btns">' +
-      '<button class="sbtn" data-cmd="claudeUsageBar.refresh">↻ Atualizar</button>' +
-      '<button class="sbtn" data-cmd="claudeUsageBar.openState">Arquivo de estado</button>' +
-      '<button class="sbtn" data-cmd="claudeUsageBar.cycleStyle">Alternar estilo</button>' +
-      '<button class="sbtn" data-cmd="claudeUsageBar.toggleAlert">Liga/desliga alerta</button>' +
+    const cmds = '<div class="cfg-section-title">' + esc(L.cmdsTitle) + '</div><div class="cmd-btns">' +
+      '<button class="sbtn" data-cmd="claudeUsageBar.refresh">' + esc(L.cmd.refresh) + '</button>' +
+      '<button class="sbtn" data-cmd="claudeUsageBar.openState">' + esc(L.cmd.state) + '</button>' +
+      '<button class="sbtn" data-cmd="claudeUsageBar.cycleStyle">' + esc(L.cmd.cycle) + '</button>' +
+      '<button class="sbtn" data-cmd="claudeUsageBar.toggleAlert">' + esc(L.cmd.toggle) + '</button>' +
       '</div>' +
-      '<button class="link-btn" id="openSettings">Abrir settings.json (claudeUsageBar) →</button>';
+      '<button class="link-btn" id="openSettings">' + esc(L.openSettings) + '</button>';
     return card(html + cmds, 'controls');
   }
 
@@ -404,13 +531,7 @@ function panelHtml(): string {
     return 'warn'; // degraded_performance, partial_outage, under_maintenance...
   }
   function stLabel(status) {
-    return ({
-      operational: 'operacional',
-      degraded_performance: 'degradado',
-      partial_outage: 'instável',
-      major_outage: 'fora do ar',
-      under_maintenance: 'manutenção',
-    })[status] || status;
+    return L.comp[status] || status;
   }
   function indicatorColor(ind) {
     if (ind === 'none') return 'ok';
@@ -419,41 +540,20 @@ function panelHtml(): string {
   }
   // Traduções dos rótulos vindos da API (status.claude.com em inglês).
   function indicatorLabel(ind) {
-    return ({
-      none: 'Todos os sistemas operacionais',
-      minor: 'Interrupção menor',
-      major: 'Interrupção significativa',
-      critical: 'Interrupção crítica',
-      maintenance: 'Em manutenção',
-    })[ind] || ind;
+    return L.indicator[ind] || ind;
   }
   function impactLabel(imp) {
-    return ({
-      none: 'sem impacto',
-      minor: 'impacto menor',
-      major: 'impacto alto',
-      critical: 'crítico',
-      maintenance: 'manutenção',
-    })[imp] || imp;
+    return L.impact[imp] || imp;
   }
   function incStatusLabel(st) {
-    return ({
-      investigating: 'investigando',
-      identified: 'identificado',
-      monitoring: 'monitorando',
-      resolved: 'resolvido',
-      scheduled: 'agendado',
-      in_progress: 'em andamento',
-      verifying: 'verificando',
-      completed: 'concluído',
-    })[st] || st;
+    return L.incStatus[st] || st;
   }
 
   // Aba Status: status geral + componentes + incidentes + histórico.
   function statusTab(s) {
     if (!s) {
-      return '<div class="empty">Verificação de status desligada ou indisponível.</div>' +
-        card('<button class="link-btn" id="openStatusPage">Abrir status.claude.com →</button>', 'controls');
+      return '<div class="empty">' + esc(L.st.disabled) + '</div>' +
+        card('<button class="link-btn" id="openStatusPage">' + esc(L.st.openPage) + '</button>', 'controls');
     }
     const ic = indicatorColor(s.indicator);
     const dot = '<span class="st-dot bgc-' + ic + '"></span>';
@@ -470,7 +570,7 @@ function panelHtml(): string {
         return '<div class="st-inc' + cls + '"><div class="st-inc-name">' + esc(i.name) + '</div>' +
           '<div class="st-inc-meta">' + esc(impactLabel(i.impact)) + ' · ' + esc(incStatusLabel(i.status)) + '</div>' + upd + '</div>';
       }).join('');
-      html += card('<div class="styles-title">Incidentes ativos</div>' + inc);
+      html += card('<div class="styles-title">' + esc(L.st.incidents) + '</div>' + inc);
     }
     // Componentes
     if (s.components && s.components.length) {
@@ -479,7 +579,7 @@ function panelHtml(): string {
         return '<div class="st-comp"><span>' + esc(c.name) + '</span>' +
           '<span class="st-comp-status stc-' + col + '">' + esc(stLabel(c.status)) + '</span></div>';
       }).join('');
-      html += card('<div class="styles-title">Componentes</div>' + comps);
+      html += card('<div class="styles-title">' + esc(L.st.components) + '</div>' + comps);
     }
     // Histórico recente (resolvidos)
     if (s.recent && s.recent.length) {
@@ -487,14 +587,14 @@ function panelHtml(): string {
         const d = r.resolvedAt ? r.resolvedAt.slice(0,10) : '';
         return '<div class="st-recent">✓ ' + esc(r.name) + (d ? ' · ' + d : '') + '</div>';
       }).join('');
-      html += card('<div class="styles-title">Resolvidos recentemente</div>' + rec);
+      html += card('<div class="styles-title">' + esc(L.st.recent) + '</div>' + rec);
     }
-    html += card('<button class="link-btn" id="openStatusPage">Abrir status.claude.com →</button>', 'controls');
+    html += card('<button class="link-btn" id="openStatusPage">' + esc(L.st.openPage) + '</button>', 'controls');
     return html;
   }
 
   function tabsBar(statusIssue) {
-    const tabs = [['sessao','Sessão'],['historico','Histórico'],['status','Status'],['config','Config']];
+    const tabs = [['sessao',L.tabs.sessao],['historico',L.tabs.historico],['status',L.tabs.status],['config',L.tabs.config]];
     return '<div class="tabs">' + tabs.map(function(t){
       const badge = (t[0]==='status' && statusIssue) ? ' ⚠' : '';
       return '<button class="tab' + (t[0]===activeTab?' active':'') + '" data-tab="' + t[0] + '">' + t[1] + badge + '</button>';
@@ -521,10 +621,10 @@ function panelHtml(): string {
     const ringOverride = d.ringColorOverride || null;
 
     const header =
-      '<div class="header"><span class="title">Claude Usage</span>' +
+      '<div class="header"><span class="title">' + esc(L.title) + '</span>' +
       '<div class="header-right">' +
       '<span id="lastUpd" class="last-upd"></span>' +
-      '<button id="refreshBtn" class="refresh" title="Atualizar"><span class="ic">↻</span> Atualizar</button>' +
+      '<button id="refreshBtn" class="refresh" title="' + esc(L.refresh) + '"><span class="ic">↻</span> ' + esc(L.refresh) + '</button>' +
       '</div></div>';
 
     // Alerta sempre visível (qualquer aba), pois é importante.
@@ -549,16 +649,16 @@ function panelHtml(): string {
     } else if (activeTab === 'historico') {
       const sparkHtml = sparkline(d.daily);
       body = (sparkHtml ? card(sparkHtml) : '') + projectsCard(d.projects);
-      if (!body) body = '<div class="empty">Sem histórico ainda.</div>';
+      if (!body) body = '<div class="empty">' + esc(L.noHistory) + '</div>';
     } else if (activeTab === 'status') {
       body = statusTab(d.status);
     } else if (activeTab === 'config') {
       const alertEnabled = d.alertEnabled !== false;
       const styleCard = card(styleButtons());
       const toggle = card(
-        '<div class="toggle-row"><span class="toggle-label">Alerta de burn rate</span>' +
+        '<div class="toggle-row"><span class="toggle-label">' + esc(L.alertLabel) + '</span>' +
         '<button id="alertToggle" class="toggle ' + (alertEnabled ? 'on' : 'off') + '">' +
-        (alertEnabled ? '🔔 Ligado' : '🔕 Desligado') + '</button></div>', 'controls');
+        (alertEnabled ? L.alertOn : L.alertOff) + '</button></div>', 'controls');
       body = styleCard + toggle + configTab(d.settings);
     }
 
@@ -617,7 +717,7 @@ function panelHtml(): string {
       rb.classList.add('spinning');
       setTimeout(function(){ rb.classList.remove('spinning'); }, 600);
       var lu = document.getElementById('lastUpd');
-      if (lu) { lu.textContent = 'atualizando…'; lu.classList.add('flash');
+      if (lu) { lu.textContent = L.updating; lu.classList.add('flash');
         setTimeout(function(){ lu.classList.remove('flash'); }, 1200); }
       vscode.postMessage({ type: 'refresh' });
     });
@@ -625,7 +725,7 @@ function panelHtml(): string {
     if (at) at.addEventListener('click', function(){
       var on = at.classList.contains('on');
       at.classList.toggle('on', !on); at.classList.toggle('off', on);
-      at.textContent = on ? '🔕 Desligado' : '🔔 Ligado';
+      at.textContent = on ? L.alertOff : L.alertOn;
       vscode.postMessage({ type: 'toggleAlert' });
     });
   }
