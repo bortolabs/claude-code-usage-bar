@@ -624,7 +624,7 @@ function panelHtml(): string {
       '<div class="header"><span class="title">' + esc(L.title) + '</span>' +
       '<div class="header-right">' +
       '<span id="lastUpd" class="last-upd"></span>' +
-      '<button id="refreshBtn" class="refresh" title="' + esc(L.refresh) + '"><span class="ic">↻</span> ' + esc(L.refresh) + '</button>' +
+      '<button id="refreshBtn" class="refresh" title="' + esc(L.refresh) + '" aria-label="' + esc(L.refresh) + '"><span class="ic">↻</span></button>' +
       '</div></div>';
 
     // Alerta sempre visível (qualquer aba), pois é importante.
@@ -793,6 +793,8 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
   private msgDisposable?: vscode.Disposable;
   /** Chamado quando a webview sinaliza que montou e quer dados. */
   public onReady?: () => void;
+  /** Chamado quando a view fica visível (revelada/reaberta) — p/ refazer fetch. */
+  public onVisible?: () => void;
 
   constructor() {
     UsageViewProvider.current = this;
@@ -801,6 +803,13 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
   resolveWebviewView(view: vscode.WebviewView): void {
     this.view = view;
     view.webview.options = { enableScripts: true };
+    // Quando a view volta a ficar visível (reabrir o painel, trocar de aba na
+    // Activity Bar e voltar), refaz o fetch p/ não mostrar dado velho.
+    view.onDidChangeVisibility(() => {
+      if (view.visible) {
+        this.onVisible?.();
+      }
+    });
     // Descarta listener anterior se a view for recriada (troca de aba na
     // Activity Bar destrói e recria a webview) — evita handlers órfãos.
     this.msgDisposable?.dispose();
