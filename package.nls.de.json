@@ -48,5 +48,5 @@
   "config.statusBadgeEnabled.desc": "Ein Badge (☁) am Indikator der Statusleiste anzeigen, wenn bei Anthropic eine Störung/Beeinträchtigung vorliegt.",
   "config.statusNotifyEnabled.desc": "Benachrichtigen (einmal pro Störung), wenn ein neues Problem im Anthropic-Ökosystem auftritt.",
   "config.statusRefreshSeconds.desc": "Wie oft (Sekunden) status.claude.com abgefragt wird.",
-  "extension.description": "Sitzungsnutzung von Claude Code (5h/7d-Limits, tokens und Kosten) in der Statusleiste — Fortschrittsring wie /usage — plus Status des Anthropic-Ökosystems (status.claude.com)."
+  "extension.description": "[Inoffiziell] Sitzungsnutzung von Claude Code (5h/7d-Limits, tokens und Kosten) in der Statusleiste — Fortschrittsring wie /usage — plus Status des Anthropic-Ökosystems (status.claude.com)."
 }
