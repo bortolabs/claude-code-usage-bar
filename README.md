@@ -3,6 +3,11 @@
 [![Marketplace](https://img.shields.io/visual-studio-marketplace/v/bortolabs.claude-code-usage-bar?label=VS%20Code%20Marketplace&color=0066b8)](https://marketplace.visualstudio.com/items?itemName=bortolabs.claude-code-usage-bar)
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/bortolabs.claude-code-usage-bar?color=4caf78)](https://marketplace.visualstudio.com/items?itemName=bortolabs.claude-code-usage-bar)
 
+> ⚠️ **Extensão da comunidade — não oficial.** Sem afiliação, endosso ou patrocínio da **Anthropic**.
+> "Claude" e "Claude Code" são marcas da Anthropic, usadas aqui apenas para referência/interoperabilidade.
+> _Community extension — **unofficial**. Not affiliated with, endorsed by, or sponsored by **Anthropic**.
+> "Claude" and "Claude Code" are trademarks of Anthropic, used here only for reference/interoperability._
+
 Um indicador na **status bar do VSCode** que dá feedback visual constante do uso da sessão
 do [Claude Code](https://claude.com/claude-code) — um anel de progresso + número, sem você
 precisar parar pra rodar `/usage`.
@@ -238,6 +243,19 @@ bar, e uma faixa no topo do painel. Desligue com `burnRateAlertEnabled: false`.
   da API** na sessão — até lá, o indicador mostra o custo/contexto como nas contas API.
 - Mostra a última sessão que escreveu o estado; várias sessões simultâneas compartilham
   o mesmo arquivo.
+
+## Aviso / Disclaimer
+
+Esta é uma **extensão independente, mantida pela comunidade**. **Não é oficial** e **não tem
+qualquer afiliação, parceria, endosso ou patrocínio da Anthropic.** "Anthropic", "Claude" e
+"Claude Code" são marcas de seus respectivos donos; são citadas aqui apenas para descrever a
+interoperabilidade da ferramenta com o Claude Code. A extensão lê dados de uso **localmente**
+na sua máquina e não coleta nem envia seus dados para o autor.
+
+_This is an **independent, community-maintained** extension. It is **unofficial** and has **no
+affiliation, partnership, endorsement, or sponsorship from Anthropic.** "Anthropic", "Claude",
+and "Claude Code" are trademarks of their respective owners, referenced here only to describe
+interoperability with Claude Code._
 
 ## Licença
 

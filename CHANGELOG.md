@@ -11,6 +11,9 @@
   para não martelar). Evita exibir o estado da sessão anterior até o próximo tick.
 - **UX:** o botão de atualizar no topo do painel agora é só o **ícone ↻** (sem o texto
   "Atualizar"), ocupando menos espaço; o rótulo continua no tooltip.
+- **Disclaimer de não-afiliação.** README e descrição deixam explícito que é uma extensão
+  **não oficial**, sem vínculo com a Anthropic ("Claude"/"Claude Code" são marcas da
+  Anthropic, citadas só para interoperabilidade).
 
 ## 0.21.1
 

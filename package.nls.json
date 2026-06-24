@@ -48,5 +48,5 @@
   "config.statusBadgeEnabled.desc": "Mostrar um badge (☁) no indicador da status bar quando há incidente/degradação na Anthropic.",
   "config.statusNotifyEnabled.desc": "Notificar (uma vez por incidente) quando surgir um novo problema no ecossistema Anthropic.",
   "config.statusRefreshSeconds.desc": "Com que frequência (segundos) consultar o status.claude.com.",
-  "extension.description": "Uso da sessão do Claude Code (limites 5h/7d, tokens e custo) na status bar — anel de progresso igual ao /usage — mais o status do ecossistema Anthropic (status.claude.com)."
+  "extension.description": "[Não oficial] Uso da sessão do Claude Code (limites 5h/7d, tokens e custo) na status bar — anel de progresso igual ao /usage — mais o status do ecossistema Anthropic (status.claude.com)."
 }
