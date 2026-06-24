@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.21.2
+
+- **Fix: "Silenciar 1h" do alerta de burn rate.** Agora silencia **qualquer** alerta por
+  1h de verdade. Antes, só empurrava o cooldown do **mesmo tipo** de alerta — quando os
+  motivos do burn rate flutuavam, a chave mudava e o popup furava o silêncio em poucos
+  minutos. Passou a usar um silêncio absoluto até o fim da hora.
+- **Fix: dados velhos ao reabrir o VS Code / acordar de sleep.** O painel agora refaz o
+  fetch quando a view fica **visível** e quando a **janela recupera o foco** (com throttle
+  para não martelar). Evita exibir o estado da sessão anterior até o próximo tick.
+- **UX:** o botão de atualizar no topo do painel agora é só o **ícone ↻** (sem o texto
+  "Atualizar"), ocupando menos espaço; o rótulo continua no tooltip.
+
 ## 0.21.1
 
 - **Screenshots na página do Marketplace + README.** Galeria com o painel (aba Sessão),

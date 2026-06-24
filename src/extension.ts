@@ -286,6 +286,9 @@ export function activate(context: vscode.ExtensionContext) {
   // Alerta: controle de cooldown da notificação.
   let lastAlertKey = "";
   let lastAlertAtMs = 0;
+  // "Silenciar 1h": epoch ms até quando NENHUM alerta deve notificar (independe
+  // do tipo de alerta — senão uma mudança de chave fura o silêncio).
+  let snoozeUntilMs = 0;
   // Aviso de fim de janela (#8): endMs do bloco já avisado (1x por janela).
   let resetWarnedEndMs = 0;
   // Resumo ao fechar o bloco (#9): rastreia a janela atual e o pico de uso nela.
@@ -296,19 +299,43 @@ export function activate(context: vscode.ExtensionContext) {
 
   // View ancorada na Activity Bar (sidebar esquerda).
   const viewProvider = new UsageViewProvider();
-  viewProvider.onReady = () => {
+  // Recarrega TODAS as fontes (statusline, ccusage, diário, oauth, status).
+  const refreshAll = () => {
     readState();
     refreshCcusage();
     refreshDaily();
     refreshOAuth();
     refreshStatus();
   };
+  // Auto-refresh por foco/visibilidade, com throttle p/ não martelar (focar a
+  // janela e revelar a view costumam disparar quase juntos). Evita o "dado
+  // velho" ao reabrir o VS Code ou ao acordar de sleep — refaz o fetch na hora.
+  let lastAutoRefreshMs = 0;
+  const autoRefresh = () => {
+    const now = Date.now();
+    if (now - lastAutoRefreshMs < 3000) {
+      return;
+    }
+    lastAutoRefreshMs = now;
+    refreshAll();
+  };
+  viewProvider.onReady = refreshAll;
+  viewProvider.onVisible = autoRefresh;
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       UsageViewProvider.viewType,
       viewProvider,
       { webviewOptions: { retainContextWhenHidden: true } }
     )
+  );
+  // Ao recuperar o foco da janela (reabrir o VS Code, voltar de outro app ou
+  // acordar de sleep), refaz o fetch — evita exibir dados velhos.
+  context.subscriptions.push(
+    vscode.window.onDidChangeWindowState((e) => {
+      if (e.focused) {
+        autoRefresh();
+      }
+    })
   );
 
   const resolveStatePath = (): string => {
@@ -871,8 +898,9 @@ export function activate(context: vscode.ExtensionContext) {
       item.backgroundColor = undefined;
     }
 
-    // Notificação com cooldown (e re-dispara se o tipo de alerta mudar).
-    if (alert.active) {
+    // Notificação com cooldown (e re-dispara se o tipo de alerta mudar), mas
+    // NUNCA durante o silêncio de 1h pedido pelo usuário ("Silenciar 1h").
+    if (alert.active && Date.now() >= snoozeUntilMs) {
       const cooldownMs =
         (c.get<number>("alertCooldownMinutes") ?? 15) * 60_000;
       const now = Date.now();
@@ -901,8 +929,8 @@ export function activate(context: vscode.ExtensionContext) {
             if (choice === btnOpen) {
               vscode.commands.executeCommand("claudeUsageBar.openPanel");
             } else if (choice === btnSnooze) {
-              // empurra o cooldown 1h pra frente
-              lastAlertAtMs = Date.now() + 60 * 60_000 - cooldownMs;
+              // Silencia QUALQUER alerta por 1h, independentemente do tipo.
+              snoozeUntilMs = Date.now() + 60 * 60_000;
             } else if (choice === btnOff) {
               cfg().update(
                 "burnRateAlertEnabled",
@@ -1265,11 +1293,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Comandos
   context.subscriptions.push(
     vscode.commands.registerCommand("claudeUsageBar.refresh", () => {
-      readState();
-      refreshCcusage();
-      refreshDaily();
-      refreshOAuth();
-      refreshStatus();
+      refreshAll();
     }),
     vscode.commands.registerCommand("claudeUsageBar.toggleAlert", async () => {
       const cur = cfg().get<boolean>("burnRateAlertEnabled") ?? true;
@@ -1322,10 +1346,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("claudeUsageBar.openPanel", () => {
       viewProvider.reveal();
       render();
-      refreshCcusage();
-      refreshDaily();
-      refreshOAuth();
-      refreshStatus();
+      refreshAll();
     })
   );
 
