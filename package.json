@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.21.2",
+  "version": "0.21.3",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",

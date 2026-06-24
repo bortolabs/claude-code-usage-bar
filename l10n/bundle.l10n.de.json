@@ -126,7 +126,6 @@
   "Contexto": "Kontext",
   "Modelo": "Modell",
   "statusline (plano)": "statusline (Plan)",
-  "statusline": "statusline",
   "fonte: {0}": "Quelle: {0}",
   "statusline {0}": "statusline {0}",
   "Claude Usage: alerta de burn rate LIGADO 🔔.": "Claude Usage: Burn-Rate-Warnung AN 🔔.",
@@ -136,5 +135,18 @@
   "Nesse ritmo: {0} tokens até o reset (teto {1})": "In diesem Tempo: {0} tokens bis zum Reset (Obergrenze {1})",
   "Ritmo alto: {0}/h (limite {1}/h)": "Hohes Tempo: {0}/h (Limit {1}/h)",
   "Sessão 5h projeta atingir 100% antes do reset": "5h-Sitzung erreicht voraussichtlich 100% vor dem Reset",
-  "Limite semanal projeta atingir 100% antes do reset": "Wochenlimit erreicht voraussichtlich 100% vor dem Reset"
+  "Limite semanal projeta atingir 100% antes do reset": "Wochenlimit erreicht voraussichtlich 100% vor dem Reset",
+  "Fonte de dados": "Datenquelle",
+  "Fonte ativa": "Aktive Quelle",
+  "desativado nas configurações": "in den Einstellungen deaktiviert",
+  "≈ tempo · reseta {0}": "≈ Zeit · Reset {0}",
+  "ccusage (≈ tempo)": "ccusage (≈ Zeit)",
+  "oauth/usage — cota real": "oauth/usage — echtes Kontingent",
+  "statusline (plano) — cota real": "statusline (Plan) — echtes Kontingent",
+  "ccusage — aproximado (% de tempo, sem cota real)": "ccusage — ungefähr (% der Zeit, kein echtes Kontingent)",
+  "sem dados": "keine Daten",
+  "oauth/usage: ok ✓ (cota real)": "oauth/usage: ok ✓ (echtes Kontingent)",
+  "oauth/usage: indisponível — {0}": "oauth/usage: nicht verfügbar — {0}",
+  "statusline: dados frescos ✓": "statusline: frische Daten ✓",
+  "statusline: sem dados frescos": "statusline: keine frischen Daten"
 }
