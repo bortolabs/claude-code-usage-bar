@@ -64,8 +64,24 @@ jobs:
 
       # vsce roda o script vscode:prepublish (npm run compile) automaticamente
       # antes de empacotar, então não precisa de um passo de build separado.
+      # Retry com backoff: o Marketplace/Azure às vezes barra o envio com um
+      # bloqueio temporário de concorrência/rate-limit (RequestBlockedException /
+      # 429). Re-tenta algumas vezes com espera crescente para absorver esses
+      # blips curtos. (Um bloqueio de conta prolongado é com o suporte da Azure.)
       - name: Publish to Visual Studio Marketplace
-        run: npx --yes @vscode/vsce publish -p "$VSCE_PAT"
+        run: |
+          n=0
+          max=5
+          until npx --yes @vscode/vsce publish -p "$VSCE_PAT"; do
+            n=$((n + 1))
+            if [ "$n" -ge "$max" ]; then
+              echo "::error::vsce publish falhou após $max tentativas (rate-limit/concorrência da Azure?)."
+              exit 1
+            fi
+            wait=$((30 * n))
+            echo "::warning::Publish falhou (tentativa $n/$max). Aguardando ${wait}s e tentando de novo…"
+            sleep "$wait"
+          done
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
