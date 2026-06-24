@@ -126,7 +126,6 @@
   "Contexto": "Context",
   "Modelo": "Model",
   "statusline (plano)": "statusline (plan)",
-  "statusline": "statusline",
   "fonte: {0}": "source: {0}",
   "statusline {0}": "statusline {0}",
   "Claude Usage: alerta de burn rate LIGADO 🔔.": "Claude Usage: burn rate alert ON 🔔.",
@@ -136,5 +135,18 @@
   "Nesse ritmo: {0} tokens até o reset (teto {1})": "At this pace: {0} tokens by reset (cap {1})",
   "Ritmo alto: {0}/h (limite {1}/h)": "High pace: {0}/h (limit {1}/h)",
   "Sessão 5h projeta atingir 100% antes do reset": "5h session projected to hit 100% before reset",
-  "Limite semanal projeta atingir 100% antes do reset": "Weekly limit projected to hit 100% before reset"
+  "Limite semanal projeta atingir 100% antes do reset": "Weekly limit projected to hit 100% before reset",
+  "Fonte de dados": "Data source",
+  "Fonte ativa": "Active source",
+  "desativado nas configurações": "disabled in settings",
+  "≈ tempo · reseta {0}": "≈ time · resets {0}",
+  "ccusage (≈ tempo)": "ccusage (≈ time)",
+  "oauth/usage — cota real": "oauth/usage — real quota",
+  "statusline (plano) — cota real": "statusline (plan) — real quota",
+  "ccusage — aproximado (% de tempo, sem cota real)": "ccusage — approximate (% of time, not real quota)",
+  "sem dados": "no data",
+  "oauth/usage: ok ✓ (cota real)": "oauth/usage: ok ✓ (real quota)",
+  "oauth/usage: indisponível — {0}": "oauth/usage: unavailable — {0}",
+  "statusline: dados frescos ✓": "statusline: fresh data ✓",
+  "statusline: sem dados frescos": "statusline: no fresh data"
 }

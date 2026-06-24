@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.21.3
+
+- **Fonte de dados visível (fim do fallback silencioso).** A aba **Config** passa a mostrar
+  a **fonte ativa** — `oauth/usage` (cota real), `statusline (plano)` (cota real) ou
+  `ccusage` (aproximado) — e, quando o `oauth/usage` não entra, o **motivo** ("token não
+  encontrado", "401", "desativado nas configurações"…). Antes ele caía no ccusage em
+  silêncio, dando a impressão de "número errado".
+- **ccusage marcado como aproximado.** Quando não há cota real e cai no ccusage, o anel
+  mostra **"≈ tempo"** e o rodapé **"ccusage (≈ tempo)"**, deixando claro que é a **% de
+  tempo do bloco**, não a cota do `/usage` — evita confundir os dois.
+
 ## 0.21.2
 
 - **Fix: "Silenciar 1h" do alerta de burn rate.** Agora silencia **qualquer** alerta por

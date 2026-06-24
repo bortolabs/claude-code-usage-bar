@@ -27,6 +27,14 @@ export interface PanelData {
   } | null;
   /** Estado do alerta de burn rate (para o toggle do painel). */
   alertEnabled: boolean;
+  /** Diagnóstico da fonte de dados ativa (oauth/statusline/ccusage) — strings já localizadas. */
+  source: {
+    kind: "oauth" | "statusline" | "ccusage" | "none";
+    approximate: boolean;
+    activeLabel: string;
+    oauthLine: string;
+    statuslineLine: string;
+  };
   /** Epoch ms da última atualização efetiva (para "atualizado há Xs"). */
   updatedAtMs: number | null;
   /** Histórico de uso dos últimos dias para o sparkline (pode ser vazio). */
@@ -122,6 +130,8 @@ function panelStrings() {
       statusNotifyEnabled: vscode.l10n.t("Notificar incidentes"),
       statusRefreshSeconds: vscode.l10n.t("Atualizar status (s)"),
     },
+    srcTitle: vscode.l10n.t("Fonte de dados"),
+    srcActive: vscode.l10n.t("Fonte ativa"),
     cmdsTitle: vscode.l10n.t("Comandos"),
     cmd: {
       refresh: vscode.l10n.t("↻ Atualizar"),
@@ -487,6 +497,19 @@ function panelHtml(): string {
     return card('<div class="styles-title">' + esc(L.projectsTitle) + '</div>' + rows);
   }
 
+  // Card "Fonte de dados": mostra a fonte ativa (oauth/statusline/ccusage) e,
+  // no fallback, o motivo do oauth não entrar — fim do fallback silencioso.
+  function sourceCard(src) {
+    if (!src) return '';
+    const cls = (src.kind === 'ccusage' || src.kind === 'none') ? 'stc-warn' : 'stc-ok';
+    return card(
+      '<div class="styles-title">' + esc(L.srcTitle) + '</div>' +
+      '<div class="st-recent"><b>' + esc(L.srcActive) + ':</b> <span class="' + cls + '">' + esc(src.activeLabel) + '</span></div>' +
+      '<div class="st-recent">' + esc(src.oauthLine) + '</div>' +
+      '<div class="st-recent">' + esc(src.statuslineLine) + '</div>'
+    );
+  }
+
   // Aba Config: form de settings + comandos + link.
   function configTab(settings) {
     settings = settings || {};
@@ -659,7 +682,7 @@ function panelHtml(): string {
         '<div class="toggle-row"><span class="toggle-label">' + esc(L.alertLabel) + '</span>' +
         '<button id="alertToggle" class="toggle ' + (alertEnabled ? 'on' : 'off') + '">' +
         (alertEnabled ? L.alertOn : L.alertOff) + '</button></div>', 'controls');
-      body = styleCard + toggle + configTab(d.settings);
+      body = sourceCard(d.source) + styleCard + toggle + configTab(d.settings);
     }
 
     // Badge ⚠ na aba Status quando há incidente/degradação.

@@ -266,6 +266,12 @@ export function activate(context: vscode.ExtensionContext) {
   // Uso REAL do plano (igual /usage), via endpoint OAuth — fonte primária.
   let lastOAuth: OAuthUsageResult | null = null;
   let lastOAuthOkMs = 0; // quando o oauth respondeu com sucesso pela última vez
+  // Resultado da ÚLTIMA tentativa de oauth/usage (p/ mostrar a fonte e, quando
+  // cai no fallback, explicar o motivo — em vez de cair no ccusage em silêncio).
+  let lastOAuthStatus: { ok: boolean; reason: string | null } = {
+    ok: false,
+    reason: null,
+  };
   let lastUpdateMs = 0; // última vez que QUALQUER fonte trouxe dados (p/ "atualizado há Xs")
   // Modelo atual em uso (lido do transcript; o ccusage mistura modelos do bloco).
   let currentModel: string | null = null;
@@ -406,6 +412,10 @@ export function activate(context: vscode.ExtensionContext) {
     if (!(cfg().get<boolean>("useOAuthUsage") ?? true)) {
       lastOAuth = null;
       lastOAuthOkMs = 0;
+      lastOAuthStatus = {
+        ok: false,
+        reason: vscode.l10n.t("desativado nas configurações"),
+      };
       render();
       return;
     }
@@ -415,6 +425,9 @@ export function activate(context: vscode.ExtensionContext) {
       lastOAuth = res;
       lastOAuthOkMs = Date.now();
       lastUpdateMs = Date.now();
+      lastOAuthStatus = { ok: true, reason: null };
+    } else {
+      lastOAuthStatus = { ok: false, reason: res.reason };
     }
     // Falha pontual: NÃO descarta o último resultado bom (evita o flicker
     // entre o layout oauth e o ccusage). Só expira após oauthStaleMs.
@@ -804,13 +817,14 @@ export function activate(context: vscode.ExtensionContext) {
         : vscode.l10n.t("sessão · 5h");
       effective = Math.max(fiveHour ?? 0, sevenDay ?? 0, projForColor);
     } else if (block) {
-      // App/IDE: ccusage. Herói = % de TEMPO da sessão de 5h + tempo restante.
+      // App/IDE: ccusage. SEM cota real — o herói é a % de TEMPO da sessão de 5h
+      // (aproximado), por isso o "≈ tempo" no rótulo, pra não confundir com cota.
       ringPct = block.timePct;
       primary = `${Math.round(block.timePct)}%`;
       const resetShort = fmtDuration(block.remainingMinutes * 60000);
       suffix = ` · ${resetShort}`;
       centerLabel = primary;
-      centerSub = vscode.l10n.t("sessão 5h · reseta {0}", resetShort);
+      centerSub = vscode.l10n.t("≈ tempo · reseta {0}", resetShort);
       effective = Math.max(block.timePct, costPctForColor, projForColor);
     } else {
       // Só statusline fresca sem rate (raro).
@@ -1179,11 +1193,38 @@ export function activate(context: vscode.ExtensionContext) {
       rows.push({ label: vscode.l10n.t("Modelo"), value: model, pct: null });
     }
 
-    const src = v.usingCcusage
+    // Fonte ativa, em ordem de prioridade: oauth/usage (cota real) >
+    // statusline (plano, cota real) > ccusage (aproximado, % de tempo) > nada.
+    const usageNow = oa();
+    const slRate = stateIsFresh(v.state) && stateHasRate(v.state);
+    const sourceKind: "oauth" | "statusline" | "ccusage" | "none" = usageNow
+      ? "oauth"
+      : slRate
+      ? "statusline"
+      : v.block
       ? "ccusage"
-      : v.mode === "plan"
-      ? vscode.l10n.t("statusline (plano)")
-      : vscode.l10n.t("statusline");
+      : "none";
+    const src = {
+      oauth: "oauth/usage",
+      statusline: vscode.l10n.t("statusline (plano)"),
+      ccusage: vscode.l10n.t("ccusage (≈ tempo)"),
+      none: "—",
+    }[sourceKind];
+    const sourceActiveLabel = {
+      oauth: vscode.l10n.t("oauth/usage — cota real"),
+      statusline: vscode.l10n.t("statusline (plano) — cota real"),
+      ccusage: vscode.l10n.t("ccusage — aproximado (% de tempo, sem cota real)"),
+      none: vscode.l10n.t("sem dados"),
+    }[sourceKind];
+    const sourceOAuthLine = lastOAuthStatus.ok
+      ? vscode.l10n.t("oauth/usage: ok ✓ (cota real)")
+      : vscode.l10n.t(
+          "oauth/usage: indisponível — {0}",
+          lastOAuthStatus.reason ?? "—"
+        );
+    const sourceStatuslineLine = slRate
+      ? vscode.l10n.t("statusline: dados frescos ✓")
+      : vscode.l10n.t("statusline: sem dados frescos");
     // Últimos ~7 dias pro sparkline: só o que o gráfico precisa (data + tokens).
     const daily = v.daily.slice(-7).map((d) => ({
       date: d.date,
@@ -1212,6 +1253,13 @@ export function activate(context: vscode.ExtensionContext) {
           }
         : null,
       alertEnabled: v.alertEnabled,
+      source: {
+        kind: sourceKind,
+        approximate: sourceKind === "ccusage",
+        activeLabel: sourceActiveLabel,
+        oauthLine: sourceOAuthLine,
+        statuslineLine: sourceStatuslineLine,
+      },
       daily,
       projects: lastProjects.map((p) => ({
         project: p.project,
