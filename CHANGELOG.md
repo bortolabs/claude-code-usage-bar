@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.23.0
+
+- **Alerta nativo de cota baixa (opcional).** Para quem **não** usa agente, o plugin passa a
+  avisar com uma notificação quando **restar pouca cota** numa janela real — `< 15%` por
+  padrão, na sessão de **5h** ou na semana de **7d**. A notificação traz **quanto resta** e,
+  quando há reset, **em quanto tempo a janela vira**, com botões **"Abrir painel"** e
+  **"Silenciar 1h"**.
+  - Avisa **1× por janela** e **re-arma sozinho** quando a cota se recupera (histerese para
+    não oscilar no limiar). Respeita o **silêncio de 1h** dos demais alertas.
+  - Só dispara com **cota real** (oauth/statusline) — nunca no fallback ccusage (% de tempo),
+    pra não alarmar com número aproximado.
+  - Configurável na aba **Config** → "Avisar cota baixa (% restante)" (limiar `0` = desligado).
+
 ## 0.22.0
 
 - **Export de uso para agentes/scripts.** O plugin passa a gravar um **JSON local** com o

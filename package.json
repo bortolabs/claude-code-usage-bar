@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -228,6 +228,13 @@
           "default": 10,
           "minimum": 0,
           "markdownDescription": "%config.resetWarningMinutes.desc%"
+        },
+        "claudeUsageBar.lowQuotaThreshold": {
+          "type": "number",
+          "default": 15,
+          "minimum": 0,
+          "maximum": 100,
+          "markdownDescription": "%config.lowQuotaThreshold.desc%"
         },
         "claudeUsageBar.ringTheme": {
           "type": "string",
