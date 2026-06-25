@@ -148,5 +148,8 @@
   "oauth/usage: ok ✓ (cota real)": "oauth/usage: ok ✓ (echtes Kontingent)",
   "oauth/usage: indisponível — {0}": "oauth/usage: nicht verfügbar — {0}",
   "statusline: dados frescos ✓": "statusline: frische Daten ✓",
-  "statusline: sem dados frescos": "statusline: keine frischen Daten"
+  "statusline: sem dados frescos": "statusline: keine frischen Daten",
+  "Exportar uso (p/ agentes/scripts)": "Nutzung exportieren (für Agenten/Skripte)",
+  "Exportar uso (arquivo)": "Nutzung exportieren (Datei)",
+  "Caminho do arquivo (vazio = padrão)": "Dateipfad (leer = Standard)"
 }

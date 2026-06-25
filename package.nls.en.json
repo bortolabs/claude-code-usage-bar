@@ -48,5 +48,7 @@
   "config.statusBadgeEnabled.desc": "Show a badge (☁) on the status bar indicator when there is an incident/degradation at Anthropic.",
   "config.statusNotifyEnabled.desc": "Notify (once per incident) when a new problem appears in the Anthropic ecosystem.",
   "config.statusRefreshSeconds.desc": "How often (seconds) to query status.claude.com.",
-  "extension.description": "[Unofficial] Claude Code session usage (5h/7d limits, tokens, and cost) in the status bar — a progress ring like /usage — plus the status of the Anthropic ecosystem (status.claude.com)."
+  "extension.description": "[Unofficial] Claude Code session usage (5h/7d limits, tokens, and cost) in the status bar — a progress ring like /usage — plus the status of the Anthropic ecosystem (status.claude.com).",
+  "config.exportStateEnabled.desc": "Write a local JSON file with current usage (remaining 5h/7d quota, source and trustworthiness) for **agents/scripts** to read — e.g. to stop auto-mode when remaining quota gets low. Atomic write, no token, no external upload.",
+  "config.exportStatePath.desc": "Path of the export file. Empty = `~/.claude/usage-bar.json` (resolves on Windows/macOS/Linux). Accepts `~` for home."
 }

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.22.0
+
+- **Export de uso para agentes/scripts.** O plugin passa a gravar um **JSON local** com o
+  uso atual — cota **restante** de 5h/7d, reset, fonte e **confiabilidade** — para
+  automações lerem. Caso de uso: um **agente em auto-mode** parar/avisar quando a cota
+  restante ficar baixa (ex.: `fiveHour.remainingPct < 15`).
+  - **Ligado por padrão**, gravando em `~/.claude/usage-bar.json` (caminho **cross-platform**;
+    no Windows resolve em `C:\Users\<você>\.claude\…`). Dá pra desligar/trocar o caminho na
+    aba **Config** (seção "Exportar uso").
+  - Escrita **atômica**, **sem token** e **sem envio externo** (arquivo só local).
+  - Só marca `trustworthy: true` quando a fonte é **cota real** (oauth/statusline); no
+    fallback ccusage (% de tempo) marca `false` e não inventa "remaining" — pra um agente
+    nunca decidir com base em número errado.
+
 ## 0.21.3
 
 - **Fonte de dados visível (fim do fallback silencioso).** A aba **Config** passa a mostrar

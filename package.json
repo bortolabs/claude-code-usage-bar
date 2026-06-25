@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.21.3",
+  "version": "0.22.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -276,6 +276,16 @@
           "default": 120,
           "minimum": 30,
           "description": "%config.statusRefreshSeconds.desc%"
+        },
+        "claudeUsageBar.exportStateEnabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.exportStateEnabled.desc%"
+        },
+        "claudeUsageBar.exportStatePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.exportStatePath.desc%"
         }
       }
     }
