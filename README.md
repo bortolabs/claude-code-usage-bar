@@ -257,7 +257,7 @@ janela vira** — com botões **"Abrir painel"** e **"Silenciar 1h"**.
 | `claudeUsageBar.statusCheckEnabled` | `true` | Monitora o status da Anthropic (`status.claude.com`) e mostra a aba Status. |
 | `claudeUsageBar.statusBadgeEnabled` | `true` | Badge ☁ na status bar quando há incidente. |
 | `claudeUsageBar.statusNotifyEnabled` | `true` | Notifica (1× por incidente) novos problemas no ecossistema Anthropic. |
-| `claudeUsageBar.statusRefreshSeconds` | `120` | Frequência de consulta ao status.claude.com. |
+| `claudeUsageBar.statusRefreshSeconds` | `300` | Frequência de consulta ao status.claude.com. |
 | `claudeUsageBar.staleAfterSeconds` | `900` | Janela em que o dado da statusline é considerado fresco. |
 | `claudeUsageBar.exportStateEnabled` | `true` | Gravar o arquivo de uso para agentes/scripts. |
 | `claudeUsageBar.exportStatePath` | `""` | Caminho do export (vazio = `~/.claude/usage-bar.json`). |

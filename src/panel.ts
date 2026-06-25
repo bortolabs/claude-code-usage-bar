@@ -1,4 +1,6 @@
 import * as vscode from "vscode";
+import * as os from "os";
+import * as path from "path";
 
 /** Dados que o painel precisa para desenhar. Calculados em extension.ts. */
 export interface PanelData {
@@ -43,6 +45,8 @@ export interface PanelData {
   projects: { project: string; tokens: number }[];
   /** Valores atuais dos settings (key → valor) para a aba Config. */
   settings: Record<string, unknown>;
+  /** Placeholders (caminho/comando efetivo) p/ campos vazios na Config. */
+  placeholders?: Record<string, string>;
   /** Status da Anthropic (status.claude.com). null = desabilitado/indisponível. */
   status: {
     indicator: string;
@@ -131,8 +135,9 @@ function panelStrings() {
       statusBadgeEnabled: vscode.l10n.t("Badge na status bar"),
       statusNotifyEnabled: vscode.l10n.t("Notificar incidentes"),
       statusRefreshSeconds: vscode.l10n.t("Atualizar status (s)"),
-      exportStateEnabled: vscode.l10n.t("Exportar uso (arquivo)"),
+      exportStateEnabled: vscode.l10n.t("Gravar uso em arquivo JSON"),
       exportStatePath: vscode.l10n.t("Caminho do arquivo (vazio = padrão)"),
+      exportHelp: vscode.l10n.t("JSON com seu uso atual (cota restante, fonte), atualizado sempre — pra um agente/script ler e, por ex., parar quando a cota ficar baixa."),
     },
     srcTitle: vscode.l10n.t("Fonte de dados"),
     srcActive: vscode.l10n.t("Fonte ativa"),
@@ -144,9 +149,12 @@ function panelStrings() {
       toggle: vscode.l10n.t("Liga/desliga alerta"),
     },
     openSettings: vscode.l10n.t("Abrir settings.json (claudeUsageBar) →"),
+    pickFile: vscode.l10n.t("Escolher arquivo…"),
     alertLabel: vscode.l10n.t("Alerta de burn rate"),
     alertOn: vscode.l10n.t("🔔 Ligado"),
     alertOff: vscode.l10n.t("🔕 Desligado"),
+    on: vscode.l10n.t("Ligado"),
+    off: vscode.l10n.t("Desligado"),
     st: {
       disabled: vscode.l10n.t("Verificação de status desligada ou indisponível."),
       openPage: vscode.l10n.t("Abrir status.claude.com →"),
@@ -309,6 +317,14 @@ function panelHtml(): string {
   .cfg-section-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--vscode-descriptionForeground); margin: 14px 0 6px; }
   /* Título da seção quando é o 1º item do próprio card (1 card por seção). */
   .card > .cfg-section-title:first-child { margin-top: 2px; }
+  /* Seções colapsáveis (<details>/<summary>) na Config. */
+  details.cfg-sec { display: block; }
+  .cfg-summary { margin: 2px 0 6px; cursor: pointer; list-style: none; user-select: none; outline: none; }
+  .cfg-summary::-webkit-details-marker { display: none; }
+  .cfg-summary::before { content: '▸'; display: inline-block; width: 12px; margin-right: 2px; font-size: 10px; opacity: .65; transition: transform .15s; }
+  details.cfg-sec[open] > .cfg-summary::before { transform: rotate(90deg); }
+  .cfg-summary:hover { color: var(--vscode-foreground); }
+  .cfg-help-line { font-size: 11px; color: var(--vscode-descriptionForeground); line-height: 1.45; margin: 0 0 8px; }
   .cfg-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 7px 0; }
   .cfg-label { font-size: 12px; color: var(--vscode-foreground); flex: 1 1 auto; }
   .cfg-ctrl { flex: 0 0 auto; }
@@ -322,6 +338,15 @@ function panelHtml(): string {
   .cfg-ctrl input[type=number] { width: 80px; }
   .cfg-ctrl input[type=color] { width: 34px; height: 24px; padding: 0; border: none; background: none; cursor: pointer; }
   .cfg-ctrl input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }
+  /* Botão de seletor de arquivo nativo nos campos de caminho. */
+  .pick-btn {
+    font-family: var(--vscode-font-family); font-size: 12px; vertical-align: middle;
+    margin-left: 4px; padding: 2px 6px; cursor: pointer; border-radius: 5px;
+    border: 1px solid var(--vscode-input-border, #444);
+    background: var(--vscode-button-secondaryBackground, #313131);
+    color: var(--vscode-button-secondaryForeground, #ccc);
+  }
+  .pick-btn:hover { background: var(--vscode-button-secondaryHoverBackground, #3c3c3c); }
   .cmd-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
   .link-btn { background: none; border: none; color: var(--vscode-textLink-foreground, #4daafc); cursor: pointer; font-size: 12px; padding: 6px 0; text-align: left; }
   .link-btn:hover { text-decoration: underline; }
@@ -353,33 +378,35 @@ function panelHtml(): string {
   // Aba ativa persistida entre recriações da view.
   const persisted = (vscode.getState && vscode.getState()) || {};
   let activeTab = persisted.activeTab || 'sessao';
+  // Estado recolhido dos cards da Config (id da seção → true = recolhido).
+  let collapsed = persisted.collapsed || {};
+  function saveState(){ if (vscode.setState) vscode.setState({ activeTab: activeTab, collapsed: collapsed }); }
 
   // Schema dos settings para a aba Config (key, label, tipo, opções).
   const SETTINGS_SCHEMA = [
-    { section: L.sec.appearance, items: [
+    { id: 'appearance', section: L.sec.appearance, extra: 'style', items: [
       { key: 'ringTheme', label: L.cfg.ringTheme, type: 'enum', options: ['semaforo','claude','mono','custom'] },
       { key: 'ringColor', label: L.cfg.ringColor, type: 'color' },
-      { key: 'barStyle', label: L.cfg.barStyle, type: 'enum', options: ['ring','bar','number','icon'] },
       { key: 'alignment', label: L.cfg.alignment, type: 'enum', options: ['right','left'] },
       { key: 'priority', label: L.cfg.priority, type: 'number' },
     ]},
-    { section: L.sec.source, items: [
+    { id: 'source', section: L.sec.source, items: [
       { key: 'useOAuthUsage', label: L.cfg.useOAuthUsage, type: 'bool' },
       { key: 'oauthRefreshSeconds', label: L.cfg.oauthRefreshSeconds, type: 'number' },
       { key: 'ccusageCommand', label: L.cfg.ccusageCommand, type: 'string' },
       { key: 'ccusageRefreshSeconds', label: L.cfg.ccusageRefreshSeconds, type: 'number' },
-      { key: 'stateFilePath', label: L.cfg.stateFilePath, type: 'string' },
+      { key: 'stateFilePath', label: L.cfg.stateFilePath, type: 'string', pick: 'open' },
       { key: 'staleAfterSeconds', label: L.cfg.staleAfterSeconds, type: 'number' },
     ]},
-    { section: L.sec.account, items: [
+    { id: 'account', section: L.sec.account, items: [
       { key: 'accountType', label: L.cfg.accountType, type: 'enum', options: ['auto','subscription','api'] },
       { key: 'mode', label: L.cfg.mode, type: 'enum', options: ['auto','subscriber','cost'] },
       { key: 'costCapUsd', label: L.cfg.costCapUsd, type: 'number' },
       { key: 'sessionTokenCap', label: L.cfg.sessionTokenCap, type: 'number' },
       { key: 'intenseTokensPerMin', label: L.cfg.intenseTokensPerMin, type: 'number' },
     ]},
-    { section: L.sec.alerts, items: [
-      { key: 'burnRateAlertEnabled', label: L.cfg.burnRateAlertEnabled, type: 'bool' },
+    { id: 'alerts', section: L.sec.alerts, items: [
+      { key: 'burnRateAlertEnabled', label: '🔥 ' + L.cfg.burnRateAlertEnabled, type: 'bool' },
       { key: 'burnRateMaxPerHour', label: L.cfg.burnRateMaxPerHour, type: 'number' },
       { key: 'alertCooldownMinutes', label: L.cfg.alertCooldownMinutes, type: 'number' },
       { key: 'colorByProjection', label: L.cfg.colorByProjection, type: 'bool' },
@@ -389,15 +416,15 @@ function panelHtml(): string {
       { key: 'warnThreshold', label: L.cfg.warnThreshold, type: 'number' },
       { key: 'errorThreshold', label: L.cfg.errorThreshold, type: 'number' },
     ]},
-    { section: L.sec.status, items: [
+    { id: 'status', section: L.sec.status, items: [
       { key: 'statusCheckEnabled', label: L.cfg.statusCheckEnabled, type: 'bool' },
       { key: 'statusBadgeEnabled', label: L.cfg.statusBadgeEnabled, type: 'bool' },
       { key: 'statusNotifyEnabled', label: L.cfg.statusNotifyEnabled, type: 'bool' },
       { key: 'statusRefreshSeconds', label: L.cfg.statusRefreshSeconds, type: 'number' },
     ]},
-    { section: L.sec.export, items: [
+    { id: 'export', section: L.sec.export, help: L.cfg.exportHelp, items: [
       { key: 'exportStateEnabled', label: L.cfg.exportStateEnabled, type: 'bool' },
-      { key: 'exportStatePath', label: L.cfg.exportStatePath, type: 'string' },
+      { key: 'exportStatePath', label: L.cfg.exportStatePath, type: 'string', pick: 'save' },
     ]},
   ];
 
@@ -522,16 +549,23 @@ function panelHtml(): string {
   }
 
   // Aba Config: form de settings + comandos + link.
-  function configTab(settings) {
+  function configTab(settings, placeholders) {
     settings = settings || {};
+    placeholders = placeholders || {};
     var html = '';
     SETTINGS_SCHEMA.forEach(function(sec){
-      var inner = '<div class="cfg-section-title">' + sec.section + '</div>';
+      var body = '';
+      // Linha de ajuda da seção (ex.: o que é o "Exportar uso").
+      if (sec.help) body += '<div class="cfg-help-line">' + esc(sec.help) + '</div>';
+      // Aparência: os botões visuais de estilo entram aqui (em vez de dropdown).
+      if (sec.extra === 'style') body += styleButtons();
       sec.items.forEach(function(it){
         const val = settings[it.key];
         var ctrl = '';
         if (it.type === 'bool') {
-          ctrl = '<input type="checkbox" data-key="' + it.key + '"' + (val ? ' checked' : '') + '>';
+          // Booléano vira toggle (estilo "feature") em vez de checkbox.
+          ctrl = '<button class="toggle ' + (val ? 'on' : 'off') + '" data-toggle="' + it.key + '">' +
+            (val ? L.on : L.off) + '</button>';
         } else if (it.type === 'number') {
           ctrl = '<input type="number" data-key="' + it.key + '" value="' + esc(val) + '">';
         } else if (it.type === 'enum') {
@@ -542,12 +576,21 @@ function panelHtml(): string {
           const hex = (typeof val === 'string' && /^#[0-9a-fA-F]{6}$/.test(val)) ? val : '#4caf78';
           ctrl = '<input type="color" data-key="' + it.key + '" value="' + hex + '">';
         } else { // string
-          ctrl = '<input type="text" data-key="' + it.key + '" value="' + esc(val) + '">';
+          // Placeholder com o caminho/comando efetivo quando o campo está vazio.
+          var ph = placeholders[it.key] ? ' placeholder="' + esc(placeholders[it.key]) + '"' : '';
+          ctrl = '<input type="text" data-key="' + it.key + '" value="' + esc(val) + '"' + ph + '>';
+          // Campos de caminho ganham um botão de seletor nativo (File > Abrir).
+          if (it.pick) {
+            ctrl += '<button class="pick-btn" data-pick="' + it.key +
+              '" data-pick-mode="' + it.pick + '" title="' + esc(L.pickFile) + '">📁</button>';
+          }
         }
-        inner += '<div class="cfg-row"><span class="cfg-label">' + it.label + '</span><span class="cfg-ctrl">' + ctrl + '</span></div>';
+        body += '<div class="cfg-row"><span class="cfg-label">' + it.label + '</span><span class="cfg-ctrl">' + ctrl + '</span></div>';
       });
-      // Um card por seção (APARÊNCIA, FONTE E ATUALIZAÇÃO, …) — menos poluído.
-      html += card(inner, 'controls');
+      // Um card por seção, colapsável (<details>), lembrando o estado.
+      var openAttr = collapsed[sec.id] ? '' : ' open';
+      html += '<details class="card controls cfg-sec" data-sec="' + sec.id + '"' + openAttr + '>' +
+        '<summary class="cfg-section-title cfg-summary">' + sec.section + '</summary>' + body + '</details>';
     });
     // Comandos + link
     const cmds = '<div class="cfg-section-title">' + esc(L.cmdsTitle) + '</div><div class="cmd-btns">' +
@@ -689,13 +732,9 @@ function panelHtml(): string {
     } else if (activeTab === 'status') {
       body = statusTab(d.status);
     } else if (activeTab === 'config') {
-      const alertEnabled = d.alertEnabled !== false;
-      const styleCard = card(styleButtons());
-      const toggle = card(
-        '<div class="toggle-row"><span class="toggle-label">' + esc(L.alertLabel) + '</span>' +
-        '<button id="alertToggle" class="toggle ' + (alertEnabled ? 'on' : 'off') + '">' +
-        (alertEnabled ? L.alertOn : L.alertOff) + '</button></div>', 'controls');
-      body = styleCard + toggle + configTab(d.settings);
+      // Os controles de estilo e do alerta de burn rate agora vivem dentro das
+      // seções (Aparência / Alertas e cores) — sem cards standalone redundantes.
+      body = configTab(d.settings, d.placeholders);
     }
 
     // Badge ⚠ na aba Status quando há incidente/degradação.
@@ -713,7 +752,7 @@ function panelHtml(): string {
     document.querySelectorAll('.tab').forEach(function(t){
       t.addEventListener('click', function(){
         activeTab = t.getAttribute('data-tab');
-        if (vscode.setState) vscode.setState({ activeTab: activeTab });
+        saveState();
         // force=true: trocar de aba SEMPRE (re)monta o conteúdo, inclusive o
         // formulário da Config com os valores já salvos/atualizados.
         render(lastData, true);
@@ -736,6 +775,28 @@ function panelHtml(): string {
     if (os) os.addEventListener('click', function(){ vscode.postMessage({ type: 'openSettings' }); });
     const sp = document.getElementById('openStatusPage');
     if (sp) sp.addEventListener('click', function(){ vscode.postMessage({ type: 'openStatusPage' }); });
+    // Botões de seletor de arquivo nativo (campos de caminho).
+    document.querySelectorAll('.pick-btn[data-pick]').forEach(function(b){
+      b.addEventListener('click', function(){
+        vscode.postMessage({ type: 'pickPath', key: b.getAttribute('data-pick'), mode: b.getAttribute('data-pick-mode') });
+      });
+    });
+    // Toggles dos booléanos (estilo "feature" no lugar do checkbox).
+    document.querySelectorAll('.toggle[data-toggle]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var on = !b.classList.contains('on');
+        b.classList.toggle('on', on); b.classList.toggle('off', !on);
+        b.textContent = on ? L.on : L.off;
+        vscode.postMessage({ type: 'setConfig', key: b.getAttribute('data-toggle'), value: on });
+      });
+    });
+    // Persiste o estado recolhido/expandido de cada seção da Config.
+    document.querySelectorAll('details.cfg-sec[data-sec]').forEach(function(d){
+      d.addEventListener('toggle', function(){
+        collapsed[d.getAttribute('data-sec')] = !d.open;
+        saveState();
+      });
+    });
     // controles de config
     document.querySelectorAll('[data-key]').forEach(function(el){
       const ev = (el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'color') ? 'change' : 'change';
@@ -756,13 +817,6 @@ function panelHtml(): string {
       if (lu) { lu.textContent = L.updating; lu.classList.add('flash');
         setTimeout(function(){ lu.classList.remove('flash'); }, 1200); }
       vscode.postMessage({ type: 'refresh' });
-    });
-    const at = document.getElementById('alertToggle');
-    if (at) at.addEventListener('click', function(){
-      var on = at.classList.contains('on');
-      at.classList.toggle('on', !on); at.classList.toggle('off', on);
-      at.textContent = on ? L.alertOff : L.alertOn;
-      vscode.postMessage({ type: 'toggleAlert' });
     });
   }
 
@@ -804,6 +858,43 @@ function wireMessages(
       vscode.workspace
         .getConfiguration("claudeUsageBar")
         .update(msg.key, msg.value, vscode.ConfigurationTarget.Global);
+    } else if (msg?.type === "pickPath" && typeof msg.key === "string") {
+      // Seletor de arquivo nativo p/ os campos de caminho (export/statusline).
+      const cfgv = vscode.workspace.getConfiguration("claudeUsageBar");
+      const cur = (cfgv.get<string>(msg.key) || "").trim();
+      const expand = (p: string) =>
+        p.startsWith("~") ? path.join(os.homedir(), p.slice(1)) : p;
+      const fallback =
+        msg.key === "exportStatePath"
+          ? path.join(os.homedir(), ".claude", "usage-bar.json")
+          : path.join(os.homedir(), ".claude", "usage-state.json");
+      const defaultUri = vscode.Uri.file(cur ? expand(cur) : fallback);
+      const apply = (uri: vscode.Uri | undefined) => {
+        if (uri) {
+          cfgv.update(msg.key, uri.fsPath, vscode.ConfigurationTarget.Global);
+        }
+      };
+      if (msg.mode === "open") {
+        // statusline: aponta p/ um arquivo EXISTENTE (que a bridge escreve).
+        vscode.window
+          .showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: false,
+            defaultUri,
+            openLabel: vscode.l10n.t("Usar este arquivo"),
+          })
+          .then((uris) => apply(uris && uris[0]));
+      } else {
+        // export: escolhe ONDE gravar (o arquivo pode ainda não existir).
+        vscode.window
+          .showSaveDialog({
+            defaultUri,
+            saveLabel: vscode.l10n.t("Usar este caminho"),
+            filters: { JSON: ["json"] },
+          })
+          .then(apply);
+      }
     } else if (msg?.type === "openSettings") {
       vscode.commands.executeCommand(
         "workbench.action.openSettings",

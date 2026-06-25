@@ -46,8 +46,10 @@ export function prettyModel(id: string | null | undefined): string {
 }
 
 function version(id: string, base: string): string {
-  // extrai algo como "4-8" -> "4.8"
-  const match = id.match(/(\d+)-(\d+)/);
+  // extrai a versão tanto do id técnico ("claude-opus-4-8" → "4-8") quanto de
+  // uma string já formatada vinda da statusline ("Opus 4.7 (1M context)" →
+  // "4.7"). Por isso aceitamos hífen OU ponto entre os números.
+  const match = id.match(/(\d+)[-.](\d+)/);
   return match ? `${base} ${match[1]}.${match[2]}` : base;
 }
 

@@ -250,16 +250,23 @@ function fmtAgo(ts: number | undefined): string {
 export function activate(context: vscode.ExtensionContext) {
   const cfg = () => vscode.workspace.getConfiguration("claudeUsageBar");
 
-  const alignment =
+  // alignment/priority só podem ser definidos na CRIAÇÃO do item — o VS Code não
+  // deixa mutar depois. Por isso guardamos os valores atuais e recriamos o item
+  // quando esses settings mudam (senão trocar "left"/priority não fazia nada).
+  const readAlignment = () =>
     cfg().get<string>("alignment") === "left"
       ? vscode.StatusBarAlignment.Left
       : vscode.StatusBarAlignment.Right;
-  const priority = cfg().get<number>("priority") ?? 100;
-
-  const item = vscode.window.createStatusBarItem(alignment, priority);
-  item.command = "claudeUsageBar.openPanel";
-  item.show();
-  context.subscriptions.push(item);
+  let curAlignment = readAlignment();
+  let curPriority = cfg().get<number>("priority") ?? 100;
+  const makeStatusItem = () => {
+    const it = vscode.window.createStatusBarItem(curAlignment, curPriority);
+    it.command = "claudeUsageBar.openPanel";
+    it.show();
+    context.subscriptions.push(it);
+    return it;
+  };
+  let item = makeStatusItem();
 
   let lastState: UsageState | null = null;
   let lastCcusage: CcusageResult | null = null;
@@ -711,14 +718,18 @@ export function activate(context: vscode.ExtensionContext) {
     if (!s) {
       return null;
     }
-    return (
-      s.context?.used_pct ??
-      (s.context?.size && s.context.size > 0
-        ? (((s.context.input ?? 0) + (s.context.output ?? 0)) /
-            s.context.size) *
-          100
-        : null)
-    );
+    if (s.context?.used_pct != null) {
+      return s.context.used_pct;
+    }
+    // Sem used_pct: só dá pra calcular se a statusline reportou tokens de
+    // contexto. Se input+output == 0 (statusline não populou o contexto),
+    // retornamos null (desconhecido) em vez de "0%" — a linha some no painel,
+    // em vez de mostrar uma barra vazia enganosa.
+    const used = (s.context?.input ?? 0) + (s.context?.output ?? 0);
+    if (s.context?.size && s.context.size > 0 && used > 0) {
+      return (used / s.context.size) * 100;
+    }
+    return null;
   };
 
   const cc = (): CcusageData | null =>
@@ -1409,12 +1420,17 @@ export function activate(context: vscode.ExtensionContext) {
       ccusage: vscode.l10n.t("ccusage — aproximado (% de tempo, sem cota real)"),
       none: vscode.l10n.t("sem dados"),
     }[sourceKind];
-    const sourceOAuthLine = lastOAuthStatus.ok
-      ? vscode.l10n.t("oauth/usage: ok ✓ (cota real)")
-      : vscode.l10n.t(
-          "oauth/usage: indisponível — {0}",
-          lastOAuthStatus.reason ?? "—"
-        );
+    // Enquanto o oauth em cache ainda é a fonte EXIBIDA (usageNow != null), o
+    // diagnóstico mostra "ok ✓" — um 429 transitório de revalidação em segundo
+    // plano (que o cache absorve) não deve piscar "indisponível" e assustar.
+    // Só mostra o motivo quando o oauth realmente deixou de ser a fonte ativa.
+    const sourceOAuthLine =
+      lastOAuthStatus.ok || usageNow != null
+        ? vscode.l10n.t("oauth/usage: ok ✓ (cota real)")
+        : vscode.l10n.t(
+            "oauth/usage: indisponível — {0}",
+            lastOAuthStatus.reason ?? "—"
+          );
     const sourceStatuslineLine = slRate
       ? vscode.l10n.t("statusline: dados frescos ✓")
       : vscode.l10n.t("statusline: sem dados frescos");
@@ -1459,6 +1475,13 @@ export function activate(context: vscode.ExtensionContext) {
         tokens: p.tokens,
       })),
       settings: collectSettings(),
+      // Caminho/comando efetivo p/ exibir como placeholder quando o campo está
+      // vazio — deixa claro o que será usado por padrão (vazio = "auto").
+      placeholders: {
+        stateFilePath: resolveStatePath(),
+        exportStatePath: resolveExportPath(),
+        ccusageCommand: "npx -y ccusage@latest blocks --active --json",
+      },
       status: (() => {
         const s = st();
         if (!s) {
@@ -1595,6 +1618,15 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("claudeUsageBar")) {
+        // alignment/priority não podem ser mutados após a criação → recria o item.
+        const newAlign = readAlignment();
+        const newPrio = cfg().get<number>("priority") ?? 100;
+        if (newAlign !== curAlignment || newPrio !== curPriority) {
+          curAlignment = newAlign;
+          curPriority = newPrio;
+          item.dispose();
+          item = makeStatusItem();
+        }
         startWatch();
         readState();
       }
@@ -1628,10 +1660,10 @@ export function activate(context: vscode.ExtensionContext) {
     dispose: () => oauthTick && clearInterval(oauthTick),
   });
 
-  // Status da Anthropic: muda pouco, então intervalo mais folgado (default 120s).
+  // Status da Anthropic: muda pouco, então intervalo bem folgado (default 5min).
   const statusInterval = Math.max(
     30,
-    cfg().get<number>("statusRefreshSeconds") ?? 120
+    cfg().get<number>("statusRefreshSeconds") ?? 300
   );
   statusTick = setInterval(refreshStatus, statusInterval * 1000);
   context.subscriptions.push({

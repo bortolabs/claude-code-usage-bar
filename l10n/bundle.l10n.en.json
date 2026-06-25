@@ -155,6 +155,12 @@
   "statusline: dados frescos ✓": "statusline: fresh data ✓",
   "statusline: sem dados frescos": "statusline: no fresh data",
   "Exportar uso (p/ agentes/scripts)": "Export usage (for agents/scripts)",
-  "Exportar uso (arquivo)": "Export usage (file)",
-  "Caminho do arquivo (vazio = padrão)": "File path (empty = default)"
+  "Caminho do arquivo (vazio = padrão)": "File path (empty = default)",
+  "Gravar uso em arquivo JSON": "Write usage to a JSON file",
+  "JSON com seu uso atual (cota restante, fonte), atualizado sempre — pra um agente/script ler e, por ex., parar quando a cota ficar baixa.": "A JSON file with your current usage (remaining quota, source), always up to date — for an agent/script to read and, e.g., stop when the quota gets low.",
+  "Escolher arquivo…": "Choose file…",
+  "Ligado": "On",
+  "Desligado": "Off",
+  "Usar este arquivo": "Use this file",
+  "Usar este caminho": "Use this path"
 }
