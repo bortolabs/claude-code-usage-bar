@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.24.0
+
+- **Fim do 429 ao reabrir o VS Code.** O 429 que voltava no startup **não era cota** — era
+  o `oauth/usage` (rate-limit próprio) levando um **burst** de chamadas: no boot, vários
+  gatilhos (activate + abertura da view + foco da janela) disparavam o fetch quase juntos e,
+  somados ao poll do próprio Claude Code, estouravam o limite do endpoint. Três defesas:
+  - **Uma chamada de cada vez** (guarda de concorrência) — colapsa o burst de startup.
+  - **Coalescência do foco** — focar a janela (alt-tab) não refaz o oauth se ele já está
+    fresco (<30s); as fontes locais (statusline/ccusage) seguem atualizando no foco. Mata o
+    spam sem perder o refresh-ao-acordar.
+  - **Backoff mais gentil** — a 1ª falha recua ~20s (cura a colisão pontual de abertura) e
+    só escala até 15min se o 429 persistir. Antes o piso de 2min deixava o painel no ccusage
+    à toa.
+- **Painel reorganizado (menos poluído).** Duas mudanças de layout:
+  - O card **"Fonte de dados"** saiu da aba **Config** e foi pra aba **Sessão**, **logo
+    abaixo do painel principal** — onde ele é mais útil (mostra a fonte ativa junto do uso).
+  - Na aba **Config**, cada seção agora é um **card separado** (Aparência, Fonte e
+    atualização, Conta e custos, Alertas e cores, Status, Exportar uso…), no mesmo estilo
+    dos cards "Estilo na status bar" e "Alerta de burn rate". Antes era um bloco único só,
+    que ficava visualmente carregado.
+
 ## 0.23.1
 
 - **Backoff no `oauth/usage` (corrige o "Quota reached" falso).** O endpoint de usage tem

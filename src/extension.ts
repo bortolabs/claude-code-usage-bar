@@ -278,6 +278,11 @@ export function activate(context: vscode.ExtensionContext) {
   // qualquer gatilho (intervalo, foco, view) respeita esse "até quando".
   let oauthBackoffUntilMs = 0; // epoch ms: não chamar a API antes disso
   let oauthFailStreak = 0; // nº de falhas consecutivas (dobra o recuo)
+  // No startup (reabrir o VS Code) vários gatilhos chamam refreshOAuth quase
+  // juntos (activate + onReady da view + foco da janela). Sem este guard eles
+  // viram um BURST de requests ao MESMO endpoint e o próprio burst (somado ao
+  // poll do Claude Code) leva 429. Garante "uma chamada de cada vez".
+  let oauthInFlight = false;
   let lastUpdateMs = 0; // última vez que QUALQUER fonte trouxe dados (p/ "atualizado há Xs")
   // Modelo atual em uso (lido do transcript; o ccusage mistura modelos do bloco).
   let currentModel: string | null = null;
@@ -508,13 +513,35 @@ export function activate(context: vscode.ExtensionContext) {
       render();
       return;
     }
+    // Uma chamada de cada vez: no startup vários gatilhos disparam quase juntos
+    // (activate + onReady da view + foco). Sem isto eles viram um BURST ao mesmo
+    // endpoint e o próprio burst (somado ao poll do Claude Code) leva 429 — é o
+    // "problema que volta ao reabrir o VS Code".
+    if (oauthInFlight) {
+      return;
+    }
     // Respeita o backoff: enquanto recuando, NÃO chama a API (vale p/ qualquer
     // gatilho — intervalo, foco ou abertura da view). Só re-renderiza a UI.
     if (Date.now() < oauthBackoffUntilMs) {
       render();
       return;
     }
-    const res = await fetchOAuthUsage();
+    // Coalescência do foco: focar a janela (alt-tab) dispara refreshOAuth toda
+    // hora. Se já temos um oauth bom RECENTE (<30s), não refaz a chamada — mata
+    // o spam de alt-tab sem perder o refresh-ao-acordar (passados ~30s, refaz).
+    // As fontes locais (statusline/ccusage) seguem atualizando no foco; só o
+    // oauth (que tem rate-limit) é coalescido aqui. O intervalo de 60s e o
+    // backoff continuam valendo normalmente.
+    if (lastOAuthOkMs && Date.now() - lastOAuthOkMs < 30_000) {
+      return;
+    }
+    oauthInFlight = true;
+    let res: OAuthUsageResult;
+    try {
+      res = await fetchOAuthUsage();
+    } finally {
+      oauthInFlight = false;
+    }
     if (res.available) {
       // Sucesso: guarda o resultado bom e o momento, e zera o backoff.
       lastOAuth = res;
@@ -524,19 +551,12 @@ export function activate(context: vscode.ExtensionContext) {
       oauthFailStreak = 0;
       oauthBackoffUntilMs = 0;
     } else {
-      // Falha: recua exponencialmente p/ não martelar o endpoint. base =
-      // oauthRefreshSeconds, dobra a cada falha consecutiva, com teto de 15min.
-      // 429 entra com piso de 2min (é rate-limit explícito). Assim a extensão
-      // se comporta como bom cliente — e o "Quota reached" do 429 por excesso
-      // de chamadas para de aparecer.
+      // Backoff exponencial GENTIL: 1ª falha recua ~20s (cura a colisão
+      // transitória de startup, quando o nosso fetch e o poll do Claude Code se
+      // cruzam), dobrando até teto de 15min só quando o 429 é persistente. Um
+      // piso alto (2min) no 1º 429 deixaria o painel no ccusage à toa.
       oauthFailStreak = Math.min(oauthFailStreak + 1, 8);
-      const baseMs = Math.max(20, cfg().get<number>("oauthRefreshSeconds") ?? 60) * 1000;
-      const is429 = /\b429\b/.test(res.reason ?? "");
-      let waitMs = baseMs * Math.pow(2, oauthFailStreak); // 2×,4×,8×…
-      if (is429) {
-        waitMs = Math.max(waitMs, 2 * 60_000); // piso de 2min p/ 429
-      }
-      waitMs = Math.min(waitMs, 15 * 60_000); // teto de 15min
+      const waitMs = Math.min(15 * 60_000, 10_000 * Math.pow(2, oauthFailStreak));
       oauthBackoffUntilMs = Date.now() + waitMs;
       lastOAuthStatus = {
         ok: false,
