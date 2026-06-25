@@ -99,6 +99,7 @@ function panelStrings() {
       account: vscode.l10n.t("Conta e limites"),
       alerts: vscode.l10n.t("Alertas e cores"),
       status: vscode.l10n.t("Status da Anthropic"),
+      export: vscode.l10n.t("Exportar uso (p/ agentes/scripts)"),
     },
     cfg: {
       ringTheme: vscode.l10n.t("Tema do anel"),
@@ -129,6 +130,8 @@ function panelStrings() {
       statusBadgeEnabled: vscode.l10n.t("Badge na status bar"),
       statusNotifyEnabled: vscode.l10n.t("Notificar incidentes"),
       statusRefreshSeconds: vscode.l10n.t("Atualizar status (s)"),
+      exportStateEnabled: vscode.l10n.t("Exportar uso (arquivo)"),
+      exportStatePath: vscode.l10n.t("Caminho do arquivo (vazio = padrão)"),
     },
     srcTitle: vscode.l10n.t("Fonte de dados"),
     srcActive: vscode.l10n.t("Fonte ativa"),
@@ -387,6 +390,10 @@ function panelHtml(): string {
       { key: 'statusBadgeEnabled', label: L.cfg.statusBadgeEnabled, type: 'bool' },
       { key: 'statusNotifyEnabled', label: L.cfg.statusNotifyEnabled, type: 'bool' },
       { key: 'statusRefreshSeconds', label: L.cfg.statusRefreshSeconds, type: 'number' },
+    ]},
+    { section: L.sec.export, items: [
+      { key: 'exportStateEnabled', label: L.cfg.exportStateEnabled, type: 'bool' },
+      { key: 'exportStatePath', label: L.cfg.exportStatePath, type: 'string' },
     ]},
   ];
 

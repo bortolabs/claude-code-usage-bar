@@ -237,6 +237,65 @@ bar, e uma faixa no topo do painel. Desligue com `burnRateAlertEnabled: false`.
 | `claudeUsageBar.statusNotifyEnabled` | `true` | Notifica (1× por incidente) novos problemas no ecossistema Anthropic. |
 | `claudeUsageBar.statusRefreshSeconds` | `120` | Frequência de consulta ao status.claude.com. |
 | `claudeUsageBar.staleAfterSeconds` | `900` | Janela em que o dado da statusline é considerado fresco. |
+| `claudeUsageBar.exportStateEnabled` | `true` | Gravar o arquivo de uso para agentes/scripts. |
+| `claudeUsageBar.exportStatePath` | `""` | Caminho do export (vazio = `~/.claude/usage-bar.json`). |
+
+## Export de uso (para agentes/scripts)
+
+O plugin grava um **JSON local** com o uso atual a cada atualização, para **automações**
+lerem — por exemplo, um **agente em auto-mode** que deve **parar/avisar** quando a cota
+restante ficar baixa. Vem **ligado por padrão** em **`~/.claude/usage-bar.json`** (caminho
+cross-platform; no Windows resolve em `C:\Users\<você>\.claude\usage-bar.json`). Desligue ou
+troque o caminho na aba **Config → Exportar uso**.
+
+> Escrita **atômica** (`.tmp` + rename), **sem token** e **sem envio externo** — é um arquivo
+> só local com o seu uso.
+
+Formato (`v: 1`):
+
+```json
+{
+  "v": 1,
+  "ts": 1719400000000,
+  "source": "oauth",
+  "trustworthy": true,
+  "level": "ok",
+  "model": "Opus 4.8",
+  "fiveHour": { "usedPct": 36, "remainingPct": 64, "resetsAt": 1719415000000 },
+  "sevenDay": { "usedPct": 27, "remainingPct": 73, "resetsAt": 1719650000000 },
+  "contextPct": 41,
+  "cost": 4.81,
+  "etaMinutes": null
+}
+```
+
+- **`trustworthy`** só é `true` quando a fonte é **cota real** (`source` = `oauth` ou
+  `statusline`). No fallback `ccusage` (que é **% de tempo**, não cota) vem `false` e os
+  campos de cota ficam `null` — **nunca** confie no "remaining" quando `trustworthy` for `false`.
+- **`remainingPct`** = quanto ainda resta da janela (0–100). **`resetsAt`** = epoch ms.
+
+Exemplo de loop com critério de parada (Python):
+
+```python
+import json, time, os
+
+PATH = os.path.expanduser("~/.claude/usage-bar.json")
+
+def cota_ok(minimo=15):
+    try:
+        d = json.load(open(PATH))
+    except FileNotFoundError:
+        return True  # sem dado ainda → não bloqueia
+    if not d.get("trustworthy"):
+        return True  # fonte aproximada → não decide pela cota
+    fh = d.get("fiveHour") or {}
+    return fh.get("remainingPct", 100) >= minimo
+
+while cota_ok(minimo=15):
+    rodar_proximo_passo_do_agente()
+    time.sleep(2)
+print("Cota 5h abaixo do mínimo — pausando o auto-mode.")
+```
 
 ## Limitações
 

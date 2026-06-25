@@ -148,5 +148,8 @@
   "oauth/usage: ok ✓ (cota real)": "oauth/usage: ok ✓ (cuota real)",
   "oauth/usage: indisponível — {0}": "oauth/usage: no disponible — {0}",
   "statusline: dados frescos ✓": "statusline: datos recientes ✓",
-  "statusline: sem dados frescos": "statusline: sin datos recientes"
+  "statusline: sem dados frescos": "statusline: sin datos recientes",
+  "Exportar uso (p/ agentes/scripts)": "Exportar uso (para agentes/scripts)",
+  "Exportar uso (arquivo)": "Exportar uso (archivo)",
+  "Caminho do arquivo (vazio = padrão)": "Ruta del archivo (vacío = predeterminado)"
 }

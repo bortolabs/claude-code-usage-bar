@@ -48,5 +48,7 @@
   "config.statusBadgeEnabled.desc": "Afficher un badge (☁) sur l'indicateur de la status bar en cas d'incident/dégradation chez Anthropic.",
   "config.statusNotifyEnabled.desc": "Notifier (une fois par incident) lorsqu'un nouveau problème survient dans l'écosystème Anthropic.",
   "config.statusRefreshSeconds.desc": "À quelle fréquence (secondes) interroger status.claude.com.",
-  "extension.description": "[Non officiel] Usage de la session de Claude Code (limites 5h/7d, tokens et coût) dans la status bar — anneau de progression comme /usage — plus le statut de l'écosystème Anthropic (status.claude.com)."
+  "extension.description": "[Non officiel] Usage de la session de Claude Code (limites 5h/7d, tokens et coût) dans la status bar — anneau de progression comme /usage — plus le statut de l'écosystème Anthropic (status.claude.com).",
+  "config.exportStateEnabled.desc": "Écrit un fichier JSON local avec l’usage actuel (quota restant 5h/7j, source et fiabilité) pour que des **agents/scripts** le lisent — p. ex. arrêter l’auto-mode quand le quota restant devient bas. Écriture atomique, sans jeton, sans envoi externe.",
+  "config.exportStatePath.desc": "Chemin du fichier d’export. Vide = `~/.claude/usage-bar.json` (résolu sur Windows/macOS/Linux). Accepte `~` pour le home."
 }

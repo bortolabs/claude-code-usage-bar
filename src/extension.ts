@@ -354,7 +354,87 @@ export function activate(context: vscode.ExtensionContext) {
     return path.join(os.homedir(), ".claude", "usage-state.json");
   };
 
-  /** Considera a statusline "fresca" só se atualizada nos últimos N segundos. */
+  // Caminho do arquivo de EXPORT (uso atual gravado pelo plugin p/ agentes/scripts).
+  // Vazio = ~/.claude/usage-bar.json. os.homedir() resolve em Windows/macOS/Linux.
+  const resolveExportPath = (): string => {
+    const custom = (cfg().get<string>("exportStatePath") || "").trim();
+    if (custom) {
+      return custom.startsWith("~")
+        ? path.join(os.homedir(), custom.slice(1))
+        : custom;
+    }
+    return path.join(os.homedir(), ".claude", "usage-bar.json");
+  };
+
+  /**
+   * Grava o uso atual num JSON local (escrita atômica) para agentes/scripts lerem
+   * — ex.: parar o auto-mode quando `fiveHour.remainingPct` ficar baixo. Só expõe
+   * `trustworthy: true` quando a fonte é cota REAL (oauth/statusline); no ccusage
+   * (% de tempo) marca false e não inventa "remaining". Sem token, sem rede.
+   */
+  const writeExport = (v: View | null): void => {
+    if (!(cfg().get<boolean>("exportStateEnabled") ?? true)) {
+      return;
+    }
+    const sourceKind: "oauth" | "statusline" | "ccusage" | "none" = !v
+      ? "none"
+      : oa()
+      ? "oauth"
+      : stateIsFresh(v.state) && stateHasRate(v.state)
+      ? "statusline"
+      : v.block
+      ? "ccusage"
+      : "none";
+    const trustworthy = sourceKind === "oauth" || sourceKind === "statusline";
+    const win = (
+      pct: number | null,
+      resetMs: number | null,
+      resetsAtSec: number | null | undefined
+    ) =>
+      pct == null
+        ? null
+        : {
+            usedPct: Math.round(pct),
+            remainingPct: Math.max(0, Math.min(100, Math.round(100 - pct))),
+            resetsAt: resetMs ?? (resetsAtSec ? resetsAtSec * 1000 : null),
+          };
+    const obj = {
+      v: 1,
+      ts: Date.now(),
+      source: sourceKind,
+      trustworthy,
+      level: v?.level ?? null,
+      model: (v && prettyModel(v.modelName)) || null,
+      fiveHour: v
+        ? win(v.fiveHour, v.fiveHourResetMs, v.state?.five_hour?.resets_at)
+        : null,
+      sevenDay: v
+        ? win(v.sevenDay, v.sevenDayResetMs, v.state?.seven_day?.resets_at)
+        : null,
+      contextPct: v?.ctxPct != null ? Math.round(v.ctxPct) : null,
+      cost: v ? Number((v.cost ?? 0).toFixed(2)) : null,
+      etaMinutes: v?.etaMin ?? null,
+    };
+    try {
+      const p = resolveExportPath();
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      const json = JSON.stringify(obj, null, 2);
+      const tmp = p + ".tmp";
+      fs.writeFileSync(tmp, json);
+      try {
+        fs.renameSync(tmp, p); // atômico (POSIX); no Windows o Node já sobrescreve
+      } catch {
+        fs.writeFileSync(p, json); // fallback se o rename falhar
+        try {
+          fs.unlinkSync(tmp);
+        } catch {
+          // ignora
+        }
+      }
+    } catch {
+      // best-effort: caminho inválido/sem permissão — não quebra o render
+    }
+  };
   const stateIsFresh = (s: UsageState | null): boolean => {
     if (!s || !s.ts) {
       return false;
@@ -612,6 +692,7 @@ export function activate(context: vscode.ExtensionContext) {
       item.tooltip = md;
       item.color = new vscode.ThemeColor("disabledForeground");
       item.backgroundColor = undefined;
+      writeExport(null);
       return;
     }
 
@@ -989,6 +1070,7 @@ export function activate(context: vscode.ExtensionContext) {
       modelName,
     };
     item.tooltip = buildTooltip(view);
+    writeExport(view);
 
     viewProvider.update(
       buildPanelData(view),
@@ -1305,7 +1387,7 @@ export function activate(context: vscode.ExtensionContext) {
       "alertCooldownMinutes", "colorByProjection", "resetWarningMinutes",
       "blockSummaryEnabled", "warnThreshold", "errorThreshold",
       "statusCheckEnabled", "statusBadgeEnabled", "statusNotifyEnabled",
-      "statusRefreshSeconds",
+      "statusRefreshSeconds", "exportStateEnabled", "exportStatePath",
     ];
     const c = cfg();
     const out: Record<string, unknown> = {};
