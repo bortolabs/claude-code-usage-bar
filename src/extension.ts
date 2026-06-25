@@ -302,6 +302,9 @@ export function activate(context: vscode.ExtensionContext) {
   let curWindowPeakPct = 0; // maior % de cota observado na janela atual
   let curWindowPeakTokens = 0; // maior nº de tokens observado na janela atual
   let curWindowPeakCost = 0; // maior custo equivalente observado na janela atual
+  // Alerta de cota baixa (opcional): janelas já avisadas ("5h"/"7d"). Re-arma
+  // sozinho quando a cota se recupera acima do limiar (a janela reseta).
+  const lowQuotaWarned = new Set<string>();
 
   // View ancorada na Activity Bar (sidebar esquerda).
   const viewProvider = new UsageViewProvider();
@@ -725,6 +728,59 @@ export function activate(context: vscode.ExtensionContext) {
     const ctxPct = ctxPctOf(s);
     // Custo: prefere o do bloco ccusage (real do bloco de 5h); senão statusline.
     const cost = block?.costUSD ?? s?.cost_usd ?? 0;
+
+    // Alerta de cota baixa (opcional, p/ quem não usa agente): avisa 1x quando
+    // resta menos de X% numa janela real (oauth/statusline). Re-arma sozinho
+    // quando a cota se recupera (histerese de +2pts evita oscilar no limiar).
+    // Respeita o silêncio de 1h. Limiar 0 = desligado.
+    const lowThr = c.get<number>("lowQuotaThreshold") ?? 15;
+    if (lowThr > 0 && Date.now() >= snoozeUntilMs) {
+      const fireLow = (
+        win: "5h" | "7d",
+        pct: number | null,
+        resetMs: number | null
+      ) => {
+        if (pct == null) return;
+        const remaining = 100 - pct;
+        if (remaining <= lowThr) {
+          if (!lowQuotaWarned.has(win)) {
+            lowQuotaWarned.add(win);
+            const left = Math.max(0, Math.round(remaining));
+            const inReset =
+              resetMs && resetMs > Date.now()
+                ? vscode.l10n.t(" (reseta em {0})", fmtDuration(resetMs - Date.now()))
+                : "";
+            const msg =
+              win === "5h"
+                ? vscode.l10n.t(
+                    "Claude Usage — sessão de 5h: resta {0}%{1}.",
+                    left,
+                    inReset
+                  )
+                : vscode.l10n.t(
+                    "Claude Usage — semana (7d): resta {0}%{1}.",
+                    left,
+                    inReset
+                  );
+            const btnOpen = vscode.l10n.t("Abrir painel");
+            const btnSnooze = vscode.l10n.t("Silenciar 1h");
+            vscode.window
+              .showWarningMessage(msg, btnOpen, btnSnooze)
+              .then((choice) => {
+                if (choice === btnOpen) {
+                  vscode.commands.executeCommand("claudeUsageBar.openPanel");
+                } else if (choice === btnSnooze) {
+                  snoozeUntilMs = Date.now() + 60 * 60_000;
+                }
+              });
+          }
+        } else if (remaining > lowThr + 2) {
+          lowQuotaWarned.delete(win); // recuperou: re-arma p/ a próxima
+        }
+      };
+      fireLow("5h", fiveHour, fiveHourResetMs);
+      fireLow("7d", sevenDay, sevenDayResetMs);
+    }
 
     // Resumo ao fechar o bloco (#9): quando a janela de 5h vira (reset mudou),
     // notifica o que a janela anterior consumiu e reinicia o rastreio.
@@ -1386,6 +1442,7 @@ export function activate(context: vscode.ExtensionContext) {
       "intenseTokensPerMin", "burnRateAlertEnabled", "burnRateMaxPerHour",
       "alertCooldownMinutes", "colorByProjection", "resetWarningMinutes",
       "blockSummaryEnabled", "warnThreshold", "errorThreshold",
+      "lowQuotaThreshold",
       "statusCheckEnabled", "statusBadgeEnabled", "statusNotifyEnabled",
       "statusRefreshSeconds", "exportStateEnabled", "exportStatePath",
     ];
