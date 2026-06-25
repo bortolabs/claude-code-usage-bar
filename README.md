@@ -34,7 +34,7 @@ Painel na aba **Sessão** (anel + barras de uso 5h/7d/contexto + fonte de dados)
 Aba **Config** com **seções colapsáveis** (toggles, cores, alertas) e **Histórico** com projetos da sessão:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/03-config.png" width="360" alt="Aba Config reorganizada: cada seção é um card colapsável (Aparência, Fonte e atualização, Conta e limites, Alertas e cores, Status da Anthropic, Exportar uso), mais o bloco de Comandos">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/03-config.png" width="360" alt="Aba Config: seção Aparência aberta com o seletor visual de estilo (anel/barra/número/ícone), tema e cor do anel, lado e prioridade; demais seções recolhidas em cards colapsáveis (Fonte, Conta, Alertas, Status, Exportar uso)">
   <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/04-historico.png" width="360" alt="Aba Histórico: sparkline dos últimos dias e barras de consumo por projeto na sessão de 5h">
 </p>
 
