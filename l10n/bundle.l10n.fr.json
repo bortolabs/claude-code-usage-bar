@@ -151,6 +151,7 @@
   "sem dados": "aucune donnée",
   "oauth/usage: ok ✓ (cota real)": "oauth/usage : ok ✓ (quota réel)",
   "oauth/usage: indisponível — {0}": "oauth/usage : indisponible — {0}",
+  "{0} — recuando, nova tentativa em ~{1}": "{0} — temporisation, nouvel essai dans ~{1}",
   "statusline: dados frescos ✓": "statusline : données fraîches ✓",
   "statusline: sem dados frescos": "statusline : pas de données fraîches",
   "Exportar uso (p/ agentes/scripts)": "Exporter l’usage (pour agents/scripts)",

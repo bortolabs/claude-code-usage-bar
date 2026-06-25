@@ -272,6 +272,12 @@ export function activate(context: vscode.ExtensionContext) {
     ok: false,
     reason: null,
   };
+  // Backoff do oauth/usage: o endpoint tem rate-limit próprio e, com o polling
+  // de 60s + os disparos por foco/visibilidade, dá pra levar 429 mesmo SEM a
+  // cota ter estourado. Em falha (sobretudo 429) recuamos exponencialmente —
+  // qualquer gatilho (intervalo, foco, view) respeita esse "até quando".
+  let oauthBackoffUntilMs = 0; // epoch ms: não chamar a API antes disso
+  let oauthFailStreak = 0; // nº de falhas consecutivas (dobra o recuo)
   let lastUpdateMs = 0; // última vez que QUALQUER fonte trouxe dados (p/ "atualizado há Xs")
   // Modelo atual em uso (lido do transcript; o ccusage mistura modelos do bloco).
   let currentModel: string | null = null;
@@ -502,15 +508,44 @@ export function activate(context: vscode.ExtensionContext) {
       render();
       return;
     }
+    // Respeita o backoff: enquanto recuando, NÃO chama a API (vale p/ qualquer
+    // gatilho — intervalo, foco ou abertura da view). Só re-renderiza a UI.
+    if (Date.now() < oauthBackoffUntilMs) {
+      render();
+      return;
+    }
     const res = await fetchOAuthUsage();
     if (res.available) {
-      // Sucesso: guarda o resultado bom e o momento.
+      // Sucesso: guarda o resultado bom e o momento, e zera o backoff.
       lastOAuth = res;
       lastOAuthOkMs = Date.now();
       lastUpdateMs = Date.now();
       lastOAuthStatus = { ok: true, reason: null };
+      oauthFailStreak = 0;
+      oauthBackoffUntilMs = 0;
     } else {
-      lastOAuthStatus = { ok: false, reason: res.reason };
+      // Falha: recua exponencialmente p/ não martelar o endpoint. base =
+      // oauthRefreshSeconds, dobra a cada falha consecutiva, com teto de 15min.
+      // 429 entra com piso de 2min (é rate-limit explícito). Assim a extensão
+      // se comporta como bom cliente — e o "Quota reached" do 429 por excesso
+      // de chamadas para de aparecer.
+      oauthFailStreak = Math.min(oauthFailStreak + 1, 8);
+      const baseMs = Math.max(20, cfg().get<number>("oauthRefreshSeconds") ?? 60) * 1000;
+      const is429 = /\b429\b/.test(res.reason ?? "");
+      let waitMs = baseMs * Math.pow(2, oauthFailStreak); // 2×,4×,8×…
+      if (is429) {
+        waitMs = Math.max(waitMs, 2 * 60_000); // piso de 2min p/ 429
+      }
+      waitMs = Math.min(waitMs, 15 * 60_000); // teto de 15min
+      oauthBackoffUntilMs = Date.now() + waitMs;
+      lastOAuthStatus = {
+        ok: false,
+        reason: vscode.l10n.t(
+          "{0} — recuando, nova tentativa em ~{1}",
+          res.reason,
+          fmtDuration(waitMs)
+        ),
+      };
     }
     // Falha pontual: NÃO descarta o último resultado bom (evita o flicker
     // entre o layout oauth e o ccusage). Só expira após oauthStaleMs.

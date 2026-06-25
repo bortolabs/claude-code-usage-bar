@@ -196,6 +196,25 @@ A extensão avisa quando o **ritmo de gasto** projeta estourar antes do reset �
 Quando dispara: notificação do VSCode (com "Silenciar 1h"), ícone ⚠ e vermelho na status
 bar, e uma faixa no topo do painel. Desligue com `burnRateAlertEnabled: false`.
 
+## Alerta de cota baixa
+
+Além do burn rate (que olha o **ritmo**), há um aviso simples por **cota restante**: quando
+sobra **menos que X%** (`lowQuotaThreshold`, padrão **15%**) na sessão de **5h** ou na semana
+de **7d**, a extensão notifica com **quanto resta** e, quando há reset, **em quanto tempo a
+janela vira** — com botões **"Abrir painel"** e **"Silenciar 1h"**.
+
+- Avisa **1× por janela** e **re-arma sozinho** quando a cota se recupera.
+- Só dispara com **cota real** (oauth/usage ou statusline) — **nunca** no fallback ccusage,
+  pra não alarmar com número aproximado.
+- `lowQuotaThreshold: 0` desliga. Ideal pra quem **não** usa o [export de uso](#export-de-uso-para-agentesscripts)
+  (esse é o caminho recomendado pra automações/agentes).
+
+> **Robustez do oauth/usage:** o endpoint tem **rate-limit próprio**. Se ele responder
+> **429** (chamadas frequentes demais — independe da sua cota ter estourado), a extensão
+> agora faz **backoff exponencial** (recuo de 2→4→8 min, até 15 min, voltando ao normal no
+> primeiro sucesso) em vez de seguir martelando. A aba **Config → Fonte de dados** mostra o
+> recuo em andamento.
+
 ## Uso
 
 - **Clique** no item → abre o painel com o anel SVG.
@@ -226,6 +245,7 @@ bar, e uma faixa no topo do painel. Desligue com `burnRateAlertEnabled: false`.
 | `claudeUsageBar.intenseTokensPerMin` | `50000` | Ritmo tokens/min = 100% na cor por projeção (assinatura no app). |
 | `claudeUsageBar.sessionTokenCap` | `0` | Teto de tokens por sessão de 5h (ex: `150000000`). Projeta o estouro de tokens no ritmo atual. `0` desativa. |
 | `claudeUsageBar.resetWarningMinutes` | `10` | Avisa quando faltar este tempo pro reset da sessão de 5h. `0` desativa. |
+| `claudeUsageBar.lowQuotaThreshold` | `15` | Avisa quando restar menos que esta % de cota (5h ou 7d), só com cota real. `0` desativa. |
 | `claudeUsageBar.burnRateAlertEnabled` | `true` | Liga/desliga o alerta de burn rate (projeção de estouro). |
 | `claudeUsageBar.burnRateMaxPerHour` | `20` | Alerta de ritmo: `$/h` acima disso dispara (em assinatura, só se definido). |
 | `claudeUsageBar.alertCooldownMinutes` | `15` | Tempo mínimo entre notificações de alerta. |

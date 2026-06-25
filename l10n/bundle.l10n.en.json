@@ -151,6 +151,7 @@
   "sem dados": "no data",
   "oauth/usage: ok ✓ (cota real)": "oauth/usage: ok ✓ (real quota)",
   "oauth/usage: indisponível — {0}": "oauth/usage: unavailable — {0}",
+  "{0} — recuando, nova tentativa em ~{1}": "{0} — backing off, next try in ~{1}",
   "statusline: dados frescos ✓": "statusline: fresh data ✓",
   "statusline: sem dados frescos": "statusline: no fresh data",
   "Exportar uso (p/ agentes/scripts)": "Export usage (for agents/scripts)",
