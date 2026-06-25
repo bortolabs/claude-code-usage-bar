@@ -151,6 +151,7 @@
   "sem dados": "sin datos",
   "oauth/usage: ok ✓ (cota real)": "oauth/usage: ok ✓ (cuota real)",
   "oauth/usage: indisponível — {0}": "oauth/usage: no disponible — {0}",
+  "{0} — recuando, nova tentativa em ~{1}": "{0} — replegándose, próximo intento en ~{1}",
   "statusline: dados frescos ✓": "statusline: datos recientes ✓",
   "statusline: sem dados frescos": "statusline: sin datos recientes",
   "Exportar uso (p/ agentes/scripts)": "Exportar uso (para agentes/scripts)",

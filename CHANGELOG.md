@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.23.1
+
+- **Backoff no `oauth/usage` (corrige o "Quota reached" falso).** O endpoint de usage tem
+  **rate-limit próprio** — com o polling de 60s **+** os refreshes por foco/abertura da view,
+  dava pra levar **429 mesmo sem a cota ter estourado** (e o Claude Code lê o mesmo endpoint,
+  por isso às vezes mostrava "Quota reached" indevidamente). Agora, ao receber 429/falha, a
+  extensão faz **backoff exponencial** (2 → 4 → 8 min, teto de 15 min; piso de 2 min p/ 429) e
+  **volta ao normal no primeiro sucesso**, em vez de seguir martelando o endpoint.
+  - O recuo vale para **qualquer gatilho** (intervalo, foco, abertura da view) — nada
+    re-dispara a chamada enquanto estiver recuando.
+  - A aba **Config → Fonte de dados** mostra o motivo **e** o recuo em andamento
+    ("…recuando, nova tentativa em ~Xmin").
+
 ## 0.23.0
 
 - **Alerta nativo de cota baixa (opcional).** Para quem **não** usa agente, o plugin passa a

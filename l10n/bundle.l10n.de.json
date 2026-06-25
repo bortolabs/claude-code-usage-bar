@@ -151,6 +151,7 @@
   "sem dados": "keine Daten",
   "oauth/usage: ok ✓ (cota real)": "oauth/usage: ok ✓ (echtes Kontingent)",
   "oauth/usage: indisponível — {0}": "oauth/usage: nicht verfügbar — {0}",
+  "{0} — recuando, nova tentativa em ~{1}": "{0} — Wartezeit, nächster Versuch in ~{1}",
   "statusline: dados frescos ✓": "statusline: frische Daten ✓",
   "statusline: sem dados frescos": "statusline: keine frischen Daten",
   "Exportar uso (p/ agentes/scripts)": "Nutzung exportieren (für Agenten/Skripte)",
