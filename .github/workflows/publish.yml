@@ -1,19 +1,25 @@
 name: Publish extension
 
-# Publica a extensão no Visual Studio Marketplace (vsce) e cria um GitHub Release
-# com as notas da versão extraídas do CHANGELOG.md.
+# Empacota o .vsix uma vez e:
+#   - cria um GitHub Release com o .vsix ANEXADO (canal de download sempre disponível);
+#   - publica no Open VSX (ovsx)            -> requer secret OVSX_PAT;
+#   - tenta publicar no Visual Studio Marketplace (vsce) -> requer secret VSCE_PAT.
+#
+# O passo do VS Marketplace é "continue-on-error": enquanto a conta de publisher
+# estiver bloqueada pela Microsoft, ele falha sem derrubar o release nem o Open VSX;
+# quando a conta for reativada, volta a publicar sozinho.
 #
 # Dois gatilhos:
-#   - push de tag "v*.*.*"  -> release por tag (valida que a tag == version)
-#   - workflow_dispatch     -> publica a version atual do package.json e cria a
-#                              tag/release correspondente (Actions > Run workflow)
+#   - push de tag "v*.*.*"  -> valida que a tag == version do package.json
+#   - workflow_dispatch     -> publica a version atual do package.json
 #
-# A versão publicada vem SEMPRE do package.json; faça o bump (+ CHANGELOG) antes.
+# A versão vem SEMPRE do package.json; faça o bump (+ CHANGELOG) antes.
 #
-# Pré-requisito: secret VSCE_PAT no repositório (Settings > Secrets and variables >
-# Actions). É um Personal Access Token do Azure DevOps (https://dev.azure.com) com
-# escopo "Marketplace > Manage", para o publisher "bortolabs". (O Release usa o
-# GITHUB_TOKEN automático.)
+# Secrets (Settings > Secrets and variables > Actions):
+#   - OVSX_PAT : token do open-vsx.org (https://open-vsx.org, login com GitHub).
+#                Requer namespace "bortolabs" criado e o Eclipse Publisher Agreement assinado.
+#   - VSCE_PAT : PAT do Azure DevOps com escopo "Marketplace > Manage" (publisher "bortolabs").
+# (O GitHub Release usa o GITHUB_TOKEN automático.)
 
 on:
   push:
@@ -50,6 +56,7 @@ jobs:
           V="$(node -p "require('./package.json').version")"
           echo "version=$V" >> "$GITHUB_OUTPUT"
           echo "tag=v$V" >> "$GITHUB_OUTPUT"
+          echo "vsix=claude-code-usage-bar-$V.vsix" >> "$GITHUB_OUTPUT"
           echo "Versão a publicar: v$V"
 
       # Em push de TAG, garante que a tag corresponde à version do package.json.
@@ -62,31 +69,12 @@ jobs:
             exit 1
           fi
 
-      # vsce roda o script vscode:prepublish (npm run compile) automaticamente
-      # antes de empacotar, então não precisa de um passo de build separado.
-      # Retry com backoff: o Marketplace/Azure às vezes barra o envio com um
-      # bloqueio temporário de concorrência/rate-limit (RequestBlockedException /
-      # 429). Re-tenta algumas vezes com espera crescente para absorver esses
-      # blips curtos. (Um bloqueio de conta prolongado é com o suporte da Azure.)
-      - name: Publish to Visual Studio Marketplace
-        run: |
-          n=0
-          max=5
-          until npx --yes @vscode/vsce publish -p "$VSCE_PAT"; do
-            n=$((n + 1))
-            if [ "$n" -ge "$max" ]; then
-              echo "::error::vsce publish falhou após $max tentativas (rate-limit/concorrência da Azure?)."
-              exit 1
-            fi
-            wait=$((30 * n))
-            echo "::warning::Publish falhou (tentativa $n/$max). Aguardando ${wait}s e tentando de novo…"
-            sleep "$wait"
-          done
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      # Empacota UMA vez (roda vscode:prepublish = npm run compile) e publica o
+      # mesmo artefato nos dois registros + anexa no Release.
+      - name: Empacota o .vsix
+        run: npx --yes @vscode/vsce package -o "${{ steps.ver.outputs.vsix }}"
 
-      # Extrai do CHANGELOG.md só o bloco da versão atual (entre "## <versão>" e
-      # o próximo "## "), para usar como corpo do GitHub Release.
+      # Extrai do CHANGELOG.md só o bloco da versão atual, p/ corpo do Release.
       - name: Extrai notas do CHANGELOG
         run: |
           awk -v ver="## ${{ steps.ver.outputs.version }}" '
@@ -94,18 +82,59 @@ jobs:
             /^## / && flag { flag = 0 }
             flag { print }
           ' CHANGELOG.md > release-notes.md
-          # Fallback: se a seção não existir/estiver vazia, não falha o release.
           if [ ! -s release-notes.md ]; then
             echo "Release ${{ steps.ver.outputs.version }}" > release-notes.md
           fi
-          echo "----- notas do release -----"
-          cat release-notes.md
 
-      # Cria a tag (se ainda não existir, no caso do dispatch) e o Release.
-      - name: Cria o GitHub Release
+      # Cria a tag (se preciso) e o Release com o .vsix anexado — SEMPRE, mesmo que
+      # um registro falhe; assim há sempre um download de fallback.
+      - name: Cria o GitHub Release (com o .vsix)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: ${{ steps.ver.outputs.tag }}
           target_commitish: ${{ github.sha }}
           body_path: release-notes.md
+          files: ${{ steps.ver.outputs.vsix }}
+
+      # Open VSX (registro independente da Microsoft) — caminho de publicação vivo.
+      - name: Garante namespace no Open VSX
+        continue-on-error: true
+        run: npx --yes ovsx create-namespace bortolabs -p "$OVSX_PAT"
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+
+      - name: Publish to Open VSX
+        run: |
+          n=0; max=5
+          until npx --yes ovsx publish "${{ steps.ver.outputs.vsix }}" -p "$OVSX_PAT"; do
+            n=$((n + 1))
+            if [ "$n" -ge "$max" ]; then
+              echo "::error::ovsx publish falhou após $max tentativas."
+              exit 1
+            fi
+            wait=$((30 * n))
+            echo "::warning::Open VSX falhou (tentativa $n/$max). Aguardando ${wait}s…"
+            sleep "$wait"
+          done
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+
+      # VS Marketplace — enquanto a conta estiver bloqueada, falha sem derrubar o
+      # release/Open VSX. Volta a publicar sozinho quando for reativada.
+      - name: Publish to Visual Studio Marketplace
+        continue-on-error: true
+        run: |
+          n=0; max=3
+          until npx --yes @vscode/vsce publish --packagePath "${{ steps.ver.outputs.vsix }}" -p "$VSCE_PAT"; do
+            n=$((n + 1))
+            if [ "$n" -ge "$max" ]; then
+              echo "::warning::vsce publish falhou após $max tentativas (conta bloqueada? rate-limit?). Seguindo sem falhar o release."
+              exit 1
+            fi
+            wait=$((30 * n))
+            echo "::warning::VS Marketplace falhou (tentativa $n/$max). Aguardando ${wait}s…"
+            sleep "$wait"
+          done
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}

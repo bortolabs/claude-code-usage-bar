@@ -10,6 +10,9 @@
 - **ccusage marcado como aproximado.** Quando não há cota real e cai no ccusage, o anel
   mostra **"≈ tempo"** e o rodapé **"ccusage (≈ tempo)"**, deixando claro que é a **% de
   tempo do bloco**, não a cota do `/usage` — evita confundir os dois.
+- **Distribuição:** a extensão passa a ser publicada também no **[Open VSX](https://open-vsx.org/extension/bortolabs/claude-code-usage-bar)**
+  (VSCodium/Cursor/Windsurf/VS Code) e cada release no GitHub anexa o **`.vsix`**. A
+  listagem no VS Code Marketplace está temporariamente indisponível (em revisão).
 
 ## 0.21.2
 

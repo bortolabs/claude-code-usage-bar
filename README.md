@@ -1,7 +1,7 @@
 # Claude Code Usage & Status
 
-[![Marketplace](https://img.shields.io/visual-studio-marketplace/v/bortolabs.claude-code-usage-bar?label=VS%20Code%20Marketplace&color=0066b8)](https://marketplace.visualstudio.com/items?itemName=bortolabs.claude-code-usage-bar)
-[![Installs](https://img.shields.io/visual-studio-marketplace/i/bortolabs.claude-code-usage-bar?color=4caf78)](https://marketplace.visualstudio.com/items?itemName=bortolabs.claude-code-usage-bar)
+[![Open VSX](https://img.shields.io/open-vsx/v/bortolabs/claude-code-usage-bar?label=Open%20VSX&color=a60ee5)](https://open-vsx.org/extension/bortolabs/claude-code-usage-bar)
+[![Release](https://img.shields.io/github/v/release/bortolabs/claude-code-usage-bar?label=release&color=4caf78)](https://github.com/bortolabs/claude-code-usage-bar/releases/latest)
 
 > ⚠️ **Extensão da comunidade — não oficial.** Sem afiliação, endosso ou patrocínio da **Anthropic**.
 > "Claude" e "Claude Code" são marcas da Anthropic, usadas aqui apenas para referência/interoperabilidade.
@@ -12,8 +12,11 @@ Um indicador na **status bar do VSCode** que dá feedback visual constante do us
 do [Claude Code](https://claude.com/claude-code) — um anel de progresso + número, sem você
 precisar parar pra rodar `/usage`.
 
-**Instale:** no VSCode → Extensions → busque **"Claude Code Usage & Status"** → Install.
-Ou pela [página do Marketplace](https://marketplace.visualstudio.com/items?itemName=bortolabs.claude-code-usage-bar).
+**Instale:**
+- **Open VSX** (VSCodium, Cursor, Windsurf e também VS Code): procure por **"Claude Code Usage & Status"** ou veja a [página no Open VSX](https://open-vsx.org/extension/bortolabs/claude-code-usage-bar).
+- **`.vsix` (qualquer VS Code):** baixe o arquivo da [última release no GitHub](https://github.com/bortolabs/claude-code-usage-bar/releases/latest) e instale com `code --install-extension <arquivo>.vsix` (ou *Extensions → ⋯ → Install from VSIX…*).
+
+> ℹ️ A listagem no **VS Code Marketplace** está **temporariamente indisponível** (em revisão junto ao suporte da Microsoft). Use o **Open VSX** ou o **`.vsix`** acima enquanto isso.
 
 **Idiomas / Languages:** a interface segue o idioma do VS Code —
 🇧🇷 **Português** (base), 🇺🇸 **English**, 🇪🇸 **Español**, 🇫🇷 **Français**, 🇩🇪 **Deutsch**.
