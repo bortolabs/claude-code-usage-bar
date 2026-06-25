@@ -209,11 +209,13 @@ janela vira** — com botões **"Abrir painel"** e **"Silenciar 1h"**.
 - `lowQuotaThreshold: 0` desliga. Ideal pra quem **não** usa o [export de uso](#export-de-uso-para-agentesscripts)
   (esse é o caminho recomendado pra automações/agentes).
 
-> **Robustez do oauth/usage:** o endpoint tem **rate-limit próprio**. Se ele responder
-> **429** (chamadas frequentes demais — independe da sua cota ter estourado), a extensão
-> agora faz **backoff exponencial** (recuo de 2→4→8 min, até 15 min, voltando ao normal no
-> primeiro sucesso) em vez de seguir martelando. A aba **Config → Fonte de dados** mostra o
-> recuo em andamento.
+> **Robustez do oauth/usage:** o endpoint tem **rate-limit próprio** e pode responder **429**
+> por **chamadas frequentes demais** — independe da sua cota ter estourado (é comum aparecer
+> "Quota reached" sem a cota cheia). Três defesas evitam isso: **uma chamada de cada vez**
+> (colapsa o burst de gatilhos no startup), **coalescência do foco** (alt-tab não refaz o
+> oauth se ele já está fresco — só as fontes locais atualizam) e **backoff exponencial gentil**
+> (1ª falha recua ~20s, escalando até 15 min só se o 429 persistir, voltando ao normal no
+> primeiro sucesso). A aba **Config → Fonte de dados** mostra o recuo em andamento.
 
 ## Uso
 

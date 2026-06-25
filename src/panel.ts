@@ -307,6 +307,8 @@ function panelHtml(): string {
   .tab.active { color: var(--vscode-foreground); border-bottom-color: var(--ok); }
   /* Form de configurações */
   .cfg-section-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--vscode-descriptionForeground); margin: 14px 0 6px; }
+  /* Título da seção quando é o 1º item do próprio card (1 card por seção). */
+  .card > .cfg-section-title:first-child { margin-top: 2px; }
   .cfg-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 7px 0; }
   .cfg-label { font-size: 12px; color: var(--vscode-foreground); flex: 1 1 auto; }
   .cfg-ctrl { flex: 0 0 auto; }
@@ -524,7 +526,7 @@ function panelHtml(): string {
     settings = settings || {};
     var html = '';
     SETTINGS_SCHEMA.forEach(function(sec){
-      html += '<div class="cfg-section-title">' + sec.section + '</div>';
+      var inner = '<div class="cfg-section-title">' + sec.section + '</div>';
       sec.items.forEach(function(it){
         const val = settings[it.key];
         var ctrl = '';
@@ -542,8 +544,10 @@ function panelHtml(): string {
         } else { // string
           ctrl = '<input type="text" data-key="' + it.key + '" value="' + esc(val) + '">';
         }
-        html += '<div class="cfg-row"><span class="cfg-label">' + it.label + '</span><span class="cfg-ctrl">' + ctrl + '</span></div>';
+        inner += '<div class="cfg-row"><span class="cfg-label">' + it.label + '</span><span class="cfg-ctrl">' + ctrl + '</span></div>';
       });
+      // Um card por seção (APARÊNCIA, FONTE E ATUALIZAÇÃO, …) — menos poluído.
+      html += card(inner, 'controls');
     });
     // Comandos + link
     const cmds = '<div class="cfg-section-title">' + esc(L.cmdsTitle) + '</div><div class="cmd-btns">' +
@@ -553,7 +557,7 @@ function panelHtml(): string {
       '<button class="sbtn" data-cmd="claudeUsageBar.toggleAlert">' + esc(L.cmd.toggle) + '</button>' +
       '</div>' +
       '<button class="link-btn" id="openSettings">' + esc(L.openSettings) + '</button>';
-    return card(html + cmds, 'controls');
+    return html + card(cmds, 'controls');
   }
 
   // Mapeia status de componente Statuspage para cor (ok/warn/err).
@@ -677,7 +681,7 @@ function panelHtml(): string {
       }).join('');
       body = card('<div class="ring-wrap">' +
         ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub, ringOverride) +
-        '</div>' + rows);
+        '</div>' + rows) + sourceCard(d.source);
     } else if (activeTab === 'historico') {
       const sparkHtml = sparkline(d.daily);
       body = (sparkHtml ? card(sparkHtml) : '') + projectsCard(d.projects);
@@ -691,7 +695,7 @@ function panelHtml(): string {
         '<div class="toggle-row"><span class="toggle-label">' + esc(L.alertLabel) + '</span>' +
         '<button id="alertToggle" class="toggle ' + (alertEnabled ? 'on' : 'off') + '">' +
         (alertEnabled ? L.alertOn : L.alertOff) + '</button></div>', 'controls');
-      body = sourceCard(d.source) + styleCard + toggle + configTab(d.settings);
+      body = styleCard + toggle + configTab(d.settings);
     }
 
     // Badge ⚠ na aba Status quando há incidente/degradação.
