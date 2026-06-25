@@ -24,18 +24,18 @@ Sem tradução para o idioma ativo, cai no português.
 
 ## Screenshots
 
-Painel na aba **Sessão** (anel + barras de uso) e a aba **Status** (status.claude.com):
+Painel na aba **Sessão** (anel + barras de uso 5h/7d/contexto + fonte de dados) e a aba **Status** (status.claude.com):
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/01-painel-sessao.png" width="380" alt="Painel na aba Sessão: anel de progresso de 21%, barras de uso de tokens, tempo da sessão e semana, com alerta de projeção de burn rate">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/02-status.png" width="380" alt="Aba Status: Todos os sistemas operacionais, incidentes ativos, componentes e histórico recente do status.claude.com">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/01-painel-sessao.png" width="360" alt="Aba Sessão: anel de 71% da sessão de 5h, barras de uso de tokens, tempo, semana (7d) e contexto, modelo em uso, e o card 'Fonte de dados' mostrando a fonte ativa (oauth/usage — cota real)">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/02-status.png" width="360" alt="Aba Status: Todos os sistemas operacionais, incidentes ativos, componentes e histórico recente do status.claude.com">
 </p>
 
-Configuração visual (aba **Config**) e **Histórico** com projetos da sessão:
+Aba **Config** com **seções colapsáveis** (toggles, cores, alertas) e **Histórico** com projetos da sessão:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/03-config.png" width="380" alt="Aba Config: estilo na status bar, aparência, fonte e atualização, conta e limites">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/04-historico.png" width="380" alt="Aba Histórico: sparkline dos últimos dias e barras de consumo por projeto na sessão de 5h">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/03-config.png" width="360" alt="Aba Config reorganizada: cada seção é um card colapsável (Aparência, Fonte e atualização, Conta e limites, Alertas e cores, Status da Anthropic, Exportar uso), mais o bloco de Comandos">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/04-historico.png" width="360" alt="Aba Histórico: sparkline dos últimos dias e barras de consumo por projeto na sessão de 5h">
 </p>
 
 Mostra a **cota real da sessão** — o mesmo número do `/usage` — em **qualquer ambiente**
