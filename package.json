@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -280,7 +280,7 @@
         },
         "claudeUsageBar.statusRefreshSeconds": {
           "type": "number",
-          "default": 120,
+          "default": 300,
           "minimum": 30,
           "description": "%config.statusRefreshSeconds.desc%"
         },

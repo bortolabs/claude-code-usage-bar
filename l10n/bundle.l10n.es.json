@@ -155,6 +155,12 @@
   "statusline: dados frescos ✓": "statusline: datos recientes ✓",
   "statusline: sem dados frescos": "statusline: sin datos recientes",
   "Exportar uso (p/ agentes/scripts)": "Exportar uso (para agentes/scripts)",
-  "Exportar uso (arquivo)": "Exportar uso (archivo)",
-  "Caminho do arquivo (vazio = padrão)": "Ruta del archivo (vacío = predeterminado)"
+  "Caminho do arquivo (vazio = padrão)": "Ruta del archivo (vacío = predeterminado)",
+  "Gravar uso em arquivo JSON": "Guardar uso en un archivo JSON",
+  "JSON com seu uso atual (cota restante, fonte), atualizado sempre — pra um agente/script ler e, por ex., parar quando a cota ficar baixa.": "Un JSON con tu uso actual (cuota restante, fuente), siempre actualizado — para que un agente/script lo lea y, p. ej., se detenga cuando la cuota baje.",
+  "Escolher arquivo…": "Elegir archivo…",
+  "Ligado": "Activado",
+  "Desligado": "Desactivado",
+  "Usar este arquivo": "Usar este archivo",
+  "Usar este caminho": "Usar esta ruta"
 }

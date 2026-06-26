@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.25.0
+
+- **Aba Config repaginada** — menos poluída e mais "feature, não parâmetro":
+  - **Cards de seção colapsáveis** (Aparência, Fonte e atualização, Conta e limites,
+    Alertas e cores, Status, Exportar uso) — clique no título recolhe/expande, e o painel
+    **lembra** o que você deixou recolhido.
+  - **Booléanos viram toggle** (Ligado/Desligado) em vez de checkbox; o **Alerta de burn
+    rate** ganhou destaque com 🔥.
+  - O **seletor visual de estilo** (anel/barra/número/ícone) foi pra dentro da **Aparência**
+    (no lugar do dropdown), e os cards standalone redundantes de estilo e de burn rate saíram.
+- **Seletor de arquivo nativo (📁)** nos campos de caminho do **Statusline** e do **Export**
+  — abre o diálogo do VS Code em vez de digitar o caminho na mão.
+- **Placeholder com o caminho/comando padrão** nos campos vazios (deixa claro que "vazio =
+  usa `~/.claude/usage-state.json`", etc.). O texto do **Exportar uso** ficou mais claro.
+- **Correções:**
+  - **Lado/Prioridade da status bar agora aplicam na hora** — antes, mudar para "left" (ou a
+    prioridade) só fazia efeito após reiniciar o VS Code; agora o item é recriado na hora.
+  - **Modelo mostra a versão** mesmo vindo da statusline (ex.: "Opus 4.7" em vez de só "Opus").
+  - **Barra de Contexto some** quando não há dado real de contexto (em vez de exibir "0%").
+  - **Sem o flash "indisponível"** do oauth: enquanto o cache é a fonte exibida, o
+    diagnóstico mostra "ok ✓" (o 429 transitório de revalidação não pisca mais).
+- **Status da Anthropic:** o padrão de atualização passou de **120s → 300s** (5 min) —
+  página de status muda pouco, menos consultas à toa.
+
 ## 0.24.0
 
 - **Fim do 429 ao reabrir o VS Code.** O 429 que voltava no startup **não era cota** — era

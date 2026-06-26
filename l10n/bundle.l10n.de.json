@@ -155,6 +155,12 @@
   "statusline: dados frescos ✓": "statusline: frische Daten ✓",
   "statusline: sem dados frescos": "statusline: keine frischen Daten",
   "Exportar uso (p/ agentes/scripts)": "Nutzung exportieren (für Agenten/Skripte)",
-  "Exportar uso (arquivo)": "Nutzung exportieren (Datei)",
-  "Caminho do arquivo (vazio = padrão)": "Dateipfad (leer = Standard)"
+  "Caminho do arquivo (vazio = padrão)": "Dateipfad (leer = Standard)",
+  "Gravar uso em arquivo JSON": "Nutzung in JSON-Datei schreiben",
+  "JSON com seu uso atual (cota restante, fonte), atualizado sempre — pra um agente/script ler e, por ex., parar quando a cota ficar baixa.": "Eine JSON-Datei mit deiner aktuellen Nutzung (verbleibendes Kontingent, Quelle), stets aktuell — damit ein Agent/Skript sie liest und z. B. stoppt, wenn das Kontingent knapp wird.",
+  "Escolher arquivo…": "Datei wählen…",
+  "Ligado": "Ein",
+  "Desligado": "Aus",
+  "Usar este arquivo": "Diese Datei verwenden",
+  "Usar este caminho": "Diesen Pfad verwenden"
 }
