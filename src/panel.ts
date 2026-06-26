@@ -47,6 +47,8 @@ export interface PanelData {
   settings: Record<string, unknown>;
   /** Placeholders (caminho/comando efetivo) p/ campos vazios na Config. */
   placeholders?: Record<string, string>;
+  /** Créditos discretos no rodapé da aba Sessão (versão + repo). */
+  credits?: { version: string };
   /** Status da Anthropic (status.claude.com). null = desabilitado/indisponível. */
   status: {
     indicator: string;
@@ -228,6 +230,10 @@ function panelHtml(): string {
   .track { height: 7px; border-radius: 4px; background: var(--track); overflow: hidden; }
   .fill { height: 100%; border-radius: 4px; transition: width .35s ease; }
   .footer { margin-top: 16px; font-size: 11px; color: var(--vscode-descriptionForeground); text-align: center; }
+  /* Créditos discretos (versão + repo) no rodapé da aba Sessão. */
+  .credits { margin-top: 6px; font-size: 10px; color: var(--vscode-descriptionForeground); opacity: .65; text-align: center; }
+  .credits a { color: inherit; text-decoration: none; }
+  .credits a:hover { text-decoration: underline; opacity: 1; }
   .empty { text-align: center; color: var(--vscode-descriptionForeground); margin-top: 40px; }
   .bg-ok { background: var(--ok); } .bg-warn { background: var(--warn); } .bg-err { background: var(--err); }
   .styles { margin: 8px 0 14px; }
@@ -740,9 +746,15 @@ function panelHtml(): string {
     // Badge ⚠ na aba Status quando há incidente/degradação.
     const statusIssue = !!(d.status && (d.status.indicator !== 'none' ||
       (d.status.incidents && d.status.incidents.length)));
+    // Créditos discretos só na aba Sessão: versão + link do repo (autor).
+    var creditsHtml = '';
+    if (activeTab === 'sessao' && d.credits && d.credits.version) {
+      creditsHtml = '<div class="credits">v' + esc(d.credits.version) +
+        ' · <a href="#" id="openRepo">bortolabs/claude-code-usage-bar</a></div>';
+    }
     document.getElementById('app').innerHTML =
       header + alertHtml + tabsBar(statusIssue) + body +
-      '<div class="footer">' + esc(d.footer || '') + '</div>';
+      '<div class="footer">' + esc(d.footer || '') + creditsHtml + '</div>';
     tickLastUpd();
     wireEvents();
   }
@@ -775,6 +787,8 @@ function panelHtml(): string {
     if (os) os.addEventListener('click', function(){ vscode.postMessage({ type: 'openSettings' }); });
     const sp = document.getElementById('openStatusPage');
     if (sp) sp.addEventListener('click', function(){ vscode.postMessage({ type: 'openStatusPage' }); });
+    const rp = document.getElementById('openRepo');
+    if (rp) rp.addEventListener('click', function(e){ e.preventDefault(); vscode.postMessage({ type: 'openRepo' }); });
     // Botões de seletor de arquivo nativo (campos de caminho).
     document.querySelectorAll('.pick-btn[data-pick]').forEach(function(b){
       b.addEventListener('click', function(){
@@ -902,6 +916,10 @@ function wireMessages(
       );
     } else if (msg?.type === "openStatusPage") {
       vscode.env.openExternal(vscode.Uri.parse("https://status.claude.com"));
+    } else if (msg?.type === "openRepo") {
+      vscode.env.openExternal(
+        vscode.Uri.parse("https://github.com/bortolabs/claude-code-usage-bar")
+      );
     } else if (msg?.type === "ready") {
       onReady();
     }

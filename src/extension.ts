@@ -1482,6 +1482,14 @@ export function activate(context: vscode.ExtensionContext) {
         exportStatePath: resolveExportPath(),
         ccusageCommand: "npx -y ccusage@latest blocks --active --json",
       },
+      // Créditos discretos no rodapé da aba Sessão (versão + link do repo).
+      credits: {
+        version:
+          (context.extension &&
+            context.extension.packageJSON &&
+            context.extension.packageJSON.version) ||
+          "",
+      },
       status: (() => {
         const s = st();
         if (!s) {

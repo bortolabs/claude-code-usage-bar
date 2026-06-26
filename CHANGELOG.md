@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.25.1
+
+- **Créditos no rodapé da Sessão.** Linha discreta no fim da aba **Sessão** com a **versão**
+  do plugin e um link pro **repositório no GitHub** (`bortolabs/claude-code-usage-bar`).
+
 ## 0.25.0
 
 - **Aba Config repaginada** — menos poluída e mais "feature, não parâmetro":
