@@ -122,6 +122,7 @@ function panelStrings() {
     cost: {
       title: vscode.l10n.t("Custos"),
       perDay: vscode.l10n.t("Custo por dia"),
+      perDayTokens: vscode.l10n.t("Tokens por dia"),
       window: vscode.l10n.t("Janela das quebras"),
       today: vscode.l10n.t("Hoje"),
       month: vscode.l10n.t("Mês até agora"),
@@ -169,6 +170,7 @@ function panelStrings() {
       monthlyBudgetUsd: vscode.l10n.t("Orçamento mensal (USD)"),
       monthlyBudgetAlertEnabled: vscode.l10n.t("Alerta de orçamento mensal"),
       insightsEnabled: vscode.l10n.t("Analisar transcripts (custos)"),
+      tipsHelp: vscode.l10n.t("Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40."),
       tipsContextBigPct: vscode.l10n.t("Dica: contexto grande (% custo)"),
       tipsCacheReadPct: vscode.l10n.t("Dica: cache-read (% input)"),
       tipsOpusPct: vscode.l10n.t("Dica: Opus (% custo)"),
@@ -447,6 +449,9 @@ function panelHtml(): string {
   // Aba ativa persistida entre recriações da view.
   const persisted = (vscode.getState && vscode.getState()) || {};
   let activeTab = persisted.activeTab || 'sessao';
+  // A aba "Histórico" foi removida (o conteúdo foi pra "Custos"). Migra quem
+  // tinha ela ativa pra não cair numa aba inexistente.
+  if (activeTab === 'historico') activeTab = 'custos';
   // Estado recolhido dos cards da Config (id da seção → true = recolhido).
   let collapsed = persisted.collapsed || {};
   function saveState(){ if (vscode.setState) vscode.setState({ activeTab: activeTab, collapsed: collapsed }); }
@@ -489,7 +494,7 @@ function panelHtml(): string {
       { key: 'warnThreshold', label: L.cfg.warnThreshold, type: 'number' },
       { key: 'errorThreshold', label: L.cfg.errorThreshold, type: 'number' },
     ]},
-    { id: 'tips', section: L.sec.tips, items: [
+    { id: 'tips', section: L.sec.tips, help: L.cfg.tipsHelp, items: [
       { key: 'tipsContextBigPct', label: L.cfg.tipsContextBigPct, type: 'number' },
       { key: 'tipsCacheReadPct', label: L.cfg.tipsCacheReadPct, type: 'number' },
       { key: 'tipsOpusPct', label: L.cfg.tipsOpusPct, type: 'number' },
@@ -595,10 +600,10 @@ function panelHtml(): string {
     return '<div class="spark"><div class="styles-title">' + esc(title) + '</div>' +
       '<div class="spark-bars">' + bars + '</div>' + labels + '</div>';
   }
-  // Sparkline de tokens/dia (aba Histórico).
+  // Sparkline de tokens/dia (aba Custos).
   function sparkline(daily) {
     return sparkBars(daily, function(d){ return d.tokens; },
-      function(v){ return fmt(L.tokens, fmtTok(v)); }, L.lastDays);
+      function(v){ return fmt(L.tokens, fmtTok(v)); }, L.cost.perDayTokens);
   }
   // Sparkline de custo/dia (aba Custos) — só renderiza se houver algum custo.
   function costSparkline(daily) {
@@ -904,7 +909,7 @@ function panelHtml(): string {
   }
 
   function tabsBar(statusIssue) {
-    const tabs = [['sessao',L.tabs.sessao],['historico',L.tabs.historico],['custos',L.tabs.custos],['status',L.tabs.status],['config',L.tabs.config]];
+    const tabs = [['sessao',L.tabs.sessao],['custos',L.tabs.custos],['status',L.tabs.status],['config',L.tabs.config]];
     return '<div class="tabs">' + tabs.map(function(t){
       const badge = (t[0]==='status' && statusIssue) ? ' ⚠' : '';
       return '<button class="tab' + (t[0]===activeTab?' active':'') + '" data-tab="' + t[0] + '">' + t[1] + badge + '</button>';
@@ -956,16 +961,13 @@ function panelHtml(): string {
       body = card('<div class="ring-wrap">' +
         ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub, ringOverride) +
         '</div>' + rows) + sourceCard(d.source);
-    } else if (activeTab === 'historico') {
-      const sparkHtml = sparkline(d.daily);
-      body = sparkHtml ? card(sparkHtml) : '';
-      if (!body) body = '<div class="empty">' + esc(L.noHistory) + '</div>';
     } else if (activeTab === 'custos') {
-      // Aba dedicada: hoje/mês + custo/dia + seletor de janela + quebras + dicas.
+      // Aba dedicada: hoje/mês + custo/dia + tokens/dia + seletor + quebras + dicas.
       const c = d.cost;
       const hasStats = !!(c && (c.byModel.length || c.byProject.length ||
         c.byContextBucket.length || c.byMcpServer.length || c.bySubagent.length));
-      body = costCard(c) + costSparkline(d.daily) +
+      const sparks = costSparkline(d.daily) + sparkline(d.daily);
+      body = costCard(c) + (sparks ? card(sparks) : '') +
         (hasStats
           ? windowSelector(c.window) + byModelCard(c) + projectsCostCard(c) +
             bucketsCard(c) + countsCard(c) + tipsCard(c)

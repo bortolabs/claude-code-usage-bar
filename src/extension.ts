@@ -11,7 +11,7 @@ import {
   CcusageDaily,
 } from "./ccusage";
 import { evaluateAlerts, AlertResult } from "./alerts";
-import { readCurrentModel, prettyModel } from "./transcript";
+import { readCurrentTurn, prettyModel } from "./transcript";
 import { fetchOAuthUsage, OAuthUsageResult, OAuthUsage } from "./oauthUsage";
 import {
   readTranscriptStats,
@@ -299,6 +299,9 @@ export function activate(context: vscode.ExtensionContext) {
   let lastUpdateMs = 0; // última vez que QUALQUER fonte trouxe dados (p/ "atualizado há Xs")
   // Modelo atual em uso (lido do transcript; o ccusage mistura modelos do bloco).
   let currentModel: string | null = null;
+  // % de contexto do último turno (do transcript) — fonte primária do Contexto,
+  // funciona no app/IDE sem depender da statusline (que pode estar velha).
+  let currentContextPct: number | null = null;
   // Histórico diário (sparkline). Atualizado num intervalo mais folgado.
   let lastDaily: CcusageDaily[] = [];
   // Estatísticas locais dos transcripts (custo por modelo etc.) do bloco de 5h.
@@ -505,10 +508,14 @@ export function activate(context: vscode.ExtensionContext) {
     } catch {
       // arquivo ausente ou leitura no meio de um mv — mantém o último estado
     }
-    // Modelo atual vem do transcript (o ccusage mistura modelos do bloco).
-    const m = readCurrentModel();
-    if (m) {
-      currentModel = m;
+    // Modelo + contexto atuais vêm do transcript (o ccusage mistura modelos do
+    // bloco; e o contexto da statusline pode estar velho no app/IDE).
+    const turn = readCurrentTurn();
+    if (turn.model) {
+      currentModel = turn.model;
+    }
+    if (turn.contextPct != null) {
+      currentContextPct = turn.contextPct;
     }
     render();
   };
@@ -909,7 +916,12 @@ export function activate(context: vscode.ExtensionContext) {
     // Reset real (epoch ms) da fonte oauth, se houver.
     const fiveHourResetMs = usage?.fiveHour?.resetsAt ?? null;
     const sevenDayResetMs = usage?.sevenDay?.resetsAt ?? null;
-    const ctxPct = ctxPctOf(s);
+    // Contexto: prefere o cálculo AO VIVO do transcript (último turno / janela do
+    // modelo), que funciona no app/IDE; cai pra statusline só se fresca. Assim
+    // não congela mais num valor velho (ex.: "6%" de 47h atrás) quando a
+    // statusline está parada.
+    const ctxPct =
+      currentContextPct != null ? currentContextPct : fresh ? ctxPctOf(s) : null;
     // Custo: prefere o do bloco ccusage (real do bloco de 5h); senão statusline.
     const cost = block?.costUSD ?? s?.cost_usd ?? 0;
 
@@ -1767,6 +1779,25 @@ export function activate(context: vscode.ExtensionContext) {
           ? " · " + vscode.l10n.t("statusline {0}", fmtAgo(v.state.ts))
           : ""),
     };
+  };
+
+  // Defaults de boas práticas — usados quando o setting ainda não está
+  // registrado (ex.: logo após instalar a extensão, antes de recarregar a
+  // janela, o `get()` volta undefined e o campo apareceria vazio). Mantém a aba
+  // Config sempre preenchida com os valores recomendados.
+  const SETTING_DEFAULTS: Record<string, unknown> = {
+    ringTheme: "semaforo", ringColor: "#4caf78", barStyle: "ring",
+    statusBarValue: "quota", alignment: "right", priority: 100,
+    useOAuthUsage: true, oauthRefreshSeconds: 60, ccusageRefreshSeconds: 60,
+    staleAfterSeconds: 900, accountType: "auto", mode: "auto", costCapUsd: 5,
+    monthlyBudgetUsd: 0, monthlyBudgetAlertEnabled: true, insightsEnabled: true,
+    costWindow: "5h", tipsContextBigPct: 25, tipsCacheReadPct: 70,
+    tipsOpusPct: 70, tipsMcpCalls: 40, tipsSubagentPct: 40, sessionTokenCap: 0,
+    intenseTokensPerMin: 50000, burnRateAlertEnabled: true, burnRateMaxPerHour: 20,
+    alertCooldownMinutes: 15, colorByProjection: true, resetWarningMinutes: 10,
+    blockSummaryEnabled: true, warnThreshold: 60, errorThreshold: 85,
+    lowQuotaThreshold: 15, statusCheckEnabled: true, statusBadgeEnabled: true,
+    statusNotifyEnabled: true, statusRefreshSeconds: 300, exportStateEnabled: true,
   };
 
   // Coleta os valores atuais dos settings p/ preencher a aba Config.

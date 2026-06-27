@@ -164,9 +164,9 @@ Você escolhe como ver:
   - `icon` → ícone + número
 - **Ícone na Activity Bar** (lateral esquerda) — abre o painel completo, organizado em
   **4 abas** (a aba ativa é lembrada):
-  - **Sessão** — anel SVG + uso 5h/7d + tempo da sessão.
-  - **Histórico** — sparkline dos últimos dias + **breakdown por projeto** do bloco de 5h
-    ("Projetos nesta sessão"), mostrando quais projetos estão consumindo a janela atual.
+  - **Sessão** — anel SVG + uso 5h/7d + tempo da sessão + **contexto ao vivo** (do transcript).
+  - **Custos** — hoje/mês/projeção + sparklines de custo/tokens por dia + quebras (modelo,
+    projeto, contexto, MCP/subagentes) com janela ajustável (5h/hoje/7d/30d) + **Dicas**.
   - **Status** — status da Anthropic (`status.claude.com`): geral, componentes, incidentes
     ativos e histórico. Avisa com badge ☁ na status bar e notificação quando há problema.
   - **Config** — edite todos os settings por controles visuais (toggles, selects, números,

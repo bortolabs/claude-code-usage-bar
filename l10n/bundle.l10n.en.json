@@ -206,5 +206,7 @@
   "Dica: cache-read (% input)": "Tip: cache-read (% input)",
   "Dica: Opus (% custo)": "Tip: Opus (% cost)",
   "Dica: MCP (chamadas)": "Tip: MCP (calls)",
-  "Dica: subagentes (% custo)": "Tip: subagents (% cost)"
+  "Dica: subagentes (% custo)": "Tip: subagents (% cost)",
+  "Tokens por dia": "Tokens per day",
+  "Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40.": "When each tip fires. Higher values = fewer tips (more conservative). Defaults: 25/70/70/40/40."
 }
