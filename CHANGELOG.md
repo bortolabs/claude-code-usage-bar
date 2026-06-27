@@ -1,5 +1,79 @@
 # Changelog
 
+## 0.27.1
+
+Release consolidada — reúne tudo desde a 0.25.1. Chega o **acompanhamento de custos** e os
+**insights locais** (nosso "coach" de gasto), além de um bom ganho de performance.
+
+- **💰 Custos por modelo, hoje e mês.** Custo de **hoje**, **mês até agora** e **projeção do
+  mês** (números oficiais do ccusage), mais a quebra **por modelo** (Opus/Sonnet/Haiku…)
+  calculada de uma **tabela de preços local** sobre os seus transcripts. Em **assinatura**, o
+  `$` aparece como **equivalente de API** (`~`), nunca como cobrança; em **API** dá pra definir
+  um **orçamento mensal** com **alerta** (consumido **e** projeção).
+- **🧭 Nova aba "Custos"** com tudo num lugar só: hoje/mês + quebra por **modelo**, **projeto**
+  e **tamanho de contexto**, mais a **contagem** de chamadas por servidor **MCP** e por
+  **subagente**.
+- **🧠 Dicas (Insights) — local, sem LLM.** Sugestões de economia a partir dos seus próprios
+  números: contexto grande puxando o custo → `/compact`, muita releitura de cache, Opus
+  concentrando o gasto → Sonnet/Haiku, MCP/subagentes pesados. Sempre rotulado **"≈ aproximado
+  · tabela vX"** — o número oficial continua sendo o do ccusage.
+- **📟 Modo "custo" na status bar** (`statusBarValue`): o número pode mostrar **cota** (padrão),
+  **custo de hoje** ou **custo do bloco de 5h**, mantendo o anel/estilo.
+- **🛠 Export `v2`:** o JSON de export ganhou `today`, `month` e `byModel[]` (marcados
+  `approximate`) — pra agentes/scripts.
+- **⚡ Performance:** a análise dos transcripts ganhou **cache por mtime** (tick ocioso de
+  ~230ms → ~0,3ms) e o fim de uma varredura de disco redundante — agora é **uma** leitura por ciclo.
+- **🐞 Correção:** tooltip da status bar que mostrava "reseta em 0m" divergente do painel (0.25.2).
+
+Tudo **local, sem rede e sem LLM**; em 5 idiomas (pt/en/es/fr/de).
+
+## 0.27.0
+
+- **Nova aba "Custos"** (entre Histórico e Status) — reúne tudo de gasto num lugar só:
+  - **Custos** (hoje / mês / projeção do ccusage + barra de orçamento em API).
+  - **Por modelo (5h)** — custo ≈ por modelo (tabela local).
+  - **Por projeto (5h)** — agora com **custo** (antes era só tokens no Histórico); inclui o
+    projeto sintético **"subagentes"** (gasto das sidechains).
+  - **Por tamanho de contexto (5h)** — custo por faixa de contexto do turno
+    (`<50k … >200k`); as faixas **>150k** ficam **destacadas** (custam mais por resposta).
+  - **MCP e subagentes (5h)** — **contagem** de chamadas por servidor MCP e por subagente
+    (não dá pra atribuir tokens a um tool isolado do turno).
+  - **Dicas** — análise **local, sem LLM**, com sugestões de economia (ex.: contexto grande
+    puxando o custo → `/compact`; releitura de cache; Opus concentrando o gasto → Sonnet/Haiku;
+    servidor MCP muito chamado; subagentes pesados). Sempre rotulado **"≈ aproximado"**.
+- **Histórico** ficou enxuto: só o **sparkline** dos últimos dias (o resto migrou pra Custos).
+- Mantém tudo da 0.26.0 (motor de custo, alerta de orçamento, modo custo na status bar).
+
+## 0.26.0
+
+- **Custos por modelo, hoje e mês (novo).** A aba **Histórico** ganhou dois cards:
+  - **Custos** — **hoje**, **mês até agora** e **projeção do mês** (no ritmo atual). Os
+    números vêm do **ccusage** (oficiais). Em **API**, com **orçamento mensal** definido,
+    aparece uma **barra vs. orçamento**.
+  - **Por modelo (5h)** — tokens e **custo aproximado por modelo** (Opus/Sonnet/Haiku…),
+    calculado de uma **tabela de preços local** a partir dos seus transcripts. Tudo **local,
+    sem rede e sem LLM**, sempre rotulado **"≈ aproximado · tabela vX"**. Em assinatura, o `$`
+    aparece como **equivalente de API** (`~`), nunca como cobrança.
+- **Alerta de orçamento mensal (novo).** Defina `monthlyBudgetUsd` (> 0) para ser avisado
+  quando o gasto do mês — **ou a projeção** no ritmo atual — alcançar o orçamento. Respeita o
+  **"Silenciar 1h"** e re-arma sozinho ao cair abaixo de 90%. **Desligado por padrão em
+  assinatura** (lá o custo é só equivalente de API).
+- **Modo "custo" na status bar (novo).** O setting **Valor na status bar** (`statusBarValue`)
+  troca o número entre **cota** (padrão), **custo de hoje** (`$`) e **custo do bloco de 5h**
+  (`$`) — mantendo o anel/estilo. Em assinatura, o `$` vem como `~` (equivalente API).
+- **Insights local** (`insightsEnabled`, ligado por padrão): analisa os transcripts em
+  `~/.claude/projects` para o detalhamento de custo. Desligue para pular a leitura de disco.
+- **Export `v2`:** o JSON de export agora inclui `today`, `month`
+  (`costUSD`/`projectedUSD`/`budgetUSD`/`overBudget`) e `byModel[]` (com `approximate: true`).
+- Inclui a correção do tooltip da 0.25.2 (reset divergente "reseta em 0m").
+
+## 0.25.2
+
+- **Corrige o reset divergente no tooltip da status bar.** O hover mostrava "reseta em
+  0m" enquanto o painel mostrava o reset real (ex.: 16m). Causa: o tooltip lia o reset da
+  **statusline** (que pode estar velha), em vez do **oauth/usage** (a mesma fonte do anel).
+  Agora o tooltip usa o oauth primeiro, com fallback pra statusline — batendo com o painel.
+
 ## 0.25.1
 
 - **Créditos no rodapé da Sessão.** Linha discreta no fim da aba **Sessão** com a **versão**

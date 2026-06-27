@@ -51,5 +51,12 @@
   "config.statusRefreshSeconds.desc": "Com que frequência (segundos) consultar o status.claude.com.",
   "extension.description": "[Não oficial] Uso da sessão do Claude Code (limites 5h/7d, tokens e custo) na status bar — anel de progresso igual ao /usage — mais o status do ecossistema Anthropic (status.claude.com).",
   "config.exportStateEnabled.desc": "Gravar um arquivo JSON local com o uso atual (cota 5h/7d restante, fonte e confiabilidade) para **agentes/scripts** lerem — ex.: parar o auto-mode quando a cota restante ficar baixa. Escrita atômica, sem token e sem envio externo.",
-  "config.exportStatePath.desc": "Caminho do arquivo de export. Vazio = `~/.claude/usage-bar.json` (resolve em Windows/macOS/Linux). Aceita `~` para a home."
+  "config.exportStatePath.desc": "Caminho do arquivo de export. Vazio = `~/.claude/usage-bar.json` (resolve em Windows/macOS/Linux). Aceita `~` para a home.",
+  "config.statusBarValue.desc": "O que o número da status bar mostra. **quota** (padrão) = % da cota/tempo da sessão. **today** = custo de hoje (`$`). **session** = custo do bloco de 5h atual (`$`). O anel e o estilo continuam iguais; em assinatura o `$` aparece como `~` (equivalente API).",
+  "config.statusBarValue.enum.quota": "Cota/tempo da sessão (% — padrão)",
+  "config.statusBarValue.enum.today": "Custo de hoje ($)",
+  "config.statusBarValue.enum.session": "Custo do bloco de 5h ($)",
+  "config.monthlyBudgetUsd.desc": "Orçamento mensal (USD). Quando definido (> 0), avisa quando o gasto do mês — ou a projeção no ritmo atual — alcançar esse valor. `0` desativa. Em **assinatura** o custo é só equivalente de API, então o alerta fica desligado por padrão (defina explicitamente se quiser).",
+  "config.monthlyBudgetAlertEnabled.desc": "Ligar o alerta de orçamento mensal (respeita o `monthlyBudgetUsd` e o silêncio de 1h). Desligado por padrão em contas de assinatura.",
+  "config.insightsEnabled.desc": "Analisar localmente os transcripts (`~/.claude/projects`) para o detalhamento de custo por modelo/projeto e as dicas de economia. Tudo local, sem rede e sem LLM. Desligue para pular essa leitura de disco."
 }

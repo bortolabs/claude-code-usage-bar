@@ -184,6 +184,19 @@ fica em **tempo da sessão de 5h** e nos **limites do plano**.
 Se você usa **API/pay-as-you-go**, defina `accountType: api` — aí o custo é real, com teto
 (`costCapUsd`) e alerta.
 
+## Aba "Custos" & Dicas
+
+A aba **Custos** reúne o gasto num lugar só: **hoje / mês / projeção** (números do ccusage),
+**barra de orçamento** (`monthlyBudgetUsd`, só API) e quebras **por modelo**, **por projeto**
+(inclui o grupo "subagentes"), **por tamanho de contexto** e a **contagem** de chamadas por
+servidor **MCP** e por **subagente**. As quebras de custo vêm de uma **tabela de preços local**
+sobre os seus transcripts — **local, sem rede, sem LLM** — sempre rotuladas **"≈ aproximado ·
+tabela vX"**. O custo oficial continua sendo o do ccusage; a tabela só serve pra **atribuir**.
+
+O card **Dicas** sugere economia a partir desses números (ex.: contexto grande puxando o gasto
+→ `/compact`; muita releitura de cache; Opus concentrando o custo → Sonnet/Haiku para tarefas
+leves). Desligue toda essa análise (e a leitura de disco) com `insightsEnabled: false`.
+
 ## Alerta de burn rate
 
 A extensão avisa quando o **ritmo de gasto** projeta estourar antes do reset — algo que o
@@ -237,7 +250,11 @@ janela vira** — com botões **"Abrir painel"** e **"Silenciar 1h"**.
 | `claudeUsageBar.accountType` | `auto` | `subscription` (custo = referência, sem teto/alerta) ou `api` (custo real). `auto` = assinatura. |
 | `claudeUsageBar.mode` | `auto` | `auto` decide a fonte; `subscriber` força limites 5h/7d; `cost` força custo. |
 | `claudeUsageBar.barStyle` | `ring` | Estilo na status bar: `ring`, `bar`, `number` ou `icon`. |
+| `claudeUsageBar.statusBarValue` | `quota` | O que o número mostra: `quota` (cota/tempo), `today` (custo de hoje `$`) ou `session` (custo do bloco 5h `$`). |
 | `claudeUsageBar.costCapUsd` | `5` | Teto de custo (USD) p/ colorir o indicador. `0` desativa. |
+| `claudeUsageBar.monthlyBudgetUsd` | `0` | Orçamento mensal (USD). `>0` liga a barra de orçamento e o alerta (mês/projeção). `0` desativa. |
+| `claudeUsageBar.monthlyBudgetAlertEnabled` | `true` | Alerta de orçamento mensal. Desligado por padrão em assinatura. |
+| `claudeUsageBar.insightsEnabled` | `true` | Analisa os transcripts locais p/ o custo por modelo. Desligue p/ pular a leitura de disco. |
 | `claudeUsageBar.stateFilePath` | `~/.claude/usage-state.json` | Caminho do arquivo da statusline. |
 | `claudeUsageBar.warnThreshold` | `60` | % a partir do qual fica amarelo. |
 | `claudeUsageBar.errorThreshold` | `85` | % a partir do qual fica vermelho. |
@@ -273,11 +290,11 @@ troque o caminho na aba **Config → Exportar uso**.
 > Escrita **atômica** (`.tmp` + rename), **sem token** e **sem envio externo** — é um arquivo
 > só local com o seu uso.
 
-Formato (`v: 1`):
+Formato (`v: 2`):
 
 ```json
 {
-  "v": 1,
+  "v": 2,
   "ts": 1719400000000,
   "source": "oauth",
   "trustworthy": true,
@@ -287,7 +304,12 @@ Formato (`v: 1`):
   "sevenDay": { "usedPct": 27, "remainingPct": 73, "resetsAt": 1719650000000 },
   "contextPct": 41,
   "cost": 4.81,
-  "etaMinutes": null
+  "etaMinutes": null,
+  "today": 7.42,
+  "month": { "costUSD": 96.10, "projectedUSD": 142.30, "budgetUSD": 0, "overBudget": false },
+  "byModel": [
+    { "model": "Opus 4.8", "tokens": 62118770, "costUSD": 98.65, "approximate": true }
+  ]
 }
 ```
 
@@ -295,6 +317,9 @@ Formato (`v: 1`):
   `statusline`). No fallback `ccusage` (que é **% de tempo**, não cota) vem `false` e os
   campos de cota ficam `null` — **nunca** confie no "remaining" quando `trustworthy` for `false`.
 - **`remainingPct`** = quanto ainda resta da janela (0–100). **`resetsAt`** = epoch ms.
+- **`today`/`month`** vêm do **ccusage** (custo oficial). **`byModel`** é **`approximate`**
+  (atribuição por uma tabela de preços local) — bom p/ proporção entre modelos, não p/ fatura.
+  Campos novos da `v2`; os da `v1` seguem iguais.
 
 Exemplo de loop com critério de parada (Python):
 
