@@ -41,8 +41,6 @@ export interface PanelData {
   updatedAtMs: number | null;
   /** Histórico de uso dos últimos dias para o sparkline (pode ser vazio). */
   daily: { date: string; tokens: number }[];
-  /** Breakdown por projeto do bloco de 5h atual (#4). */
-  projects: { project: string; tokens: number }[];
   /**
    * Custos (≈ aproximado): hoje/mês vêm do ccusage (números oficiais); a quebra
    * por modelo vem da tabela de preços local (atribuição, sempre aproximada).

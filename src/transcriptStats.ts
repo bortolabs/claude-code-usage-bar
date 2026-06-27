@@ -207,8 +207,24 @@ function onLine(acc: Accum, o: any, dirName: string, windowStartMs: number, wind
   }
 }
 
-/** Varredura recursiva: lê todo .jsonl tocado na janela e despacha pra onLine. */
-function walk(dir: string, dirName: string, acc: Accum, windowStartMs: number, windowEndMs: number) {
+/** Arquivo .jsonl na janela + metadados baratos (p/ a assinatura de cache). */
+interface FileRef {
+  full: string;
+  dirName: string; // pasta de projeto de topo (fallback do nome do projeto)
+  mtimeMs: number;
+  size: number;
+}
+
+/**
+ * Passada BARATA (só `statSync`, sem ler conteúdo): coleta recursivamente os
+ * .jsonl tocados na janela. O conteúdo só é lido depois, no cache-miss.
+ */
+function collectFiles(
+  dir: string,
+  dirName: string,
+  windowStartMs: number,
+  out: FileRef[]
+) {
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -218,34 +234,50 @@ function walk(dir: string, dirName: string, acc: Accum, windowStartMs: number, w
   for (const e of entries) {
     const full = path.join(dir, e.name);
     if (e.isDirectory()) {
-      walk(full, dirName, acc, windowStartMs, windowEndMs);
+      collectFiles(full, dirName, windowStartMs, out);
       continue;
     }
     if (!e.name.endsWith(".jsonl")) {
       continue;
     }
     try {
+      const st = fs.statSync(full);
       // Pula arquivos não tocados na janela (otimização forte em históricos grandes).
-      if (fs.statSync(full).mtimeMs < windowStartMs) {
+      if (st.mtimeMs < windowStartMs) {
         continue;
       }
-      const content = fs.readFileSync(full, "utf8");
-      for (const line of content.split("\n")) {
-        // Fast-path: só linhas de turno (com usage) interessam.
-        if (!line || line.indexOf('"usage"') === -1) {
-          continue;
-        }
-        let o: any;
-        try {
-          o = JSON.parse(line);
-        } catch {
-          continue;
-        }
-        onLine(acc, o, dirName, windowStartMs, windowEndMs);
-      }
+      out.push({ full, dirName, mtimeMs: st.mtimeMs, size: st.size });
     } catch {
       // arquivo problemático — ignora e segue
     }
+  }
+}
+
+/** Lê e processa UM arquivo (só no cache-miss), despachando cada turno pra onLine. */
+function processFile(
+  ref: FileRef,
+  acc: Accum,
+  windowStartMs: number,
+  windowEndMs: number
+) {
+  let content: string;
+  try {
+    content = fs.readFileSync(ref.full, "utf8");
+  } catch {
+    return;
+  }
+  for (const line of content.split("\n")) {
+    // Fast-path: só linhas de turno (com usage) interessam.
+    if (!line || line.indexOf('"usage"') === -1) {
+      continue;
+    }
+    let o: any;
+    try {
+      o = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    onLine(acc, o, ref.dirName, windowStartMs, windowEndMs);
   }
 }
 
@@ -253,16 +285,23 @@ function sortTC<T extends TokenCost>(arr: T[]): T[] {
   return arr.sort((a, b) => b.costUSD - a.costUSD || b.tokens - a.tokens);
 }
 
+// Cache (variável de módulo) do último cálculo: evita re-ler+parsear os mesmos
+// arquivos a cada tick (60s) quando nada mudou. Chave = janela + assinatura mtime.
+let statsCache: { key: string; stats: TranscriptStats } | null = null;
+
 /**
  * Lê as estatísticas dos transcripts numa janela de tempo [start, end].
  * `windowEndMs` default = agora. Nunca lança (retorna stats vazias em erro).
+ *
+ * Faz primeiro uma passada barata (só `statSync`) p/ montar uma assinatura de
+ * mtime dos arquivos na janela; se igual à do último cálculo, devolve o cache
+ * sem re-ler/parsear nada. Senão, lê só os arquivos coletados e recalcula.
  */
 export function readTranscriptStats(
   windowStartMs: number,
   windowEndMs: number = Date.now(),
   limit = 8
 ): TranscriptStats {
-  const acc = new Accum();
   const root = path.join(os.homedir(), ".claude", "projects");
   let dirs: fs.Dirent[];
   try {
@@ -270,11 +309,33 @@ export function readTranscriptStats(
   } catch {
     return emptyStats();
   }
+
+  // Passada barata (só stat): arquivos na janela + assinatura de mtime/tamanho.
+  const files: FileRef[] = [];
   for (const d of dirs) {
     if (!d.isDirectory()) {
       continue;
     }
-    walk(path.join(root, d.name), d.name, acc, windowStartMs, windowEndMs);
+    collectFiles(path.join(root, d.name), d.name, windowStartMs, files);
+  }
+  files.sort((a, b) => (a.full < b.full ? -1 : a.full > b.full ? 1 : 0));
+  // Bucket de 1min do windowStart absorve o drift de ms do reset do oauth; o
+  // windowEnd não entra na chave (não há turnos no futuro). `limit` entra porque
+  // muda o slice das listas.
+  const key =
+    Math.floor(windowStartMs / 60000) +
+    "|" +
+    limit +
+    "|" +
+    files.map((f) => f.full + ":" + f.mtimeMs + ":" + f.size).join("|");
+  if (statsCache && statsCache.key === key) {
+    return statsCache.stats;
+  }
+
+  // Cache-miss: lê+processa só os arquivos coletados.
+  const acc = new Accum();
+  for (const f of files) {
+    processFile(f, acc, windowStartMs, windowEndMs);
   }
 
   const byModel = sortTC(
@@ -296,7 +357,7 @@ export function readTranscriptStats(
     .sort((a, b) => b.calls - a.calls)
     .slice(0, limit);
 
-  return {
+  const stats: TranscriptStats = {
     byModel,
     byProject,
     byContextBucket,
@@ -314,6 +375,8 @@ export function readTranscriptStats(
     approximate: true,
     tableVersion: pricingTableVersion,
   };
+  statsCache = { key, stats };
+  return stats;
 }
 
 function emptyStats(): TranscriptStats {

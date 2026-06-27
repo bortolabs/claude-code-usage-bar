@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.27.1
+
+- **Performance (Fase 3).** A análise local dos transcripts ficou bem mais leve:
+  - **Cache por assinatura de mtime** no agregador: antes de ler os arquivos, faz uma passada
+    barata (só `stat`) e, se nada mudou desde o último cálculo, devolve o resultado em cache —
+    sem re-ler nem re-parsear. Na prática, um tick ocioso caiu de **~230ms** para **~0,3ms**.
+  - **Fim de uma varredura de disco redundante:** a quebra "Por projeto" passou a vir do mesmo
+    agregador de custo (com `$`), então o antigo cálculo só-tokens (`projectUsage`) — que já não
+    aparecia mais na UI desde a 0.27.0 — foi **removido**. Agora é **uma** leitura de
+    `~/.claude/projects` por ciclo, em vez de duas.
+- Sem mudança visível no painel — é só otimização interna.
+
 ## 0.27.0
 
 - **Nova aba "Custos"** (entre Histórico e Status) — reúne tudo de gasto num lugar só:

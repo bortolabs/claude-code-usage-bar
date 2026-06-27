@@ -13,7 +13,6 @@ import {
 import { evaluateAlerts, AlertResult } from "./alerts";
 import { readCurrentModel, prettyModel } from "./transcript";
 import { fetchOAuthUsage, OAuthUsageResult, OAuthUsage } from "./oauthUsage";
-import { readProjectBreakdown, ProjectUsage } from "./projectUsage";
 import {
   readTranscriptStats,
   computeTips,
@@ -301,8 +300,6 @@ export function activate(context: vscode.ExtensionContext) {
   let currentModel: string | null = null;
   // Histórico diário (sparkline). Atualizado num intervalo mais folgado.
   let lastDaily: CcusageDaily[] = [];
-  // Breakdown por projeto do bloco de 5h atual (#4).
-  let lastProjects: ProjectUsage[] = [];
   // Estatísticas locais dos transcripts (custo por modelo etc.) do bloco de 5h.
   // Só calculado quando `insightsEnabled` (gate da leitura de disco).
   let lastStats: TranscriptStats | null = null;
@@ -523,8 +520,8 @@ export function activate(context: vscode.ExtensionContext) {
     if (lastCcusage.available) {
       lastUpdateMs = Date.now();
     }
-    // Breakdown por projeto (#4): janela = início do bloco de 5h atual.
-    // Prefere o início real do oauth (resetAt - 5h); senão o startMs do ccusage.
+    // Janela = início do bloco de 5h atual. Prefere o início real do oauth
+    // (resetAt - 5h); senão o startMs do ccusage.
     const o = oa();
     const resetMs = o?.fiveHour?.resetsAt ?? null;
     const windowStart = resetMs
@@ -532,12 +529,7 @@ export function activate(context: vscode.ExtensionContext) {
       : lastCcusage.available
       ? lastCcusage.startMs
       : Date.now() - 5 * 3600 * 1000;
-    try {
-      lastProjects = readProjectBreakdown(windowStart);
-    } catch {
-      lastProjects = [];
-    }
-    // Estatísticas locais (custo por modelo etc.) na MESMA janela dos projetos.
+    // Estatísticas locais (custo por modelo/projeto/contexto etc.) do bloco de 5h.
     // Gateado por insightsEnabled — pula a leitura de disco quando desligado.
     if (cfg().get<boolean>("insightsEnabled") ?? true) {
       try {
@@ -1646,10 +1638,6 @@ export function activate(context: vscode.ExtensionContext) {
         statuslineLine: sourceStatuslineLine,
       },
       daily,
-      projects: lastProjects.map((p) => ({
-        project: p.project,
-        tokens: p.tokens,
-      })),
       // Custos (≈ aproximado): hoje/mês do ccusage + quebras da tabela local.
       cost: {
         isSub: v.isSub,
