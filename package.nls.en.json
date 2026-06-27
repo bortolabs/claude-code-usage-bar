@@ -58,5 +58,15 @@
   "config.statusBarValue.enum.session": "Current 5h block cost ($)",
   "config.monthlyBudgetUsd.desc": "Monthly budget (USD). When set (> 0), warns once the month's spend — or the projection at the current pace — reaches this value. `0` disables it. On **subscriptions** the cost is only an API-equivalent, so the alert is off by default (set it explicitly to enable).",
   "config.monthlyBudgetAlertEnabled.desc": "Enable the monthly budget alert (honors `monthlyBudgetUsd` and the 1h snooze). Off by default on subscription accounts.",
-  "config.insightsEnabled.desc": "Analyze transcripts locally (`~/.claude/projects`) for the per-model/project cost breakdown and saving tips. All local, no network, no LLM. Turn off to skip this disk read."
+  "config.insightsEnabled.desc": "Analyze transcripts locally (`~/.claude/projects`) for the per-model/project cost breakdown and saving tips. All local, no network, no LLM. Turn off to skip this disk read.",
+  "config.costWindow.desc": "Window for the **cost breakdowns** in the Costs tab (by model/project/context and tips). `5h` = current block; `today` = today; `7d`/`30d` = last N days. Doesn't affect the Today/Month cards (always from ccusage).",
+  "config.costWindow.enum.5h": "Current session block (5h)",
+  "config.costWindow.enum.today": "Today (since midnight)",
+  "config.costWindow.enum.7d": "Last 7 days",
+  "config.costWindow.enum.30d": "Last 30 days",
+  "config.tipsContextBigPct.desc": "Context tip: warn when turns with **>150k context** account for ≥ this % of cost. Default 25.",
+  "config.tipsCacheReadPct.desc": "Cache tip: warn when **context re-reads (cache-read)** exceed this % of input tokens. Default 70.",
+  "config.tipsOpusPct.desc": "Model tip: warn when **Opus** drives ≥ this % of cost (suggests Sonnet/Haiku for light tasks). Default 70.",
+  "config.tipsMcpCalls.desc": "MCP tip: warn when an MCP server is called **more than** this many times in the window. Default 40.",
+  "config.tipsSubagentPct.desc": "Subagents tip: warn when **subagents** account for ≥ this % of cost. Default 40."
 }

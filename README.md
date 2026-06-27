@@ -255,6 +255,12 @@ janela vira** — com botões **"Abrir painel"** e **"Silenciar 1h"**.
 | `claudeUsageBar.monthlyBudgetUsd` | `0` | Orçamento mensal (USD). `>0` liga a barra de orçamento e o alerta (mês/projeção). `0` desativa. |
 | `claudeUsageBar.monthlyBudgetAlertEnabled` | `true` | Alerta de orçamento mensal. Desligado por padrão em assinatura. |
 | `claudeUsageBar.insightsEnabled` | `true` | Analisa os transcripts locais p/ o custo por modelo. Desligue p/ pular a leitura de disco. |
+| `claudeUsageBar.costWindow` | `5h` | Janela das **quebras** na aba Custos: `5h`/`today`/`7d`/`30d` (também ajustável pelo seletor na aba). |
+| `claudeUsageBar.tipsContextBigPct` | `25` | Dica de contexto: avisa quando turnos `>150k` somam ≥ esta % do custo. |
+| `claudeUsageBar.tipsCacheReadPct` | `70` | Dica de cache: avisa quando a releitura (cache-read) passa desta % do input. |
+| `claudeUsageBar.tipsOpusPct` | `70` | Dica de modelo: avisa quando o Opus concentra ≥ esta % do custo. |
+| `claudeUsageBar.tipsMcpCalls` | `40` | Dica de MCP: avisa quando um servidor MCP passa deste nº de chamadas. |
+| `claudeUsageBar.tipsSubagentPct` | `40` | Dica de subagentes: avisa quando somam ≥ esta % do custo. |
 | `claudeUsageBar.stateFilePath` | `~/.claude/usage-state.json` | Caminho do arquivo da statusline. |
 | `claudeUsageBar.warnThreshold` | `60` | % a partir do qual fica amarelo. |
 | `claudeUsageBar.errorThreshold` | `85` | % a partir do qual fica vermelho. |

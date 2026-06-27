@@ -58,5 +58,15 @@
   "config.statusBarValue.enum.session": "Custo do bloco de 5h ($)",
   "config.monthlyBudgetUsd.desc": "Orçamento mensal (USD). Quando definido (> 0), avisa quando o gasto do mês — ou a projeção no ritmo atual — alcançar esse valor. `0` desativa. Em **assinatura** o custo é só equivalente de API, então o alerta fica desligado por padrão (defina explicitamente se quiser).",
   "config.monthlyBudgetAlertEnabled.desc": "Ligar o alerta de orçamento mensal (respeita o `monthlyBudgetUsd` e o silêncio de 1h). Desligado por padrão em contas de assinatura.",
-  "config.insightsEnabled.desc": "Analisar localmente os transcripts (`~/.claude/projects`) para o detalhamento de custo por modelo/projeto e as dicas de economia. Tudo local, sem rede e sem LLM. Desligue para pular essa leitura de disco."
+  "config.insightsEnabled.desc": "Analisar localmente os transcripts (`~/.claude/projects`) para o detalhamento de custo por modelo/projeto e as dicas de economia. Tudo local, sem rede e sem LLM. Desligue para pular essa leitura de disco.",
+  "config.costWindow.desc": "Janela das **quebras de custo** na aba Custos (por modelo/projeto/contexto e dicas). `5h` = bloco atual; `today` = hoje; `7d`/`30d` = últimos N dias. Não afeta os cartões Hoje/Mês (sempre do ccusage).",
+  "config.costWindow.enum.5h": "Bloco da sessão atual (5h)",
+  "config.costWindow.enum.today": "Hoje (desde a meia-noite)",
+  "config.costWindow.enum.7d": "Últimos 7 dias",
+  "config.costWindow.enum.30d": "Últimos 30 dias",
+  "config.tipsContextBigPct.desc": "Dica de contexto: avisa quando turnos com **>150k de contexto** respondem por ≥ esta % do custo. Padrão 25.",
+  "config.tipsCacheReadPct.desc": "Dica de cache: avisa quando a **releitura de contexto (cache-read)** passa desta % dos tokens de input. Padrão 70.",
+  "config.tipsOpusPct.desc": "Dica de modelo: avisa quando o **Opus** concentra ≥ esta % do custo (sugere Sonnet/Haiku p/ tarefas leves). Padrão 70.",
+  "config.tipsMcpCalls.desc": "Dica de MCP: avisa quando um servidor MCP é chamado **mais que** este número de vezes na janela. Padrão 40.",
+  "config.tipsSubagentPct.desc": "Dica de subagentes: avisa quando os **subagentes** respondem por ≥ esta % do custo. Padrão 40."
 }

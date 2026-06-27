@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.28.0
+
+- **Janela configurável na aba Custos.** Um seletor **5h · Hoje · 7d · 30d** define o período das
+  **quebras** (por modelo/projeto/contexto, MCP/subagentes e dicas). Os cartões **Hoje/Mês** e o
+  novo gráfico de custo continuam vindo do ccusage (não mudam com o seletor). Setting `costWindow`.
+- **Sparkline de custo por dia** na aba Custos — mini-gráfico do `$`/dia dos últimos dias (ao lado
+  do que já existia de tokens no Histórico).
+- **Limiares das Dicas configuráveis.** Nova seção **"Dicas de custo"** na Config expõe os 5
+  gatilhos (contexto grande, cache-read, Opus, chamadas de MCP, subagentes) — ajuste a
+  sensibilidade das sugestões. Settings `tipsContextBigPct`, `tipsCacheReadPct`, `tipsOpusPct`,
+  `tipsMcpCalls`, `tipsSubagentPct`.
+- Os títulos das quebras agora mostram a janela ativa (ex.: "Por modelo (7d)").
+
 ## 0.27.1
 
 Release consolidada — reúne tudo desde a 0.25.1. Chega o **acompanhamento de custos** e os

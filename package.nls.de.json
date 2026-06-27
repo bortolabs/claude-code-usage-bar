@@ -58,5 +58,15 @@
   "config.statusBarValue.enum.session": "Kosten des 5h-Blocks ($)",
   "config.monthlyBudgetUsd.desc": "Monatsbudget (USD). Wenn gesetzt (> 0), warnt, sobald die Monatsausgaben — oder die Hochrechnung beim aktuellen Tempo — diesen Wert erreichen. `0` deaktiviert es. Bei **Abos** sind die Kosten nur ein API-Äquivalent, daher ist die Warnung standardmäßig aus (explizit aktivieren).",
   "config.monthlyBudgetAlertEnabled.desc": "Monatsbudget-Warnung aktivieren (beachtet `monthlyBudgetUsd` und die 1h-Stummschaltung). Bei Abo-Konten standardmäßig aus.",
-  "config.insightsEnabled.desc": "Transcripts lokal analysieren (`~/.claude/projects`) für die Kostenaufschlüsselung pro Modell/Projekt und die Spartipps. Alles lokal, ohne Netzwerk und ohne LLM. Ausschalten, um diesen Festplattenzugriff zu überspringen."
+  "config.insightsEnabled.desc": "Transcripts lokal analysieren (`~/.claude/projects`) für die Kostenaufschlüsselung pro Modell/Projekt und die Spartipps. Alles lokal, ohne Netzwerk und ohne LLM. Ausschalten, um diesen Festplattenzugriff zu überspringen.",
+  "config.costWindow.desc": "Fenster der **Kostenaufschlüsselungen** im Tab „Kosten“ (nach Modell/Projekt/Kontext und Tipps). `5h` = aktueller Block; `today` = heute; `7d`/`30d` = letzte N Tage. Betrifft nicht die Karten Heute/Monat (immer aus ccusage).",
+  "config.costWindow.enum.5h": "Aktueller Sitzungsblock (5h)",
+  "config.costWindow.enum.today": "Heute (seit Mitternacht)",
+  "config.costWindow.enum.7d": "Letzte 7 Tage",
+  "config.costWindow.enum.30d": "Letzte 30 Tage",
+  "config.tipsContextBigPct.desc": "Kontext-Tipp: warnt, wenn Turns mit **>150k Kontext** ≥ diesen % der Kosten ausmachen. Standard 25.",
+  "config.tipsCacheReadPct.desc": "Cache-Tipp: warnt, wenn das **erneute Lesen des Kontexts (cache-read)** diesen % der Eingabe-Tokens übersteigt. Standard 70.",
+  "config.tipsOpusPct.desc": "Modell-Tipp: warnt, wenn **Opus** ≥ diesen % der Kosten verursacht (schlägt Sonnet/Haiku für leichte Aufgaben vor). Standard 70.",
+  "config.tipsMcpCalls.desc": "MCP-Tipp: warnt, wenn ein MCP-Server **öfter als** diese Anzahl im Fenster aufgerufen wird. Standard 40.",
+  "config.tipsSubagentPct.desc": "Subagenten-Tipp: warnt, wenn **Subagenten** ≥ diesen % der Kosten ausmachen. Standard 40."
 }

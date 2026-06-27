@@ -58,5 +58,15 @@
   "config.statusBarValue.enum.session": "Costo del bloque de 5h ($)",
   "config.monthlyBudgetUsd.desc": "Presupuesto mensual (USD). Cuando se define (> 0), avisa cuando el gasto del mes —o la proyección al ritmo actual— alcanza ese valor. `0` lo desactiva. En **suscripciones** el costo es solo equivalente de API, así que la alerta está desactivada por defecto (actívala explícitamente).",
   "config.monthlyBudgetAlertEnabled.desc": "Activar la alerta de presupuesto mensual (respeta `monthlyBudgetUsd` y el silencio de 1h). Desactivada por defecto en cuentas de suscripción.",
-  "config.insightsEnabled.desc": "Analizar los transcripts localmente (`~/.claude/projects`) para el desglose de costo por modelo/proyecto y los consejos de ahorro. Todo local, sin red y sin LLM. Desactívalo para omitir esa lectura de disco."
+  "config.insightsEnabled.desc": "Analizar los transcripts localmente (`~/.claude/projects`) para el desglose de costo por modelo/proyecto y los consejos de ahorro. Todo local, sin red y sin LLM. Desactívalo para omitir esa lectura de disco.",
+  "config.costWindow.desc": "Ventana de los **desgloses de costo** en la pestaña Costos (por modelo/proyecto/contexto y consejos). `5h` = bloque actual; `today` = hoy; `7d`/`30d` = últimos N días. No afecta las tarjetas Hoy/Mes (siempre del ccusage).",
+  "config.costWindow.enum.5h": "Bloque de la sesión actual (5h)",
+  "config.costWindow.enum.today": "Hoy (desde la medianoche)",
+  "config.costWindow.enum.7d": "Últimos 7 días",
+  "config.costWindow.enum.30d": "Últimos 30 días",
+  "config.tipsContextBigPct.desc": "Consejo de contexto: avisa cuando turnos con **>150k de contexto** representan ≥ este % del costo. Predeterminado 25.",
+  "config.tipsCacheReadPct.desc": "Consejo de caché: avisa cuando la **relectura de contexto (cache-read)** supera este % de los tokens de entrada. Predeterminado 70.",
+  "config.tipsOpusPct.desc": "Consejo de modelo: avisa cuando **Opus** concentra ≥ este % del costo (sugiere Sonnet/Haiku para tareas ligeras). Predeterminado 70.",
+  "config.tipsMcpCalls.desc": "Consejo de MCP: avisa cuando un servidor MCP se llama **más de** esta cantidad de veces en la ventana. Predeterminado 40.",
+  "config.tipsSubagentPct.desc": "Consejo de subagentes: avisa cuando los **subagentes** representan ≥ este % del costo. Predeterminado 40."
 }

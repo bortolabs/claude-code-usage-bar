@@ -18,6 +18,7 @@ import {
   computeTips,
   TranscriptStats,
   Tip,
+  TipThresholds,
 } from "./transcriptStats";
 import { fetchStatus, StatusResult, StatusData, hasIssue } from "./status";
 
@@ -512,6 +513,68 @@ export function activate(context: vscode.ExtensionContext) {
     render();
   };
 
+  // Janela (epoch ms de início) das QUEBRAS de custo, conforme `costWindow`.
+  // "5h" = bloco atual (reset do oauth ou startMs do ccusage); "today" = meia-noite
+  // local; "7d"/"30d" = janela móvel. O fim é sempre "agora".
+  const costWindowStart = (): number => {
+    const w = (cfg().get<string>("costWindow") ?? "5h") as
+      | "5h"
+      | "today"
+      | "7d"
+      | "30d";
+    const now = Date.now();
+    if (w === "today") {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    }
+    if (w === "7d") {
+      return now - 7 * 24 * 3600 * 1000;
+    }
+    if (w === "30d") {
+      return now - 30 * 24 * 3600 * 1000;
+    }
+    // "5h": bloco atual — reset real do oauth (resetAt - 5h) ou startMs do ccusage.
+    const resetMs = oa()?.fiveHour?.resetsAt ?? null;
+    const block = lastCcusage && lastCcusage.available ? lastCcusage : null;
+    return resetMs
+      ? resetMs - 5 * 3600 * 1000
+      : block
+      ? block.startMs
+      : now - 5 * 3600 * 1000;
+  };
+
+  // Limiares das dicas a partir dos settings (shares em % → fração).
+  const tipThresholds = (): Partial<TipThresholds> => {
+    const c = cfg();
+    const frac = (k: string, d: number) => {
+      const v = c.get<number>(k);
+      return (typeof v === "number" ? v : d) / 100;
+    };
+    return {
+      ctxBigShare: frac("tipsContextBigPct", 25),
+      cacheReadShare: frac("tipsCacheReadPct", 70),
+      opusShare: frac("tipsOpusPct", 70),
+      mcpCalls: cfg().get<number>("tipsMcpCalls") ?? 40,
+      subagentShare: frac("tipsSubagentPct", 40),
+    };
+  };
+
+  // Recalcula as estatísticas locais (custo por modelo/projeto/contexto/MCP/
+  // subagente) na janela escolhida. Gateado por insightsEnabled (pula a I/O).
+  const refreshStats = () => {
+    if (cfg().get<boolean>("insightsEnabled") ?? true) {
+      try {
+        lastStats = readTranscriptStats(costWindowStart());
+      } catch {
+        lastStats = null;
+      }
+    } else {
+      lastStats = null;
+    }
+    render();
+  };
+
   const refreshCcusage = async () => {
     const cmd =
       (cfg().get<string>("ccusageCommand") || "").trim() ||
@@ -520,27 +583,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (lastCcusage.available) {
       lastUpdateMs = Date.now();
     }
-    // Janela = início do bloco de 5h atual. Prefere o início real do oauth
-    // (resetAt - 5h); senão o startMs do ccusage.
-    const o = oa();
-    const resetMs = o?.fiveHour?.resetsAt ?? null;
-    const windowStart = resetMs
-      ? resetMs - 5 * 3600 * 1000
-      : lastCcusage.available
-      ? lastCcusage.startMs
-      : Date.now() - 5 * 3600 * 1000;
-    // Estatísticas locais (custo por modelo/projeto/contexto etc.) do bloco de 5h.
-    // Gateado por insightsEnabled — pula a leitura de disco quando desligado.
-    if (cfg().get<boolean>("insightsEnabled") ?? true) {
-      try {
-        lastStats = readTranscriptStats(windowStart);
-      } catch {
-        lastStats = null;
-      }
-    } else {
-      lastStats = null;
-    }
-    render();
+    refreshStats();
   };
 
   const refreshOAuth = async () => {
@@ -1344,7 +1387,12 @@ export function activate(context: vscode.ExtensionContext) {
       monthProjected: summary.monthProjected,
       monthlyBudgetUsd: monthlyBudget,
       stats: lastStats,
-      tips: lastStats ? computeTips(lastStats) : [],
+      tips: lastStats ? computeTips(lastStats, tipThresholds()) : [],
+      costWindow: (cfg().get<string>("costWindow") ?? "5h") as
+        | "5h"
+        | "today"
+        | "7d"
+        | "30d",
     };
     item.tooltip = buildTooltip(view);
     writeExport(view);
@@ -1385,6 +1433,7 @@ export function activate(context: vscode.ExtensionContext) {
     monthlyBudgetUsd: number;
     stats: TranscriptStats | null;
     tips: Tip[];
+    costWindow: "5h" | "today" | "7d" | "30d";
   };
 
   // Tooltip RESUMIDO do hover: só o essencial + link p/ o painel completo.
@@ -1606,6 +1655,7 @@ export function activate(context: vscode.ExtensionContext) {
     const daily = v.daily.slice(-7).map((d) => ({
       date: d.date,
       tokens: d.totalTokens,
+      costUSD: d.costUSD,
     }));
     return {
       mode: v.mode,
@@ -1673,6 +1723,7 @@ export function activate(context: vscode.ExtensionContext) {
         bySubagent: v.stats ? v.stats.bySubagent : [],
         tips: v.tips,
         tableVersion: v.stats ? v.stats.tableVersion : null,
+        window: v.costWindow,
       },
       settings: collectSettings(),
       // Caminho/comando efetivo p/ exibir como placeholder quando o campo está
@@ -1725,7 +1776,9 @@ export function activate(context: vscode.ExtensionContext) {
       "priority", "useOAuthUsage", "oauthRefreshSeconds", "ccusageCommand",
       "ccusageRefreshSeconds", "stateFilePath", "staleAfterSeconds",
       "accountType", "mode", "costCapUsd", "monthlyBudgetUsd",
-      "monthlyBudgetAlertEnabled", "insightsEnabled", "sessionTokenCap",
+      "monthlyBudgetAlertEnabled", "insightsEnabled", "costWindow",
+      "tipsContextBigPct", "tipsCacheReadPct", "tipsOpusPct", "tipsMcpCalls",
+      "tipsSubagentPct", "sessionTokenCap",
       "intenseTokensPerMin", "burnRateAlertEnabled", "burnRateMaxPerHour",
       "alertCooldownMinutes", "colorByProjection", "resetWarningMinutes",
       "blockSummaryEnabled", "warnThreshold", "errorThreshold",
@@ -1837,6 +1890,15 @@ export function activate(context: vscode.ExtensionContext) {
           item = makeStatusItem();
         }
         startWatch();
+        // Mudou a janela das quebras ou o gate de insights → recalcula as stats
+        // (re-walk com a nova janela). Os limiares das dicas são reaplicados no
+        // próximo render (computeTips lê os settings), então readState basta.
+        if (
+          e.affectsConfiguration("claudeUsageBar.costWindow") ||
+          e.affectsConfiguration("claudeUsageBar.insightsEnabled")
+        ) {
+          refreshStats();
+        }
         readState();
       }
     })

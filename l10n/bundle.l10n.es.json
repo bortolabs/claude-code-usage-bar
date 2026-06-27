@@ -194,5 +194,17 @@
   "~{0}% dos tokens são releitura de contexto (cache). Sessões muito longas relendo tudo — /compact ajuda.": "~{0}% de los tokens son relecturas de contexto (caché). Sesiones muy largas releyendo todo — /compact ayuda.",
   "Opus concentra ~{0}% do custo. Pra tarefas leves, Sonnet/Haiku cortam bastante.": "Opus concentra ~{0}% del costo. Para tareas ligeras, Sonnet/Haiku reducen bastante.",
   "O servidor MCP \"{0}\" foi chamado {1}×. Vale conferir chamadas redundantes.": "El servidor MCP \"{0}\" se llamó {1}×. Conviene revisar llamadas redundantes.",
-  "Subagentes puxam ~{0}% do custo. Úteis, mas pesados — avalie reduzir o fan-out.": "Los subagentes generan ~{0}% del costo. Útiles, pero pesados — considera reducir el fan-out."
+  "Subagentes puxam ~{0}% do custo. Úteis, mas pesados — avalie reduzir o fan-out.": "Los subagentes generan ~{0}% del costo. Útiles, pero pesados — considera reducir el fan-out.",
+  "Custo por dia": "Costo por día",
+  "Janela das quebras": "Ventana de los desgloses",
+  "Por projeto": "Por proyecto",
+  "Por modelo": "Por modelo",
+  "Por tamanho de contexto": "Por tamaño de contexto",
+  "MCP e subagentes": "MCP y subagentes",
+  "Dicas de custo": "Consejos de costo",
+  "Dica: contexto grande (% custo)": "Consejo: contexto grande (% costo)",
+  "Dica: cache-read (% input)": "Consejo: cache-read (% entrada)",
+  "Dica: Opus (% custo)": "Consejo: Opus (% costo)",
+  "Dica: MCP (chamadas)": "Consejo: MCP (llamadas)",
+  "Dica: subagentes (% custo)": "Consejo: subagentes (% costo)"
 }
