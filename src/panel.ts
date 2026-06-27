@@ -137,6 +137,7 @@ function panelStrings() {
       subagents: vscode.l10n.t("Subagentes"),
       calls: vscode.l10n.t("{0}×"),
       turns: vscode.l10n.t("{0} turnos"),
+      perTurn: vscode.l10n.t("{0}/turno"),
       countsHelp: vscode.l10n.t("Contagem de chamadas — não dá pra atribuir tokens a um tool isolado do turno."),
       empty: vscode.l10n.t("Sem dados de custo ainda."),
       equiv: vscode.l10n.t("equiv."),
@@ -395,6 +396,11 @@ function panelHtml(): string {
   .cfg-summary::before { content: '▸'; display: inline-block; width: 12px; margin-right: 2px; font-size: 10px; opacity: .65; transition: transform .15s; }
   details.cfg-sec[open] > .cfg-summary::before { transform: rotate(90deg); }
   .cfg-summary:hover { color: var(--vscode-foreground); }
+  /* Cards de conteúdo colapsáveis (mesmo padrão <details>). */
+  details.cardc { display: block; }
+  details.cardc > summary { margin-bottom: 6px; }
+  details.cardc:not([open]) > summary { margin-bottom: 0; }
+  details.cardc[open] > .cfg-summary::before { transform: rotate(90deg); }
   .cfg-help-line { font-size: 11px; color: var(--vscode-descriptionForeground); line-height: 1.45; margin: 0 0 8px; }
   .cfg-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 7px 0; }
   .cfg-label { font-size: 12px; color: var(--vscode-foreground); flex: 1 1 auto; }
@@ -452,9 +458,11 @@ function panelHtml(): string {
   // A aba "Histórico" foi removida (o conteúdo foi pra "Custos"). Migra quem
   // tinha ela ativa pra não cair numa aba inexistente.
   if (activeTab === 'historico') activeTab = 'custos';
-  // Estado recolhido dos cards da Config (id da seção → true = recolhido).
+  // Estado recolhido das seções da Config (id da seção → true = recolhido).
   let collapsed = persisted.collapsed || {};
-  function saveState(){ if (vscode.setState) vscode.setState({ activeTab: activeTab, collapsed: collapsed }); }
+  // Estado recolhido dos cards de conteúdo (id do card → true = recolhido).
+  let cardCollapsed = persisted.cardc || {};
+  function saveState(){ if (vscode.setState) vscode.setState({ activeTab: activeTab, collapsed: collapsed, cardc: cardCollapsed }); }
 
   // Schema dos settings para a aba Config (key, label, tipo, opções).
   const SETTINGS_SCHEMA = [
@@ -627,6 +635,13 @@ function panelHtml(): string {
   }
   const card = (inner, cls) =>
     '<div class="card' + (cls ? ' ' + cls : '') + '">' + inner + '</div>';
+  // Card colapsável: o TÍTULO vira summary (clica p/ recolher/expandir) e o
+  // estado é lembrado pelo id. Mesmo padrão das seções da Config.
+  function collapsibleCard(id, title, body, cls) {
+    const openAttr = cardCollapsed[id] ? '' : ' open';
+    return '<details class="card cardc' + (cls ? ' ' + cls : '') + '" data-card="' + id + '"' + openAttr + '>' +
+      '<summary class="styles-title cfg-summary">' + esc(title) + '</summary>' + body + '</details>';
+  }
   function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
   // Barra de uso (track + fill) com a regra de tema/semáforo.
@@ -664,8 +679,8 @@ function panelHtml(): string {
         (cost.overBudget ? ' ⚠' : '') + '</span></div>' + bar(pct, null) + '</div>';
     }
     const note = sub ? L.cost.subNote : L.cost.approxNote;
-    return card('<div class="styles-title">' + esc(L.cost.title) + '</div>' + rows +
-      '<div class="cfg-help-line">' + esc(note) + '</div>');
+    return collapsibleCard('costsum', L.cost.title,
+      rows + '<div class="cfg-help-line">' + esc(note) + '</div>');
   }
 
   // Card "Por modelo": tokens + custo ≈ por modelo no bloco de 5h (tabela local).
@@ -684,8 +699,8 @@ function panelHtml(): string {
         '</span><span class="row-val">' + esc(val) + '</span></div>' + bar(pct, null) + '</div>';
     }).join('');
     const ver = cost.tableVersion ? ' · ' + fmt(L.cost.tableV, cost.tableVersion) : '';
-    return card('<div class="styles-title">' + esc(L.cost.byModel + ' (' + winLabel(cost.window) + ')') + '</div>' + rows +
-      '<div class="cfg-help-line">' + esc(L.cost.approxNote + ver) + '</div>');
+    return collapsibleCard('bymodel', L.cost.byModel + ' (' + winLabel(cost.window) + ')',
+      rows + '<div class="cfg-help-line">' + esc(L.cost.approxNote + ver) + '</div>');
   }
 
   // Card "Por projeto" (custo ≈): supera o antigo projectsCard (que era só tokens).
@@ -700,7 +715,7 @@ function panelHtml(): string {
       return '<div class="row"><div class="row-head"><span class="row-label">' + esc(p.project) +
         '</span><span class="row-val">' + esc(val) + '</span></div>' + bar(pct, null) + '</div>';
     }).join('');
-    return card('<div class="styles-title">' + esc(L.cost.byProject + ' (' + winLabel(cost.window) + ')') + '</div>' + rows);
+    return collapsibleCard('byproject', L.cost.byProject + ' (' + winLabel(cost.window) + ')', rows);
   }
 
   // Barra dos buckets de contexto: tinge de warn os turnos com contexto grande.
@@ -718,12 +733,16 @@ function panelHtml(): string {
     const rows = list.map(function(b){
       const big = (b.bucket === '150–200k' || b.bucket === '>200k');
       const pct = (b.costUSD / max) * 100;
-      const val = fmt(L.cost.turns, b.turns) + ' · ' + (sub ? '~' : '') + fmtUsd(b.costUSD);
+      const perTurn = b.turns > 0 ? b.costUSD / b.turns : 0;
+      // Custo total do bloco + custo médio POR TURNO (a métrica que mostra que
+      // turnos com mais contexto custam mais por resposta).
+      const val = fmt(L.cost.turns, b.turns) + ' · ' + (sub ? '~' : '') + fmtUsd(b.costUSD) +
+        ' · ' + fmt(L.cost.perTurn, (sub ? '~' : '') + fmtUsd(perTurn));
       return '<div class="row"><div class="row-head"><span class="row-label">' + esc(b.bucket) +
         (big ? ' ⚠' : '') + '</span><span class="row-val">' + esc(val) + '</span></div>' + bucketBar(pct, big) + '</div>';
     }).join('');
-    return card('<div class="styles-title">' + esc(L.cost.byContext + ' (' + winLabel(cost.window) + ')') + '</div>' + rows +
-      '<div class="cfg-help-line">' + esc(L.cost.byContextHelp) + '</div>');
+    return collapsibleCard('buckets', L.cost.byContext + ' (' + winLabel(cost.window) + ')',
+      rows + '<div class="cfg-help-line">' + esc(L.cost.byContextHelp) + '</div>');
   }
 
   // Card "MCP e subagentes": CONTAGEM de chamadas (sem custo — não dá pra atribuir).
@@ -737,11 +756,11 @@ function panelHtml(): string {
           '<span class="st-comp-status">' + esc(fmt(L.cost.calls, x.calls)) + '</span></div>';
       }).join('');
     }
-    var html = '<div class="styles-title">' + esc(L.cost.counts + ' (' + winLabel(cost.window) + ')') + '</div>';
+    var html = '';
     if (mcp.length) html += '<div class="st-recent"><b>' + esc(L.cost.mcp) + '</b></div>' + listRows(mcp);
     if (sub.length) html += '<div class="st-recent"><b>' + esc(L.cost.subagents) + '</b></div>' + listRows(sub);
     html += '<div class="cfg-help-line">' + esc(L.cost.countsHelp) + '</div>';
-    return card(html);
+    return collapsibleCard('counts', L.cost.counts + ' (' + winLabel(cost.window) + ')', html);
   }
 
   // Monta o texto localizado de uma dica a partir do id + values.
@@ -768,7 +787,7 @@ function panelHtml(): string {
           return '<div class="st-recent">' + icon + ' ' + esc(tipText(tp)) + '</div>';
         }).join('')
       : '<div class="st-recent">' + esc(L.cost.tips.none) + '</div>';
-    return card('<div class="styles-title">' + esc(L.cost.tips.title) + '</div>' + rows);
+    return collapsibleCard('tips', L.cost.tips.title, rows);
   }
 
   // Card "Fonte de dados": mostra a fonte ativa (oauth/statusline/ccusage) e,
@@ -776,8 +795,7 @@ function panelHtml(): string {
   function sourceCard(src) {
     if (!src) return '';
     const cls = (src.kind === 'ccusage' || src.kind === 'none') ? 'stc-warn' : 'stc-ok';
-    return card(
-      '<div class="styles-title">' + esc(L.srcTitle) + '</div>' +
+    return collapsibleCard('source', L.srcTitle,
       '<div class="st-recent"><b>' + esc(L.srcActive) + ':</b> <span class="' + cls + '">' + esc(src.activeLabel) + '</span></div>' +
       '<div class="st-recent">' + esc(src.oauthLine) + '</div>' +
       '<div class="st-recent">' + esc(src.statuslineLine) + '</div>'
@@ -885,7 +903,7 @@ function panelHtml(): string {
         return '<div class="st-inc' + cls + '"><div class="st-inc-name">' + esc(i.name) + '</div>' +
           '<div class="st-inc-meta">' + esc(impactLabel(i.impact)) + ' · ' + esc(incStatusLabel(i.status)) + '</div>' + upd + '</div>';
       }).join('');
-      html += card('<div class="styles-title">' + esc(L.st.incidents) + '</div>' + inc);
+      html += collapsibleCard('st-incidents', L.st.incidents, inc);
     }
     // Componentes
     if (s.components && s.components.length) {
@@ -894,7 +912,7 @@ function panelHtml(): string {
         return '<div class="st-comp"><span>' + esc(c.name) + '</span>' +
           '<span class="st-comp-status stc-' + col + '">' + esc(stLabel(c.status)) + '</span></div>';
       }).join('');
-      html += card('<div class="styles-title">' + esc(L.st.components) + '</div>' + comps);
+      html += collapsibleCard('st-components', L.st.components, comps);
     }
     // Histórico recente (resolvidos)
     if (s.recent && s.recent.length) {
@@ -902,7 +920,7 @@ function panelHtml(): string {
         const d = r.resolvedAt ? r.resolvedAt.slice(0,10) : '';
         return '<div class="st-recent">✓ ' + esc(r.name) + (d ? ' · ' + d : '') + '</div>';
       }).join('');
-      html += card('<div class="styles-title">' + esc(L.st.recent) + '</div>' + rec);
+      html += collapsibleCard('st-recent', L.st.recent, rec);
     }
     html += card('<button class="link-btn" id="openStatusPage">' + esc(L.st.openPage) + '</button>', 'controls');
     return html;
@@ -1055,6 +1073,13 @@ function panelHtml(): string {
     document.querySelectorAll('details.cfg-sec[data-sec]').forEach(function(d){
       d.addEventListener('toggle', function(){
         collapsed[d.getAttribute('data-sec')] = !d.open;
+        saveState();
+      });
+    });
+    // Cards de conteúdo colapsáveis: lembra o estado recolhido/expandido.
+    document.querySelectorAll('details.cardc[data-card]').forEach(function(d){
+      d.addEventListener('toggle', function(){
+        cardCollapsed[d.getAttribute('data-card')] = !d.open;
         saveState();
       });
     });

@@ -208,5 +208,6 @@
   "Dica: MCP (chamadas)": "Tipp: MCP (Aufrufe)",
   "Dica: subagentes (% custo)": "Tipp: Subagenten (% Kosten)",
   "Tokens por dia": "Tokens pro Tag",
-  "Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40.": "Wann jeder Tipp auslöst. Höhere Werte = weniger Tipps (konservativer). Standards: 25/70/70/40/40."
+  "Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40.": "Wann jeder Tipp auslöst. Höhere Werte = weniger Tipps (konservativer). Standards: 25/70/70/40/40.",
+  "{0}/turno": "{0}/Turn"
 }

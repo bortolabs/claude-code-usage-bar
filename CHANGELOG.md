@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.28.2
+
+- **Cor da status bar = uso de TOKENS, nunca o tempo decorrido.** No fallback do ccusage (sem
+  cota real) a cor passava a alarmar conforme o **tempo** da sessão avançava — o que é o
+  contrário do desejado (tempo acabando é bom: vem reset). Agora a cor reflete só o **custo/uso**;
+  o anel ainda mostra o % de tempo, mas sem ficar vermelho por isso. (No modo cota real/oauth a
+  cor já vinha da cota 5h/7d.)
+- **Custo por turno no card "Por tamanho de contexto".** Cada faixa agora mostra também o **custo
+  médio por turno** (`~$X/turno`), deixando claro quanto cada tamanho de contexto custa por
+  resposta — não só o total do bloco.
+- **Cards colapsáveis.** Todos os cards de conteúdo (Custos, Fonte de dados, Status…) agora
+  recolhem/expandem ao clicar no título, como as seções da Config, e **lembram** o que você
+  deixou recolhido — deixa a aba Custos bem mais enxuta.
+
 ## 0.28.1
 
 Release consolidada (0.28.0 + correções). A aba **Custos** ficou mais completa e o **Contexto**

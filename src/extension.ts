@@ -1216,7 +1216,10 @@ export function activate(context: vscode.ExtensionContext) {
       suffix = ` · ${resetShort}`;
       centerLabel = primary;
       centerSub = vscode.l10n.t("≈ tempo · reseta {0}", resetShort);
-      effective = Math.max(block.timePct, costPctForColor, projForColor);
+      // A COR nunca vem do TEMPO decorrido: tempo acabando é BOM (vem reset).
+      // No ccusage (sem cota real) ela reflete só o custo (api) / projeção —
+      // o número/anel ainda mostra o % de tempo, mas sem alarmar por isso.
+      effective = Math.max(costPctForColor, projForColor);
     } else {
       // Só statusline fresca sem rate (raro).
       if (isSub) {
