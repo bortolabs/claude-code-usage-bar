@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.25.2
+
+- **Corrige o reset divergente no tooltip da status bar.** O hover mostrava "reseta em
+  0m" enquanto o painel mostrava o reset real (ex.: 16m). Causa: o tooltip lia o reset da
+  **statusline** (que pode estar velha), em vez do **oauth/usage** (a mesma fonte do anel).
+  Agora o tooltip usa o oauth primeiro, com fallback pra statusline — batendo com o painel.
+
 ## 0.25.1
 
 - **Créditos no rodapé da Sessão.** Linha discreta no fim da aba **Sessão** com a **versão**

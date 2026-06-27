@@ -1241,8 +1241,15 @@ export function activate(context: vscode.ExtensionContext) {
     // Linha principal: sessão de 5h + reset (o que mais importa).
     if (v.mode === "plan") {
       const pct = v.fiveHour != null ? `${Math.round(v.fiveHour)}%` : "—";
-      const reset = v.state?.five_hour?.resets_at
-        ? " · " + vscode.l10n.t("reseta {0}", fmtResetsAt(v.state.five_hour.resets_at))
+      // Reset: prefere o oauth (MESMA fonte do anel) e só cai pra statusline se
+      // não houver. Sem isso, com a statusline velha o tooltip mostrava
+      // "reseta em 0m" enquanto o painel mostrava o reset real do oauth.
+      const resetSec =
+        v.fiveHourResetMs != null
+          ? Math.floor(v.fiveHourResetMs / 1000)
+          : v.state?.five_hour?.resets_at ?? null;
+      const reset = resetSec
+        ? " · " + vscode.l10n.t("reseta {0}", fmtResetsAt(resetSec))
         : "";
       lines.push(
         vscode.l10n.t("**Sessão 5h:** {0}", `${pct}${bar(v.fiveHour)}${reset}`)
