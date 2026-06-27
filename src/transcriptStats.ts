@@ -62,12 +62,24 @@ export interface Tip {
   values: Record<string, string | number>;
 }
 
-// Limiares das dicas (heurísticos, ajustáveis num só lugar).
-const TIP_CTX_BIG_SHARE = 0.25; // contexto >150k respondendo por ≥25% do custo
-const TIP_CACHE_READ_SHARE = 0.7; // cache-read ≥70% dos tokens de input
-const TIP_OPUS_SHARE = 0.7; // Opus ≥70% do custo
-const TIP_MCP_CALLS = 40; // servidor MCP com >40 chamadas
-const TIP_SUBAGENT_SHARE = 0.4; // subagentes ≥40% do custo
+/** Limiares (ajustáveis) das dicas. Shares em fração (0–1); mcpCalls em contagem. */
+export interface TipThresholds {
+  ctxBigShare: number; // contexto >150k respondendo por ≥X do custo
+  cacheReadShare: number; // cache-read ≥X dos tokens de input
+  opusShare: number; // Opus ≥X do custo
+  mcpCalls: number; // servidor MCP com >X chamadas
+  subagentShare: number; // subagentes ≥X do custo
+}
+
+/** Defaults dos limiares (exportados p/ a UI/settings derivarem deles). */
+export const DEFAULT_TIP_THRESHOLDS: TipThresholds = {
+  ctxBigShare: 0.25,
+  cacheReadShare: 0.7,
+  opusShare: 0.7,
+  mcpCalls: 40,
+  subagentShare: 0.4,
+};
+
 const TIP_MIN_TURNS = 5; // amostra mínima p/ arriscar uma dica
 
 /** Faixas de tamanho de contexto (input + cache_read do turno), em ordem. */
@@ -400,7 +412,11 @@ function emptyStats(): TranscriptStats {
  * Retorna estruturas (`id` + `values`); o texto é montado/traduzido na UI.
  * Conservador: sem amostra mínima (`TIP_MIN_TURNS`) não arrisca nenhuma dica.
  */
-export function computeTips(s: TranscriptStats): Tip[] {
+export function computeTips(
+  s: TranscriptStats,
+  thresholds: Partial<TipThresholds> = {}
+): Tip[] {
+  const t: TipThresholds = { ...DEFAULT_TIP_THRESHOLDS, ...thresholds };
   const tips: Tip[] = [];
   const total = s.totalCostUSD;
   if (total <= 0 || s.turns < TIP_MIN_TURNS) {
@@ -412,14 +428,14 @@ export function computeTips(s: TranscriptStats): Tip[] {
   const bigCtx = s.byContextBucket
     .filter((b) => b.bucket === "150–200k" || b.bucket === ">200k")
     .reduce((a, b) => a + b.costUSD, 0);
-  if (bigCtx / total >= TIP_CTX_BIG_SHARE) {
+  if (bigCtx / total >= t.ctxBigShare) {
     tips.push({ id: "context", level: "warn", values: { pct: pctOf(bigCtx) } });
   }
 
   // (2) Releitura de contexto (cache-read) domina os tokens de input.
   const inputSide =
     s.tokenTotals.input + s.tokenTotals.cacheRead + s.tokenTotals.cacheWrite;
-  if (inputSide > 0 && s.tokenTotals.cacheRead / inputSide >= TIP_CACHE_READ_SHARE) {
+  if (inputSide > 0 && s.tokenTotals.cacheRead / inputSide >= t.cacheReadShare) {
     tips.push({
       id: "cacheRead",
       level: "info",
@@ -431,13 +447,13 @@ export function computeTips(s: TranscriptStats): Tip[] {
   const opus = s.byModel
     .filter((m) => /opus/i.test(m.model))
     .reduce((a, m) => a + m.costUSD, 0);
-  if (opus / total >= TIP_OPUS_SHARE) {
+  if (opus / total >= t.opusShare) {
     tips.push({ id: "opus", level: "info", values: { pct: pctOf(opus) } });
   }
 
   // (4) Servidor MCP muito chamado.
   const topMcp = s.byMcpServer[0];
-  if (topMcp && topMcp.calls > TIP_MCP_CALLS) {
+  if (topMcp && topMcp.calls > t.mcpCalls) {
     tips.push({
       id: "mcp",
       level: "info",
@@ -449,7 +465,7 @@ export function computeTips(s: TranscriptStats): Tip[] {
   const sub = s.byProject
     .filter((p) => p.project === SUBAGENTS_PROJECT)
     .reduce((a, p) => a + p.costUSD, 0);
-  if (sub / total >= TIP_SUBAGENT_SHARE) {
+  if (sub / total >= t.subagentShare) {
     tips.push({ id: "subagents", level: "info", values: { pct: pctOf(sub) } });
   }
 

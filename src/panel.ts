@@ -39,8 +39,8 @@ export interface PanelData {
   };
   /** Epoch ms da última atualização efetiva (para "atualizado há Xs"). */
   updatedAtMs: number | null;
-  /** Histórico de uso dos últimos dias para o sparkline (pode ser vazio). */
-  daily: { date: string; tokens: number }[];
+  /** Histórico de uso dos últimos dias para os sparklines (pode ser vazio). */
+  daily: { date: string; tokens: number; costUSD: number }[];
   /**
    * Custos (≈ aproximado): hoje/mês vêm do ccusage (números oficiais); a quebra
    * por modelo vem da tabela de preços local (atribuição, sempre aproximada).
@@ -59,6 +59,8 @@ export interface PanelData {
     bySubagent: { name: string; calls: number }[];
     tips: { id: string; level: "warn" | "info"; values: Record<string, string | number> }[];
     tableVersion: string | null;
+    /** Janela ativa das quebras (p/ destacar o seletor e rotular os cards). */
+    window: "5h" | "today" | "7d" | "30d";
   };
   /** Valores atuais dos settings (key → valor) para a aba Config. */
   settings: Record<string, unknown>;
@@ -119,14 +121,18 @@ function panelStrings() {
     noHistory: vscode.l10n.t("Sem histórico ainda."),
     cost: {
       title: vscode.l10n.t("Custos"),
+      perDay: vscode.l10n.t("Custo por dia"),
+      perDayTokens: vscode.l10n.t("Tokens por dia"),
+      window: vscode.l10n.t("Janela das quebras"),
       today: vscode.l10n.t("Hoje"),
       month: vscode.l10n.t("Mês até agora"),
       projected: vscode.l10n.t("Projeção do mês"),
       budget: vscode.l10n.t("Orçamento"),
-      byModel: vscode.l10n.t("Por modelo (5h)"),
-      byContext: vscode.l10n.t("Por tamanho de contexto (5h)"),
+      byModel: vscode.l10n.t("Por modelo"),
+      byProject: vscode.l10n.t("Por projeto"),
+      byContext: vscode.l10n.t("Por tamanho de contexto"),
       byContextHelp: vscode.l10n.t("Turnos com mais contexto custam mais por resposta — /compact ajuda a enxugar."),
-      counts: vscode.l10n.t("MCP e subagentes (5h)"),
+      counts: vscode.l10n.t("MCP e subagentes"),
       mcp: vscode.l10n.t("Servidores MCP"),
       subagents: vscode.l10n.t("Subagentes"),
       calls: vscode.l10n.t("{0}×"),
@@ -152,6 +158,7 @@ function panelStrings() {
       source: vscode.l10n.t("Fonte e atualização"),
       account: vscode.l10n.t("Conta e limites"),
       alerts: vscode.l10n.t("Alertas e cores"),
+      tips: vscode.l10n.t("Dicas de custo"),
       status: vscode.l10n.t("Status da Anthropic"),
       export: vscode.l10n.t("Exportar uso (p/ agentes/scripts)"),
     },
@@ -163,6 +170,12 @@ function panelStrings() {
       monthlyBudgetUsd: vscode.l10n.t("Orçamento mensal (USD)"),
       monthlyBudgetAlertEnabled: vscode.l10n.t("Alerta de orçamento mensal"),
       insightsEnabled: vscode.l10n.t("Analisar transcripts (custos)"),
+      tipsHelp: vscode.l10n.t("Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40."),
+      tipsContextBigPct: vscode.l10n.t("Dica: contexto grande (% custo)"),
+      tipsCacheReadPct: vscode.l10n.t("Dica: cache-read (% input)"),
+      tipsOpusPct: vscode.l10n.t("Dica: Opus (% custo)"),
+      tipsMcpCalls: vscode.l10n.t("Dica: MCP (chamadas)"),
+      tipsSubagentPct: vscode.l10n.t("Dica: subagentes (% custo)"),
       alignment: vscode.l10n.t("Lado da status bar"),
       priority: vscode.l10n.t("Prioridade na status bar"),
       useOAuthUsage: vscode.l10n.t("Usar cota real (oauth/usage)"),
@@ -436,6 +449,9 @@ function panelHtml(): string {
   // Aba ativa persistida entre recriações da view.
   const persisted = (vscode.getState && vscode.getState()) || {};
   let activeTab = persisted.activeTab || 'sessao';
+  // A aba "Histórico" foi removida (o conteúdo foi pra "Custos"). Migra quem
+  // tinha ela ativa pra não cair numa aba inexistente.
+  if (activeTab === 'historico') activeTab = 'custos';
   // Estado recolhido dos cards da Config (id da seção → true = recolhido).
   let collapsed = persisted.collapsed || {};
   function saveState(){ if (vscode.setState) vscode.setState({ activeTab: activeTab, collapsed: collapsed }); }
@@ -477,6 +493,13 @@ function panelHtml(): string {
       { key: 'blockSummaryEnabled', label: L.cfg.blockSummaryEnabled, type: 'bool' },
       { key: 'warnThreshold', label: L.cfg.warnThreshold, type: 'number' },
       { key: 'errorThreshold', label: L.cfg.errorThreshold, type: 'number' },
+    ]},
+    { id: 'tips', section: L.sec.tips, help: L.cfg.tipsHelp, items: [
+      { key: 'tipsContextBigPct', label: L.cfg.tipsContextBigPct, type: 'number' },
+      { key: 'tipsCacheReadPct', label: L.cfg.tipsCacheReadPct, type: 'number' },
+      { key: 'tipsOpusPct', label: L.cfg.tipsOpusPct, type: 'number' },
+      { key: 'tipsMcpCalls', label: L.cfg.tipsMcpCalls, type: 'number' },
+      { key: 'tipsSubagentPct', label: L.cfg.tipsSubagentPct, type: 'number' },
     ]},
     { id: 'status', section: L.sec.status, items: [
       { key: 'statusCheckEnabled', label: L.cfg.statusCheckEnabled, type: 'bool' },
@@ -556,25 +579,51 @@ function panelHtml(): string {
     if (v >= 10) return '$' + v.toFixed(1);
     return '$' + v.toFixed(2);
   }
-  // Sparkline: fileira de barras verticais proporcionais aos tokens/dia.
+  // Sparkline genérico: fileira de barras verticais proporcionais a um valor/dia.
   // O último item (hoje) fica destacado. Sem itens, não renderiza nada.
-  function sparkline(daily) {
-    const days = (daily || []).filter(function(d){ return d && d.tokens != null; });
+  function sparkBars(daily, valueOf, fmtVal, title) {
+    const days = (daily || []).filter(function(d){ return d && valueOf(d) != null; });
     if (!days.length) return '';
-    const max = Math.max.apply(null, days.map(function(d){ return d.tokens; }).concat([1]));
+    const max = Math.max.apply(null, days.map(valueOf).concat([0.0001]));
     const bars = days.map(function(d, i) {
-      const h = Math.max(2, Math.round((d.tokens / max) * 100));
+      const v = valueOf(d) || 0;
+      const h = Math.max(2, Math.round((v / max) * 100));
       const today = i === days.length - 1 ? ' today' : '';
-      const tip = (d.date || '') + ' · ' + fmt(L.tokens, fmtTok(d.tokens));
-      return '<div class="spark-bar' + today + '" style="height:' + h + '%" title="' + tip + '"></div>';
+      const tip = (d.date || '') + ' · ' + fmtVal(v);
+      return '<div class="spark-bar' + today + '" style="height:' + h + '%" title="' + esc(tip) + '"></div>';
     }).join('');
     // rótulos só nas pontas (primeiro e último dia), pra não poluir.
     const first = days[0].date || '';
     const last = days[days.length - 1].date || '';
     const labels = '<div class="spark-labels"><span>' + first.slice(5) +
       '</span><span>' + last.slice(5) + '</span></div>';
-    return '<div class="spark"><div class="styles-title">' + esc(L.lastDays) + '</div>' +
+    return '<div class="spark"><div class="styles-title">' + esc(title) + '</div>' +
       '<div class="spark-bars">' + bars + '</div>' + labels + '</div>';
+  }
+  // Sparkline de tokens/dia (aba Custos).
+  function sparkline(daily) {
+    return sparkBars(daily, function(d){ return d.tokens; },
+      function(v){ return fmt(L.tokens, fmtTok(v)); }, L.cost.perDayTokens);
+  }
+  // Sparkline de custo/dia (aba Custos) — só renderiza se houver algum custo.
+  function costSparkline(daily) {
+    const any = (daily || []).some(function(d){ return d && d.costUSD > 0; });
+    if (!any) return '';
+    return sparkBars(daily, function(d){ return d.costUSD; },
+      function(v){ return fmtUsd(v); }, L.cost.perDay);
+  }
+  // Rótulo curto da janela ativa das quebras ("5h"/"Hoje"/"7d"/"30d").
+  function winLabel(win) {
+    return win === 'today' ? L.cost.today : (win || '5h');
+  }
+  // Seletor da janela das quebras (botões estilo "feature"). Grava costWindow.
+  function windowSelector(win) {
+    const opts = [['5h','5h'],['today',L.cost.today],['7d','7d'],['30d','30d']];
+    const cur = win || '5h';
+    return '<div class="styles"><div class="styles-title">' + esc(L.cost.window) + '</div><div class="style-btns">' +
+      opts.map(function(o){
+        return '<button class="sbtn' + (o[0]===cur?' active':'') + '" data-costwin="' + o[0] + '">' + esc(o[1]) + '</button>';
+      }).join('') + '</div></div>';
   }
   const card = (inner, cls) =>
     '<div class="card' + (cls ? ' ' + cls : '') + '">' + inner + '</div>';
@@ -635,7 +684,7 @@ function panelHtml(): string {
         '</span><span class="row-val">' + esc(val) + '</span></div>' + bar(pct, null) + '</div>';
     }).join('');
     const ver = cost.tableVersion ? ' · ' + fmt(L.cost.tableV, cost.tableVersion) : '';
-    return card('<div class="styles-title">' + esc(L.cost.byModel) + '</div>' + rows +
+    return card('<div class="styles-title">' + esc(L.cost.byModel + ' (' + winLabel(cost.window) + ')') + '</div>' + rows +
       '<div class="cfg-help-line">' + esc(L.cost.approxNote + ver) + '</div>');
   }
 
@@ -651,7 +700,7 @@ function panelHtml(): string {
       return '<div class="row"><div class="row-head"><span class="row-label">' + esc(p.project) +
         '</span><span class="row-val">' + esc(val) + '</span></div>' + bar(pct, null) + '</div>';
     }).join('');
-    return card('<div class="styles-title">' + esc(L.projectsTitle) + '</div>' + rows);
+    return card('<div class="styles-title">' + esc(L.cost.byProject + ' (' + winLabel(cost.window) + ')') + '</div>' + rows);
   }
 
   // Barra dos buckets de contexto: tinge de warn os turnos com contexto grande.
@@ -673,7 +722,7 @@ function panelHtml(): string {
       return '<div class="row"><div class="row-head"><span class="row-label">' + esc(b.bucket) +
         (big ? ' ⚠' : '') + '</span><span class="row-val">' + esc(val) + '</span></div>' + bucketBar(pct, big) + '</div>';
     }).join('');
-    return card('<div class="styles-title">' + esc(L.cost.byContext) + '</div>' + rows +
+    return card('<div class="styles-title">' + esc(L.cost.byContext + ' (' + winLabel(cost.window) + ')') + '</div>' + rows +
       '<div class="cfg-help-line">' + esc(L.cost.byContextHelp) + '</div>');
   }
 
@@ -688,7 +737,7 @@ function panelHtml(): string {
           '<span class="st-comp-status">' + esc(fmt(L.cost.calls, x.calls)) + '</span></div>';
       }).join('');
     }
-    var html = '<div class="styles-title">' + esc(L.cost.counts) + '</div>';
+    var html = '<div class="styles-title">' + esc(L.cost.counts + ' (' + winLabel(cost.window) + ')') + '</div>';
     if (mcp.length) html += '<div class="st-recent"><b>' + esc(L.cost.mcp) + '</b></div>' + listRows(mcp);
     if (sub.length) html += '<div class="st-recent"><b>' + esc(L.cost.subagents) + '</b></div>' + listRows(sub);
     html += '<div class="cfg-help-line">' + esc(L.cost.countsHelp) + '</div>';
@@ -860,7 +909,7 @@ function panelHtml(): string {
   }
 
   function tabsBar(statusIssue) {
-    const tabs = [['sessao',L.tabs.sessao],['historico',L.tabs.historico],['custos',L.tabs.custos],['status',L.tabs.status],['config',L.tabs.config]];
+    const tabs = [['sessao',L.tabs.sessao],['custos',L.tabs.custos],['status',L.tabs.status],['config',L.tabs.config]];
     return '<div class="tabs">' + tabs.map(function(t){
       const badge = (t[0]==='status' && statusIssue) ? ' ⚠' : '';
       return '<button class="tab' + (t[0]===activeTab?' active':'') + '" data-tab="' + t[0] + '">' + t[1] + badge + '</button>';
@@ -912,14 +961,17 @@ function panelHtml(): string {
       body = card('<div class="ring-wrap">' +
         ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub, ringOverride) +
         '</div>' + rows) + sourceCard(d.source);
-    } else if (activeTab === 'historico') {
-      const sparkHtml = sparkline(d.daily);
-      body = sparkHtml ? card(sparkHtml) : '';
-      if (!body) body = '<div class="empty">' + esc(L.noHistory) + '</div>';
     } else if (activeTab === 'custos') {
-      // Aba dedicada: hoje/mês + quebras por modelo/projeto/contexto + MCP/subagentes + dicas.
-      body = costCard(d.cost) + byModelCard(d.cost) + projectsCostCard(d.cost) +
-        bucketsCard(d.cost) + countsCard(d.cost) + tipsCard(d.cost);
+      // Aba dedicada: hoje/mês + custo/dia + tokens/dia + seletor + quebras + dicas.
+      const c = d.cost;
+      const hasStats = !!(c && (c.byModel.length || c.byProject.length ||
+        c.byContextBucket.length || c.byMcpServer.length || c.bySubagent.length));
+      const sparks = costSparkline(d.daily) + sparkline(d.daily);
+      body = costCard(c) + (sparks ? card(sparks) : '') +
+        (hasStats
+          ? windowSelector(c.window) + byModelCard(c) + projectsCostCard(c) +
+            bucketsCard(c) + countsCard(c) + tipsCard(c)
+          : '');
       if (!body) body = '<div class="empty">' + esc(L.cost.empty) + '</div>';
     } else if (activeTab === 'status') {
       body = statusTab(d.status);
@@ -961,6 +1013,15 @@ function panelHtml(): string {
         curStyle = b.getAttribute('data-style');
         vscode.postMessage({ type: 'setStyle', style: curStyle });
         document.querySelectorAll('.sbtn[data-style]').forEach(function(x){ x.classList.remove('active'); });
+        b.classList.add('active');
+      });
+    });
+    // Seletor de janela das quebras (aba Custos): grava costWindow e re-renderiza
+    // (o host recomputa as stats na nova janela e devolve os dados).
+    document.querySelectorAll('.sbtn[data-costwin]').forEach(function(b){
+      b.addEventListener('click', function(){
+        vscode.postMessage({ type: 'setConfig', key: 'costWindow', value: b.getAttribute('data-costwin') });
+        document.querySelectorAll('.sbtn[data-costwin]').forEach(function(x){ x.classList.remove('active'); });
         b.classList.add('active');
       });
     });

@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.28.1
+
+Release consolidada (0.28.0 + correções). A aba **Custos** ficou mais completa e o **Contexto**
+voltou a funcionar no app.
+
+- **🧮 Contexto ao vivo.** Corrige o Contexto **travado** (ex.: "6%" parado): vinha só da
+  **statusline** do terminal, que no app/IDE podia estar velha. Agora é calculado **direto do
+  transcript** (tokens do último turno ÷ janela do modelo: 1M, ou 200k no Haiku) — reflete o uso
+  real sem depender da statusline (que vira só fallback; sem dado, a linha some).
+- **🪟 Janela configurável na aba Custos.** Seletor **5h · Hoje · 7d · 30d** define o período das
+  **quebras** (por modelo/projeto/contexto, MCP/subagentes e dicas). Hoje/Mês e os gráficos
+  seguem do ccusage. Setting `costWindow`.
+- **📈 Sparklines por dia.** **Custo/dia** e **tokens/dia** na aba Custos.
+- **🎚 Dicas configuráveis.** Nova seção **"Dicas de custo"** na Config com os 5 gatilhos
+  (contexto, cache-read, Opus, MCP, subagentes) — ajuste a sensibilidade. Já vêm preenchidos com
+  os **padrões de boas práticas** (25/70/70/40/40).
+- **🗂 Aba "Histórico" removida** (redundante com Custos): o sparkline de tokens/dia migrou pra
+  Custos. Ficam **4 abas**: Sessão · Custos · Status · Config.
+
+## 0.28.0
+
+- **Janela configurável na aba Custos.** Um seletor **5h · Hoje · 7d · 30d** define o período das
+  **quebras** (por modelo/projeto/contexto, MCP/subagentes e dicas). Os cartões **Hoje/Mês** e o
+  novo gráfico de custo continuam vindo do ccusage (não mudam com o seletor). Setting `costWindow`.
+- **Sparkline de custo por dia** na aba Custos — mini-gráfico do `$`/dia dos últimos dias (ao lado
+  do que já existia de tokens no Histórico).
+- **Limiares das Dicas configuráveis.** Nova seção **"Dicas de custo"** na Config expõe os 5
+  gatilhos (contexto grande, cache-read, Opus, chamadas de MCP, subagentes) — ajuste a
+  sensibilidade das sugestões. Settings `tipsContextBigPct`, `tipsCacheReadPct`, `tipsOpusPct`,
+  `tipsMcpCalls`, `tipsSubagentPct`.
+- Os títulos das quebras agora mostram a janela ativa (ex.: "Por modelo (7d)").
+
 ## 0.27.1
 
 Release consolidada — reúne tudo desde a 0.25.1. Chega o **acompanhamento de custos** e os

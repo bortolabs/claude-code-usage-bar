@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.27.1",
+  "version": "0.28.1",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -132,6 +132,57 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "%config.insightsEnabled.desc%"
+        },
+        "claudeUsageBar.costWindow": {
+          "type": "string",
+          "enum": [
+            "5h",
+            "today",
+            "7d",
+            "30d"
+          ],
+          "enumDescriptions": [
+            "%config.costWindow.enum.5h%",
+            "%config.costWindow.enum.today%",
+            "%config.costWindow.enum.7d%",
+            "%config.costWindow.enum.30d%"
+          ],
+          "default": "5h",
+          "markdownDescription": "%config.costWindow.desc%"
+        },
+        "claudeUsageBar.tipsContextBigPct": {
+          "type": "number",
+          "default": 25,
+          "minimum": 0,
+          "maximum": 100,
+          "markdownDescription": "%config.tipsContextBigPct.desc%"
+        },
+        "claudeUsageBar.tipsCacheReadPct": {
+          "type": "number",
+          "default": 70,
+          "minimum": 0,
+          "maximum": 100,
+          "markdownDescription": "%config.tipsCacheReadPct.desc%"
+        },
+        "claudeUsageBar.tipsOpusPct": {
+          "type": "number",
+          "default": 70,
+          "minimum": 0,
+          "maximum": 100,
+          "markdownDescription": "%config.tipsOpusPct.desc%"
+        },
+        "claudeUsageBar.tipsMcpCalls": {
+          "type": "number",
+          "default": 40,
+          "minimum": 0,
+          "markdownDescription": "%config.tipsMcpCalls.desc%"
+        },
+        "claudeUsageBar.tipsSubagentPct": {
+          "type": "number",
+          "default": 40,
+          "minimum": 0,
+          "maximum": 100,
+          "markdownDescription": "%config.tipsSubagentPct.desc%"
         },
         "claudeUsageBar.barStyle": {
           "type": "string",
