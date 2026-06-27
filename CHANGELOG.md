@@ -2,17 +2,22 @@
 
 ## 0.28.1
 
-- **Contexto ao vivo (corrige o "travado em 6%").** O **Contexto** vinha **só da statusline** do
-  terminal — no app/IDE ela podia estar velha (horas) e o valor congelava. Agora é calculado
-  **direto do transcript** (tokens do último turno ÷ janela do modelo: 1M, ou 200k no Haiku),
-  então reflete o uso real **sem depender da statusline**. (Se houver statusline fresca, ela
-  ainda serve de fallback; sem nenhum dado, a linha some em vez de mostrar número velho.)
-- **Aba "Histórico" removida.** Como estava redundante com a aba **Custos**, o sparkline de
-  **tokens/dia** migrou pra lá (ao lado do **custo/dia**). Ficam **4 abas**: Sessão · Custos ·
-  Status · Config. Quem estava na aba Histórico cai automaticamente em Custos.
-- **Dicas: campos preenchidos.** Os limiares na seção **"Dicas de custo"** da Config agora
-  mostram sempre os **valores de boas práticas** (25/70/70/40/40), mesmo logo após instalar
-  (antes apareciam vazios até recarregar a janela), com uma linha de ajuda explicando cada um.
+Release consolidada (0.28.0 + correções). A aba **Custos** ficou mais completa e o **Contexto**
+voltou a funcionar no app.
+
+- **🧮 Contexto ao vivo.** Corrige o Contexto **travado** (ex.: "6%" parado): vinha só da
+  **statusline** do terminal, que no app/IDE podia estar velha. Agora é calculado **direto do
+  transcript** (tokens do último turno ÷ janela do modelo: 1M, ou 200k no Haiku) — reflete o uso
+  real sem depender da statusline (que vira só fallback; sem dado, a linha some).
+- **🪟 Janela configurável na aba Custos.** Seletor **5h · Hoje · 7d · 30d** define o período das
+  **quebras** (por modelo/projeto/contexto, MCP/subagentes e dicas). Hoje/Mês e os gráficos
+  seguem do ccusage. Setting `costWindow`.
+- **📈 Sparklines por dia.** **Custo/dia** e **tokens/dia** na aba Custos.
+- **🎚 Dicas configuráveis.** Nova seção **"Dicas de custo"** na Config com os 5 gatilhos
+  (contexto, cache-read, Opus, MCP, subagentes) — ajuste a sensibilidade. Já vêm preenchidos com
+  os **padrões de boas práticas** (25/70/70/40/40).
+- **🗂 Aba "Histórico" removida** (redundante com Custos): o sparkline de tokens/dia migrou pra
+  Custos. Ficam **4 abas**: Sessão · Custos · Status · Config.
 
 ## 0.28.0
 
