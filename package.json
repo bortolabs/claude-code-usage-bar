@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.25.2",
+  "version": "0.26.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -117,6 +117,22 @@
           "minimum": 0,
           "markdownDescription": "%config.costCapUsd.desc%"
         },
+        "claudeUsageBar.monthlyBudgetUsd": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "markdownDescription": "%config.monthlyBudgetUsd.desc%"
+        },
+        "claudeUsageBar.monthlyBudgetAlertEnabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.monthlyBudgetAlertEnabled.desc%"
+        },
+        "claudeUsageBar.insightsEnabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.insightsEnabled.desc%"
+        },
         "claudeUsageBar.barStyle": {
           "type": "string",
           "enum": [
@@ -133,6 +149,21 @@
           ],
           "default": "ring",
           "markdownDescription": "%config.barStyle.desc%"
+        },
+        "claudeUsageBar.statusBarValue": {
+          "type": "string",
+          "enum": [
+            "quota",
+            "today",
+            "session"
+          ],
+          "enumDescriptions": [
+            "%config.statusBarValue.enum.quota%",
+            "%config.statusBarValue.enum.today%",
+            "%config.statusBarValue.enum.session%"
+          ],
+          "default": "quota",
+          "markdownDescription": "%config.statusBarValue.desc%"
         },
         "claudeUsageBar.warnThreshold": {
           "type": "number",

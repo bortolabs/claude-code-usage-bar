@@ -43,6 +43,20 @@ export interface PanelData {
   daily: { date: string; tokens: number }[];
   /** Breakdown por projeto do bloco de 5h atual (#4). */
   projects: { project: string; tokens: number }[];
+  /**
+   * Custos (≈ aproximado): hoje/mês vêm do ccusage (números oficiais); a quebra
+   * por modelo vem da tabela de preços local (atribuição, sempre aproximada).
+   */
+  cost?: {
+    isSub: boolean;
+    today: number;
+    monthToDate: number;
+    monthProjected: number;
+    budgetUsd: number;
+    overBudget: boolean;
+    byModel: { model: string; tokens: number; costUSD: number }[];
+    tableVersion: string | null;
+  };
   /** Valores atuais dos settings (key → valor) para a aba Config. */
   settings: Record<string, unknown>;
   /** Placeholders (caminho/comando efetivo) p/ campos vazios na Config. */
@@ -99,6 +113,18 @@ function panelStrings() {
     tokens: vscode.l10n.t("{0} tokens"),
     projectsTitle: vscode.l10n.t("Projetos nesta sessão (5h)"),
     noHistory: vscode.l10n.t("Sem histórico ainda."),
+    cost: {
+      title: vscode.l10n.t("Custos"),
+      today: vscode.l10n.t("Hoje"),
+      month: vscode.l10n.t("Mês até agora"),
+      projected: vscode.l10n.t("Projeção do mês"),
+      budget: vscode.l10n.t("Orçamento"),
+      byModel: vscode.l10n.t("Por modelo (5h)"),
+      equiv: vscode.l10n.t("equiv."),
+      approxNote: vscode.l10n.t("≈ aproximado · local, sem chamada externa"),
+      subNote: vscode.l10n.t("sua assinatura cobre — equivalente de API (≈ aproximado)"),
+      tableV: vscode.l10n.t("tabela v{0}"),
+    },
     sec: {
       appearance: vscode.l10n.t("Aparência"),
       source: vscode.l10n.t("Fonte e atualização"),
@@ -111,6 +137,10 @@ function panelStrings() {
       ringTheme: vscode.l10n.t("Tema do anel"),
       ringColor: vscode.l10n.t("Cor do anel (mono/custom)"),
       barStyle: vscode.l10n.t("Estilo na status bar"),
+      statusBarValue: vscode.l10n.t("Valor na status bar"),
+      monthlyBudgetUsd: vscode.l10n.t("Orçamento mensal (USD)"),
+      monthlyBudgetAlertEnabled: vscode.l10n.t("Alerta de orçamento mensal"),
+      insightsEnabled: vscode.l10n.t("Analisar transcripts (custos)"),
       alignment: vscode.l10n.t("Lado da status bar"),
       priority: vscode.l10n.t("Prioridade na status bar"),
       useOAuthUsage: vscode.l10n.t("Usar cota real (oauth/usage)"),
@@ -393,6 +423,7 @@ function panelHtml(): string {
     { id: 'appearance', section: L.sec.appearance, extra: 'style', items: [
       { key: 'ringTheme', label: L.cfg.ringTheme, type: 'enum', options: ['semaforo','claude','mono','custom'] },
       { key: 'ringColor', label: L.cfg.ringColor, type: 'color' },
+      { key: 'statusBarValue', label: L.cfg.statusBarValue, type: 'enum', options: ['quota','today','session'] },
       { key: 'alignment', label: L.cfg.alignment, type: 'enum', options: ['right','left'] },
       { key: 'priority', label: L.cfg.priority, type: 'number' },
     ]},
@@ -408,6 +439,9 @@ function panelHtml(): string {
       { key: 'accountType', label: L.cfg.accountType, type: 'enum', options: ['auto','subscription','api'] },
       { key: 'mode', label: L.cfg.mode, type: 'enum', options: ['auto','subscriber','cost'] },
       { key: 'costCapUsd', label: L.cfg.costCapUsd, type: 'number' },
+      { key: 'monthlyBudgetUsd', label: L.cfg.monthlyBudgetUsd, type: 'number' },
+      { key: 'monthlyBudgetAlertEnabled', label: L.cfg.monthlyBudgetAlertEnabled, type: 'bool' },
+      { key: 'insightsEnabled', label: L.cfg.insightsEnabled, type: 'bool' },
       { key: 'sessionTokenCap', label: L.cfg.sessionTokenCap, type: 'number' },
       { key: 'intenseTokensPerMin', label: L.cfg.intenseTokensPerMin, type: 'number' },
     ]},
@@ -493,6 +527,13 @@ function panelHtml(): string {
     if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\\.0$/, '') + 'k';
     return String(n);
   }
+  // Formata USD curto (mesma escala do host: $X.XX / $XX.X / $XXX).
+  function fmtUsd(n) {
+    var v = (typeof n === 'number' && isFinite(n)) ? n : 0;
+    if (v >= 100) return '$' + v.toFixed(0);
+    if (v >= 10) return '$' + v.toFixed(1);
+    return '$' + v.toFixed(2);
+  }
   // Sparkline: fileira de barras verticais proporcionais aos tokens/dia.
   // O último item (hoje) fica destacado. Sem itens, não renderiza nada.
   function sparkline(daily) {
@@ -539,6 +580,54 @@ function panelHtml(): string {
         '</span><span class="row-val">' + fmtTok(p.tokens) + '</span></div>' + bar(pct, null) + '</div>';
     }).join('');
     return card('<div class="styles-title">' + esc(L.projectsTitle) + '</div>' + rows);
+  }
+
+  // Linha simples rótulo/valor (sem barra) p/ os cards de custo.
+  function kvRow(label, val) {
+    return '<div class="row"><div class="row-head"><span class="row-label">' + esc(label) +
+      '</span><span class="row-val">' + esc(val) + '</span></div></div>';
+  }
+
+  // Card "Custos": hoje / mês / projeção (números OFICIAIS do ccusage) + barra
+  // de orçamento (só API). Em assinatura o $ é "equivalente API" (prefixo ~).
+  function costCard(cost) {
+    if (!cost) return '';
+    if (!(cost.today > 0 || cost.monthToDate > 0)) return '';
+    const sub = !!cost.isSub;
+    const usd = function(n){ return (sub ? '~' : '') + fmtUsd(n); };
+    var rows = kvRow(L.cost.today, usd(cost.today)) +
+      kvRow(L.cost.month, usd(cost.monthToDate)) +
+      kvRow(L.cost.projected, usd(cost.monthProjected));
+    // Barra de orçamento: só faz sentido com $ real (API) e orçamento definido.
+    if (!sub && cost.budgetUsd > 0) {
+      const pct = Math.min(100, (cost.monthToDate / cost.budgetUsd) * 100);
+      rows += '<div class="row"><div class="row-head"><span class="row-label">' + esc(L.cost.budget) +
+        '</span><span class="row-val">' + esc(fmtUsd(cost.monthToDate) + ' / ' + fmtUsd(cost.budgetUsd)) +
+        (cost.overBudget ? ' ⚠' : '') + '</span></div>' + bar(pct, null) + '</div>';
+    }
+    const note = sub ? L.cost.subNote : L.cost.approxNote;
+    return card('<div class="styles-title">' + esc(L.cost.title) + '</div>' + rows +
+      '<div class="cfg-help-line">' + esc(note) + '</div>');
+  }
+
+  // Card "Por modelo": tokens + custo ≈ por modelo no bloco de 5h (tabela local).
+  // A barra é proporcional ao custo. Sempre rotulado "≈ aproximado · tabela vX".
+  function byModelCard(cost) {
+    if (!cost || !cost.byModel || !cost.byModel.length) return '';
+    const list = cost.byModel.filter(function(m){ return m && (m.costUSD > 0 || m.tokens > 0); });
+    if (!list.length) return '';
+    const sub = !!cost.isSub;
+    const max = Math.max.apply(null, list.map(function(m){ return m.costUSD; }).concat([0.0001]));
+    const rows = list.map(function(m){
+      const pct = (m.costUSD / max) * 100;
+      const val = fmtTok(m.tokens) + ' · ' + (sub ? '~' : '') + fmtUsd(m.costUSD) +
+        (sub ? ' ' + L.cost.equiv : '');
+      return '<div class="row"><div class="row-head"><span class="row-label">' + esc(m.model) +
+        '</span><span class="row-val">' + esc(val) + '</span></div>' + bar(pct, null) + '</div>';
+    }).join('');
+    const ver = cost.tableVersion ? ' · ' + fmt(L.cost.tableV, cost.tableVersion) : '';
+    return card('<div class="styles-title">' + esc(L.cost.byModel) + '</div>' + rows +
+      '<div class="cfg-help-line">' + esc(L.cost.approxNote + ver) + '</div>');
   }
 
   // Card "Fonte de dados": mostra a fonte ativa (oauth/statusline/ccusage) e,
@@ -733,7 +822,8 @@ function panelHtml(): string {
         '</div>' + rows) + sourceCard(d.source);
     } else if (activeTab === 'historico') {
       const sparkHtml = sparkline(d.daily);
-      body = (sparkHtml ? card(sparkHtml) : '') + projectsCard(d.projects);
+      body = (sparkHtml ? card(sparkHtml) : '') + costCard(d.cost) +
+        byModelCard(d.cost) + projectsCard(d.projects);
       if (!body) body = '<div class="empty">' + esc(L.noHistory) + '</div>';
     } else if (activeTab === 'status') {
       body = statusTab(d.status);

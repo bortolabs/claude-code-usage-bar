@@ -51,5 +51,12 @@
   "config.statusRefreshSeconds.desc": "Con qué frecuencia (segundos) consultar status.claude.com.",
   "extension.description": "[No oficial] Uso de la sesión de Claude Code (límites 5h/7d, tokens y costo) en la barra de estado — anillo de progreso igual que /usage — más el estado del ecosistema de Anthropic (status.claude.com).",
   "config.exportStateEnabled.desc": "Escribe un archivo JSON local con el uso actual (cuota restante 5h/7d, fuente y fiabilidad) para que **agentes/scripts** lo lean — p. ej., detener el auto-mode cuando la cuota restante baje. Escritura atómica, sin token y sin envío externo.",
-  "config.exportStatePath.desc": "Ruta del archivo de exportación. Vacío = `~/.claude/usage-bar.json` (resuelve en Windows/macOS/Linux). Acepta `~` para la home."
+  "config.exportStatePath.desc": "Ruta del archivo de exportación. Vacío = `~/.claude/usage-bar.json` (resuelve en Windows/macOS/Linux). Acepta `~` para la home.",
+  "config.statusBarValue.desc": "Qué muestra el número de la barra de estado. **quota** (predeterminado) = % de cuota/tiempo de la sesión. **today** = costo de hoy (`$`). **session** = costo del bloque de 5h actual (`$`). El anillo y el estilo no cambian; en suscripciones el `$` aparece como `~` (equivalente API).",
+  "config.statusBarValue.enum.quota": "Cuota/tiempo de la sesión (% — predeterminado)",
+  "config.statusBarValue.enum.today": "Costo de hoy ($)",
+  "config.statusBarValue.enum.session": "Costo del bloque de 5h ($)",
+  "config.monthlyBudgetUsd.desc": "Presupuesto mensual (USD). Cuando se define (> 0), avisa cuando el gasto del mes —o la proyección al ritmo actual— alcanza ese valor. `0` lo desactiva. En **suscripciones** el costo es solo equivalente de API, así que la alerta está desactivada por defecto (actívala explícitamente).",
+  "config.monthlyBudgetAlertEnabled.desc": "Activar la alerta de presupuesto mensual (respeta `monthlyBudgetUsd` y el silencio de 1h). Desactivada por defecto en cuentas de suscripción.",
+  "config.insightsEnabled.desc": "Analizar los transcripts localmente (`~/.claude/projects`) para el desglose de costo por modelo/proyecto y los consejos de ahorro. Todo local, sin red y sin LLM. Desactívalo para omitir esa lectura de disco."
 }

@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.26.0
+
+- **Custos por modelo, hoje e mês (novo).** A aba **Histórico** ganhou dois cards:
+  - **Custos** — **hoje**, **mês até agora** e **projeção do mês** (no ritmo atual). Os
+    números vêm do **ccusage** (oficiais). Em **API**, com **orçamento mensal** definido,
+    aparece uma **barra vs. orçamento**.
+  - **Por modelo (5h)** — tokens e **custo aproximado por modelo** (Opus/Sonnet/Haiku…),
+    calculado de uma **tabela de preços local** a partir dos seus transcripts. Tudo **local,
+    sem rede e sem LLM**, sempre rotulado **"≈ aproximado · tabela vX"**. Em assinatura, o `$`
+    aparece como **equivalente de API** (`~`), nunca como cobrança.
+- **Alerta de orçamento mensal (novo).** Defina `monthlyBudgetUsd` (> 0) para ser avisado
+  quando o gasto do mês — **ou a projeção** no ritmo atual — alcançar o orçamento. Respeita o
+  **"Silenciar 1h"** e re-arma sozinho ao cair abaixo de 90%. **Desligado por padrão em
+  assinatura** (lá o custo é só equivalente de API).
+- **Modo "custo" na status bar (novo).** O setting **Valor na status bar** (`statusBarValue`)
+  troca o número entre **cota** (padrão), **custo de hoje** (`$`) e **custo do bloco de 5h**
+  (`$`) — mantendo o anel/estilo. Em assinatura, o `$` vem como `~` (equivalente API).
+- **Insights local** (`insightsEnabled`, ligado por padrão): analisa os transcripts em
+  `~/.claude/projects` para o detalhamento de custo. Desligue para pular a leitura de disco.
+- **Export `v2`:** o JSON de export agora inclui `today`, `month`
+  (`costUSD`/`projectedUSD`/`budgetUSD`/`overBudget`) e `byModel[]` (com `approximate: true`).
+- Inclui a correção do tooltip da 0.25.2 (reset divergente "reseta em 0m").
+
 ## 0.25.2
 
 - **Corrige o reset divergente no tooltip da status bar.** O hover mostrava "reseta em

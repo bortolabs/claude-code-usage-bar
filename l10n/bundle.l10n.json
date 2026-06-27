@@ -162,5 +162,21 @@
   "Nesse ritmo: {0} tokens até o reset (teto {1})": "Nesse ritmo: {0} tokens até o reset (teto {1})",
   "Ritmo alto: {0}/h (limite {1}/h)": "Ritmo alto: {0}/h (limite {1}/h)",
   "Sessão 5h projeta atingir 100% antes do reset": "Sessão 5h projeta atingir 100% antes do reset",
-  "Limite semanal projeta atingir 100% antes do reset": "Limite semanal projeta atingir 100% antes do reset"
+  "Limite semanal projeta atingir 100% antes do reset": "Limite semanal projeta atingir 100% antes do reset",
+  "Claude Usage — orçamento mensal: já usou {0} de {1}.": "Claude Usage — orçamento mensal: já usou {0} de {1}.",
+  "Claude Usage — no ritmo atual o mês deve fechar em ~{0} (orçamento {1}).": "Claude Usage — no ritmo atual o mês deve fechar em ~{0} (orçamento {1}).",
+  "Custos": "Custos",
+  "Hoje": "Hoje",
+  "Mês até agora": "Mês até agora",
+  "Projeção do mês": "Projeção do mês",
+  "Orçamento": "Orçamento",
+  "Por modelo (5h)": "Por modelo (5h)",
+  "equiv.": "equiv.",
+  "≈ aproximado · local, sem chamada externa": "≈ aproximado · local, sem chamada externa",
+  "sua assinatura cobre — equivalente de API (≈ aproximado)": "sua assinatura cobre — equivalente de API (≈ aproximado)",
+  "tabela v{0}": "tabela v{0}",
+  "Valor na status bar": "Valor na status bar",
+  "Orçamento mensal (USD)": "Orçamento mensal (USD)",
+  "Alerta de orçamento mensal": "Alerta de orçamento mensal",
+  "Analisar transcripts (custos)": "Analisar transcripts (custos)"
 }

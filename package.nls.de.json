@@ -51,5 +51,12 @@
   "config.statusRefreshSeconds.desc": "Wie oft (Sekunden) status.claude.com abgefragt wird.",
   "extension.description": "[Inoffiziell] Sitzungsnutzung von Claude Code (5h/7d-Limits, tokens und Kosten) in der Statusleiste — Fortschrittsring wie /usage — plus Status des Anthropic-Ökosystems (status.claude.com).",
   "config.exportStateEnabled.desc": "Schreibt eine lokale JSON-Datei mit der aktuellen Nutzung (verbleibendes 5h/7d-Kontingent, Quelle und Verlässlichkeit), die **Agenten/Skripte** lesen können — z. B. um den Auto-Modus zu stoppen, wenn das Restkontingent niedrig wird. Atomares Schreiben, kein Token, kein externer Versand.",
-  "config.exportStatePath.desc": "Pfad der Export-Datei. Leer = `~/.claude/usage-bar.json` (löst unter Windows/macOS/Linux auf). Akzeptiert `~` für das Home-Verzeichnis."
+  "config.exportStatePath.desc": "Pfad der Export-Datei. Leer = `~/.claude/usage-bar.json` (löst unter Windows/macOS/Linux auf). Akzeptiert `~` für das Home-Verzeichnis.",
+  "config.statusBarValue.desc": "Was die Zahl in der Statusleiste zeigt. **quota** (Standard) = Kontingent/Zeit-% der Sitzung. **today** = heutige Kosten (`$`). **session** = Kosten des aktuellen 5h-Blocks (`$`). Ring und Stil bleiben gleich; bei Abos erscheint das `$` als `~` (API-Äquivalent).",
+  "config.statusBarValue.enum.quota": "Kontingent/Zeit der Sitzung (% — Standard)",
+  "config.statusBarValue.enum.today": "Heutige Kosten ($)",
+  "config.statusBarValue.enum.session": "Kosten des 5h-Blocks ($)",
+  "config.monthlyBudgetUsd.desc": "Monatsbudget (USD). Wenn gesetzt (> 0), warnt, sobald die Monatsausgaben — oder die Hochrechnung beim aktuellen Tempo — diesen Wert erreichen. `0` deaktiviert es. Bei **Abos** sind die Kosten nur ein API-Äquivalent, daher ist die Warnung standardmäßig aus (explizit aktivieren).",
+  "config.monthlyBudgetAlertEnabled.desc": "Monatsbudget-Warnung aktivieren (beachtet `monthlyBudgetUsd` und die 1h-Stummschaltung). Bei Abo-Konten standardmäßig aus.",
+  "config.insightsEnabled.desc": "Transcripts lokal analysieren (`~/.claude/projects`) für die Kostenaufschlüsselung pro Modell/Projekt und die Spartipps. Alles lokal, ohne Netzwerk und ohne LLM. Ausschalten, um diesen Festplattenzugriff zu überspringen."
 }

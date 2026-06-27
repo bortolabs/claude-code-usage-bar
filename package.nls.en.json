@@ -51,5 +51,12 @@
   "config.statusRefreshSeconds.desc": "How often (seconds) to query status.claude.com.",
   "extension.description": "[Unofficial] Claude Code session usage (5h/7d limits, tokens, and cost) in the status bar — a progress ring like /usage — plus the status of the Anthropic ecosystem (status.claude.com).",
   "config.exportStateEnabled.desc": "Write a local JSON file with current usage (remaining 5h/7d quota, source and trustworthiness) for **agents/scripts** to read — e.g. to stop auto-mode when remaining quota gets low. Atomic write, no token, no external upload.",
-  "config.exportStatePath.desc": "Path of the export file. Empty = `~/.claude/usage-bar.json` (resolves on Windows/macOS/Linux). Accepts `~` for home."
+  "config.exportStatePath.desc": "Path of the export file. Empty = `~/.claude/usage-bar.json` (resolves on Windows/macOS/Linux). Accepts `~` for home.",
+  "config.statusBarValue.desc": "What the status bar number shows. **quota** (default) = session quota/time %. **today** = today's cost (`$`). **session** = current 5h block cost (`$`). The ring and style stay the same; on subscriptions the `$` shows as `~` (API equivalent).",
+  "config.statusBarValue.enum.quota": "Session quota/time (% — default)",
+  "config.statusBarValue.enum.today": "Today's cost ($)",
+  "config.statusBarValue.enum.session": "Current 5h block cost ($)",
+  "config.monthlyBudgetUsd.desc": "Monthly budget (USD). When set (> 0), warns once the month's spend — or the projection at the current pace — reaches this value. `0` disables it. On **subscriptions** the cost is only an API-equivalent, so the alert is off by default (set it explicitly to enable).",
+  "config.monthlyBudgetAlertEnabled.desc": "Enable the monthly budget alert (honors `monthlyBudgetUsd` and the 1h snooze). Off by default on subscription accounts.",
+  "config.insightsEnabled.desc": "Analyze transcripts locally (`~/.claude/projects`) for the per-model/project cost breakdown and saving tips. All local, no network, no LLM. Turn off to skip this disk read."
 }

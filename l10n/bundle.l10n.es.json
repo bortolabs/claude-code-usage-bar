@@ -162,5 +162,21 @@
   "Ligado": "Activado",
   "Desligado": "Desactivado",
   "Usar este arquivo": "Usar este archivo",
-  "Usar este caminho": "Usar esta ruta"
+  "Usar este caminho": "Usar esta ruta",
+  "Claude Usage — orçamento mensal: já usou {0} de {1}.": "Claude Usage — presupuesto mensual: ya gastaste {0} de {1}.",
+  "Claude Usage — no ritmo atual o mês deve fechar em ~{0} (orçamento {1}).": "Claude Usage — al ritmo actual el mes cerraría en ~{0} (presupuesto {1}).",
+  "Custos": "Costos",
+  "Hoje": "Hoy",
+  "Mês até agora": "Mes hasta ahora",
+  "Projeção do mês": "Proyección del mes",
+  "Orçamento": "Presupuesto",
+  "Por modelo (5h)": "Por modelo (5h)",
+  "equiv.": "equiv.",
+  "≈ aproximado · local, sem chamada externa": "≈ aproximado · local, sin llamada externa",
+  "sua assinatura cobre — equivalente de API (≈ aproximado)": "tu suscripción lo cubre — equivalente de API (≈ aproximado)",
+  "tabela v{0}": "tabla v{0}",
+  "Valor na status bar": "Valor en la barra de estado",
+  "Orçamento mensal (USD)": "Presupuesto mensual (USD)",
+  "Alerta de orçamento mensal": "Alerta de presupuesto mensual",
+  "Analisar transcripts (custos)": "Analizar transcripts (costos)"
 }

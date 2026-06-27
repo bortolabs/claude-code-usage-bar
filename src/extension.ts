@@ -14,6 +14,7 @@ import { evaluateAlerts, AlertResult } from "./alerts";
 import { readCurrentModel, prettyModel } from "./transcript";
 import { fetchOAuthUsage, OAuthUsageResult, OAuthUsage } from "./oauthUsage";
 import { readProjectBreakdown, ProjectUsage } from "./projectUsage";
+import { readTranscriptStats, TranscriptStats } from "./transcriptStats";
 import { fetchStatus, StatusResult, StatusData, hasIssue } from "./status";
 
 /** Forma do JSON gravado por statusline-command.sh (bridge). */
@@ -297,6 +298,9 @@ export function activate(context: vscode.ExtensionContext) {
   let lastDaily: CcusageDaily[] = [];
   // Breakdown por projeto do bloco de 5h atual (#4).
   let lastProjects: ProjectUsage[] = [];
+  // Estatísticas locais dos transcripts (custo por modelo etc.) do bloco de 5h.
+  // Só calculado quando `insightsEnabled` (gate da leitura de disco).
+  let lastStats: TranscriptStats | null = null;
   // Status da Anthropic (status.claude.com) + dedupe da notificação.
   let lastStatus: StatusResult | null = null;
   let notifiedIncidentIds = new Set<string>();
@@ -323,6 +327,9 @@ export function activate(context: vscode.ExtensionContext) {
   // Alerta de cota baixa (opcional): janelas já avisadas ("5h"/"7d"). Re-arma
   // sozinho quando a cota se recupera acima do limiar (a janela reseta).
   const lowQuotaWarned = new Set<string>();
+  // Alerta de orçamento mensal: chaves já avisadas ("projected"/"consumed").
+  // Re-arma quando o gasto cai abaixo de ~90% do orçamento (histerese).
+  const monthBudgetWarned = new Set<string>();
 
   // View ancorada na Activity Bar (sidebar esquerda).
   const viewProvider = new UsageViewProvider();
@@ -420,7 +427,7 @@ export function activate(context: vscode.ExtensionContext) {
             resetsAt: resetMs ?? (resetsAtSec ? resetsAtSec * 1000 : null),
           };
     const obj = {
-      v: 1,
+      v: 2,
       ts: Date.now(),
       source: sourceKind,
       trustworthy,
@@ -435,6 +442,25 @@ export function activate(context: vscode.ExtensionContext) {
       contextPct: v?.ctxPct != null ? Math.round(v.ctxPct) : null,
       cost: v ? Number((v.cost ?? 0).toFixed(2)) : null,
       etaMinutes: v?.etaMin ?? null,
+      // v2: custo de hoje/mês (ccusage, oficial) + quebra por modelo (≈ aproximado).
+      today: v ? Number((v.today ?? 0).toFixed(2)) : null,
+      month: v
+        ? {
+            costUSD: Number((v.monthToDate ?? 0).toFixed(2)),
+            projectedUSD: Number((v.monthProjected ?? 0).toFixed(2)),
+            budgetUSD: v.monthlyBudgetUsd || 0,
+            overBudget:
+              v.monthlyBudgetUsd > 0 && v.monthToDate >= v.monthlyBudgetUsd,
+          }
+        : null,
+      byModel: v
+        ? v.byModel.map((m) => ({
+            model: m.model,
+            tokens: m.tokens,
+            costUSD: Number(m.costUSD.toFixed(4)),
+            approximate: true,
+          }))
+        : null,
     };
     try {
       const p = resolveExportPath();
@@ -505,6 +531,17 @@ export function activate(context: vscode.ExtensionContext) {
       lastProjects = readProjectBreakdown(windowStart);
     } catch {
       lastProjects = [];
+    }
+    // Estatísticas locais (custo por modelo etc.) na MESMA janela dos projetos.
+    // Gateado por insightsEnabled — pula a leitura de disco quando desligado.
+    if (cfg().get<boolean>("insightsEnabled") ?? true) {
+      try {
+        lastStats = readTranscriptStats(windowStart);
+      } catch {
+        lastStats = null;
+      }
+    } else {
+      lastStats = null;
     }
     render();
   };
@@ -735,6 +772,47 @@ export function activate(context: vscode.ExtensionContext) {
   const cc = (): CcusageData | null =>
     lastCcusage && lastCcusage.available ? lastCcusage : null;
 
+  /**
+   * Custo de hoje, do mês até agora e projeção do mês, a partir do histórico
+   * diário do ccusage (`daily`). É o número OFICIAL do ccusage (não a tabela
+   * local). As datas do ccusage seguem o fuso local; comparamos com a data
+   * local de hoje. Projeção = (gasto do mês / dias decorridos) × dias no mês.
+   */
+  const costSummary = (): {
+    today: number;
+    monthToDate: number;
+    monthProjected: number;
+  } => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(
+      now.getDate()
+    )}`;
+    const monthPrefix = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-`;
+    let today = 0;
+    let mtd = 0;
+    for (const d of lastDaily) {
+      if (!d.date) {
+        continue;
+      }
+      if (d.date === todayStr) {
+        today += d.costUSD;
+      }
+      if (d.date.startsWith(monthPrefix)) {
+        mtd += d.costUSD;
+      }
+    }
+    const dayOfMonth = now.getDate();
+    const daysInMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0
+    ).getDate();
+    const monthProjected =
+      dayOfMonth > 0 ? (mtd / dayOfMonth) * daysInMonth : mtd;
+    return { today, monthToDate: mtd, monthProjected };
+  };
+
   const render = () => {
     const c = cfg();
     const warn = c.get<number>("warnThreshold") ?? 60;
@@ -846,6 +924,64 @@ export function activate(context: vscode.ExtensionContext) {
       };
       fireLow("5h", fiveHour, fiveHourResetMs);
       fireLow("7d", sevenDay, sevenDayResetMs);
+    }
+
+    // Alerta de orçamento mensal (opcional). Em assinatura o custo é só
+    // equivalente de API → desligado por padrão, salvo se ativado explicitamente.
+    const monthlyBudget = c.get<number>("monthlyBudgetUsd") ?? 0;
+    const budgetSetExplicit =
+      c.inspect<boolean>("monthlyBudgetAlertEnabled")?.globalValue ??
+      c.inspect<boolean>("monthlyBudgetAlertEnabled")?.workspaceValue;
+    const budgetAlertOn = isSub
+      ? budgetSetExplicit === true
+      : c.get<boolean>("monthlyBudgetAlertEnabled") ?? true;
+    if (monthlyBudget > 0 && budgetAlertOn && Date.now() >= snoozeUntilMs) {
+      const { monthToDate, monthProjected } = costSummary();
+      const rearm = monthlyBudget * 0.9; // histerese: só re-arma abaixo de 90%
+      const notifyBudget = (key: string, msg: string) => {
+        if (monthBudgetWarned.has(key)) {
+          return;
+        }
+        monthBudgetWarned.add(key);
+        const btnOpen = vscode.l10n.t("Abrir painel");
+        const btnSnooze = vscode.l10n.t("Silenciar 1h");
+        vscode.window
+          .showWarningMessage(msg, btnOpen, btnSnooze)
+          .then((choice) => {
+            if (choice === btnOpen) {
+              vscode.commands.executeCommand("claudeUsageBar.openPanel");
+            } else if (choice === btnSnooze) {
+              snoozeUntilMs = Date.now() + 60 * 60_000;
+            }
+          });
+      };
+      // Consumido: já bateu o orçamento (mais grave).
+      if (monthToDate >= monthlyBudget) {
+        notifyBudget(
+          "month-consumed",
+          vscode.l10n.t(
+            "Claude Usage — orçamento mensal: já usou {0} de {1}.",
+            fmtUsd(monthToDate),
+            fmtUsd(monthlyBudget)
+          )
+        );
+      } else if (monthToDate < rearm) {
+        monthBudgetWarned.delete("month-consumed");
+      }
+      // Projetado: no ritmo atual o mês deve estourar (aviso antecipado) — só
+      // enquanto ainda não estourou de fato (senão o "consumido" já cobre).
+      if (monthToDate < monthlyBudget && monthProjected >= monthlyBudget) {
+        notifyBudget(
+          "month-projected",
+          vscode.l10n.t(
+            "Claude Usage — no ritmo atual o mês deve fechar em ~{0} (orçamento {1}).",
+            fmtUsd(monthProjected),
+            fmtUsd(monthlyBudget)
+          )
+        );
+      } else if (monthProjected < rearm) {
+        monthBudgetWarned.delete("month-projected");
+      }
     }
 
     // Resumo ao fechar o bloco (#9): quando a janela de 5h vira (reset mudou),
@@ -1049,6 +1185,21 @@ export function activate(context: vscode.ExtensionContext) {
       }
     }
 
+    // Modo "custo" na status bar (feature 4): troca o NÚMERO exibido por $ de
+    // hoje ou do bloco de 5h, mantendo o anel/estilo e a cor (ringPct/effective
+    // seguem refletindo a cota/tempo). Em assinatura, prefixa "~" (equivalente
+    // API, não cobrança).
+    const sbValue = (c.get<string>("statusBarValue") ?? "quota") as
+      | "quota"
+      | "today"
+      | "session";
+    if (sbValue !== "quota") {
+      const dollar = sbValue === "today" ? costSummary().today : cost;
+      const txt = (isSub ? "~" : "") + fmtUsd(dollar);
+      primary = txt;
+      centerLabel = txt;
+    }
+
     // Avalia alerta de burn rate (projeção de estouro).
     const alertOn = c.get<boolean>("burnRateAlertEnabled") ?? true;
     // Em assinatura: custo não é cobrança → sem gatilho de custo;
@@ -1166,6 +1317,7 @@ export function activate(context: vscode.ExtensionContext) {
     const modelName =
       (fresh && s?.model) || currentModel || block?.model || null;
 
+    const summary = costSummary();
     const view = {
       mode: mode === "plan" ? ("plan" as const) : ("api" as const),
       usingCcusage: mode !== "plan" && !!block,
@@ -1190,6 +1342,12 @@ export function activate(context: vscode.ExtensionContext) {
       sevenDayResetMs,
       daily: lastDaily,
       modelName,
+      today: summary.today,
+      monthToDate: summary.monthToDate,
+      monthProjected: summary.monthProjected,
+      monthlyBudgetUsd: monthlyBudget,
+      byModel: lastStats ? lastStats.byModel : [],
+      statsVersion: lastStats ? lastStats.tableVersion : null,
     };
     item.tooltip = buildTooltip(view);
     writeExport(view);
@@ -1224,6 +1382,12 @@ export function activate(context: vscode.ExtensionContext) {
     sevenDayResetMs: number | null;
     daily: CcusageDaily[];
     modelName: string | null;
+    today: number;
+    monthToDate: number;
+    monthProjected: number;
+    monthlyBudgetUsd: number;
+    byModel: TranscriptStats["byModel"];
+    statsVersion: string | null;
   };
 
   // Tooltip RESUMIDO do hover: só o essencial + link p/ o painel completo.
@@ -1481,6 +1645,22 @@ export function activate(context: vscode.ExtensionContext) {
         project: p.project,
         tokens: p.tokens,
       })),
+      // Custos (≈ aproximado): hoje/mês do ccusage + quebra por modelo (tabela local).
+      cost: {
+        isSub: v.isSub,
+        today: v.today,
+        monthToDate: v.monthToDate,
+        monthProjected: v.monthProjected,
+        budgetUsd: v.monthlyBudgetUsd,
+        overBudget:
+          v.monthlyBudgetUsd > 0 && v.monthToDate >= v.monthlyBudgetUsd,
+        byModel: v.byModel.map((m) => ({
+          model: m.model,
+          tokens: m.tokens,
+          costUSD: m.costUSD,
+        })),
+        tableVersion: v.statsVersion,
+      },
       settings: collectSettings(),
       // Caminho/comando efetivo p/ exibir como placeholder quando o campo está
       // vazio — deixa claro o que será usado por padrão (vazio = "auto").
@@ -1528,10 +1708,11 @@ export function activate(context: vscode.ExtensionContext) {
   // Coleta os valores atuais dos settings p/ preencher a aba Config.
   const collectSettings = (): Record<string, unknown> => {
     const keys = [
-      "ringTheme", "ringColor", "barStyle", "alignment", "priority",
-      "useOAuthUsage", "oauthRefreshSeconds", "ccusageCommand",
+      "ringTheme", "ringColor", "barStyle", "statusBarValue", "alignment",
+      "priority", "useOAuthUsage", "oauthRefreshSeconds", "ccusageCommand",
       "ccusageRefreshSeconds", "stateFilePath", "staleAfterSeconds",
-      "accountType", "mode", "costCapUsd", "sessionTokenCap",
+      "accountType", "mode", "costCapUsd", "monthlyBudgetUsd",
+      "monthlyBudgetAlertEnabled", "insightsEnabled", "sessionTokenCap",
       "intenseTokensPerMin", "burnRateAlertEnabled", "burnRateMaxPerHour",
       "alertCooldownMinutes", "colorByProjection", "resetWarningMinutes",
       "blockSummaryEnabled", "warnThreshold", "errorThreshold",
