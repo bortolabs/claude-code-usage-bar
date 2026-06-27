@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.28.2",
+  "version": "0.29.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -76,6 +76,19 @@
     "configuration": {
       "title": "%config.title%",
       "properties": {
+        "claudeUsageBar.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "pt",
+            "en",
+            "es",
+            "fr",
+            "de"
+          ],
+          "default": "auto",
+          "markdownDescription": "%config.language.desc%"
+        },
         "claudeUsageBar.stateFilePath": {
           "type": "string",
           "default": "",

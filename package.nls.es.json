@@ -68,5 +68,6 @@
   "config.tipsCacheReadPct.desc": "Consejo de caché: avisa cuando la **relectura de contexto (cache-read)** supera este % de los tokens de entrada. Predeterminado 70.",
   "config.tipsOpusPct.desc": "Consejo de modelo: avisa cuando **Opus** concentra ≥ este % del costo (sugiere Sonnet/Haiku para tareas ligeras). Predeterminado 70.",
   "config.tipsMcpCalls.desc": "Consejo de MCP: avisa cuando un servidor MCP se llama **más de** esta cantidad de veces en la ventana. Predeterminado 40.",
-  "config.tipsSubagentPct.desc": "Consejo de subagentes: avisa cuando los **subagentes** representan ≥ este % del costo. Predeterminado 40."
+  "config.tipsSubagentPct.desc": "Consejo de subagentes: avisa cuando los **subagentes** representan ≥ este % del costo. Predeterminado 40.",
+  "config.language.desc": "Idioma del plugin (panel, barra de estado, alertas). `auto` (predeterminado) sigue el idioma de VS Code; o fuerza `pt`/`en`/`es`/`fr`/`de`. Cámbialo con las banderas en **Config → Idioma**. Nota: las etiquetas de esta pantalla de Settings siguen el idioma de VS Code."
 }

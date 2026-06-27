@@ -18,24 +18,30 @@ precisar parar pra rodar `/usage`.
 
 > ℹ️ A listagem no **VS Code Marketplace** está **temporariamente indisponível** (em revisão junto ao suporte da Microsoft). Use o **Open VSX** ou o **`.vsix`** acima enquanto isso.
 
-**Idiomas / Languages:** a interface segue o idioma do VS Code —
-🇧🇷 **Português** (base), 🇺🇸 **English**, 🇪🇸 **Español**, 🇫🇷 **Français**, 🇩🇪 **Deutsch**.
-Sem tradução para o idioma ativo, cai no português.
+**Idiomas / Languages:** 🇧🇷 **Português** (base), 🇬🇧 **English**, 🇪🇸 **Español**,
+🇫🇷 **Français**, 🇩🇪 **Deutsch**. Por padrão segue o idioma do VS Code, mas dá pra
+**forçar** um idioma pelas **bandeiras** na aba **Config → Idioma** (troca toda a UI do
+plugin na hora). Sem tradução para o idioma ativo, cai no português.
 
 ## Screenshots
 
-Painel na aba **Sessão** (anel + barras de uso 5h/7d/contexto + fonte de dados) e a aba **Status** (status.claude.com):
+**Na status bar** (o que dá nome ao plugin) — o anel/percentual da sessão fica sempre à vista:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/01-painel-sessao.png" width="360" alt="Aba Sessão: anel de 71% da sessão de 5h, barras de uso de tokens, tempo, semana (7d) e contexto, modelo em uso, e o card 'Fonte de dados' mostrando a fonte ativa (oauth/usage — cota real)">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/02-status.png" width="360" alt="Aba Status: Todos os sistemas operacionais, incidentes ativos, componentes e histórico recente do status.claude.com">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/00-status-bar.png" width="520" alt="Indicador na status bar do VS Code: anel de progresso + percentual da cota da sessão de 5h e tempo até o reset">
 </p>
 
-Aba **Config** com **seções colapsáveis** (toggles, cores, alertas) e **Histórico** com projetos da sessão:
+Painel: aba **Sessão** (anel + uso 5h/7d + **contexto ao vivo** + fonte de dados) e aba **Custos** (hoje/mês, custo por modelo/projeto/tamanho de contexto e **Dicas**):
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/03-config.png" width="360" alt="Aba Config: seção Aparência aberta com o seletor visual de estilo (anel/barra/número/ícone), tema e cor do anel, lado e prioridade; demais seções recolhidas em cards colapsáveis (Fonte, Conta, Alertas, Status, Exportar uso)">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/04-historico.png" width="360" alt="Aba Histórico: sparkline dos últimos dias e barras de consumo por projeto na sessão de 5h">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/01-sessao.png" width="360" alt="Aba Sessão: anel da cota da sessão de 5h, barras de uso de tokens, tempo, semana (7d) e contexto ao vivo, modelo em uso, e o card 'Fonte de dados'">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/02-custos.png" width="360" alt="Aba Custos: hoje/mês/projeção, sparklines de custo e tokens por dia, seletor de janela (5h/Hoje/7d/30d), custo por modelo/projeto/tamanho de contexto e dicas">
+</p>
+
+Aba **Config** com **seções e cards colapsáveis** (idioma com bandeiras, toggles, cores, alertas):
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/03-config.png" width="360" alt="Aba Config: card de Idioma com bandeiras, seção Aparência com o seletor visual de estilo, e demais seções recolhidas em cards colapsáveis">
 </p>
 
 Mostra a **cota real da sessão** — o mesmo número do `/usage` — em **qualquer ambiente**
@@ -243,6 +249,7 @@ janela vira** — com botões **"Abrir painel"** e **"Silenciar 1h"**.
 
 | Setting | Padrão | Descrição |
 | --- | --- | --- |
+| `claudeUsageBar.language` | `auto` | Idioma do plugin: `auto` (segue o VS Code) ou `pt`/`en`/`es`/`fr`/`de`. Também ajustável pelas bandeiras em **Config → Idioma**. |
 | `claudeUsageBar.ccusageCommand` | `npx -y ccusage@latest blocks --active --json` | Comando do ccusage. Aponte p/ um binário global p/ evitar latência do npx. |
 | `claudeUsageBar.ccusageRefreshSeconds` | `60` | Frequência de atualização do ccusage. |
 | `claudeUsageBar.useOAuthUsage` | `true` | Usa `api/oauth/usage` (cota real, igual ao `/usage`) como fonte primária. |

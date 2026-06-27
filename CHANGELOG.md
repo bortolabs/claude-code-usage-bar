@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.29.0
+
+- **Seletor de idioma com bandeiras 🇧🇷🇬🇧🇪🇸🇫🇷🇩🇪.** Novo card **"Idioma"** na aba **Config**:
+  clicar numa bandeira troca o idioma de **todo o plugin** (painel, status bar, tooltips,
+  alertas) na hora — independente do idioma do VS Code. `🌐` = seguir o VS Code (padrão).
+  Setting `language`. *(Os rótulos na tela de Settings nativa do VS Code seguem o idioma do VS
+  Code — limitação da plataforma.)*
+- README atualizado (idioma, aba Custos, contexto ao vivo, cards colapsáveis) e screenshots
+  reorganizados para destacar a status bar.
+- Correção: os campos da seção "Dicas de custo" agora caem nos padrões de boas práticas mesmo
+  antes de a janela recarregar (a 0.28.1 tinha o mapa de defaults, mas ele não estava sendo
+  aplicado de fato).
+
 ## 0.28.2
 
 - **Cor da status bar = uso de TOKENS, nunca o tempo decorrido.** No fallback do ccusage (sem

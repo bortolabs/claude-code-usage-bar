@@ -209,5 +209,7 @@
   "Dica: subagentes (% custo)": "Consejo: subagentes (% costo)",
   "Tokens por dia": "Tokens por día",
   "Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40.": "Cuándo dispara cada consejo. Valores mayores = menos consejos (más conservador). Predeterminados: 25/70/70/40/40.",
-  "{0}/turno": "{0}/turno"
+  "{0}/turno": "{0}/turno",
+  "Idioma": "Idioma",
+  "Idioma de todo o plugin (painel, status bar, alertas). 🌐 = segue o VS Code. Os rótulos na tela de Settings do VS Code seguem o idioma do VS Code.": "Idioma de todo el plugin (panel, barra de estado, alertas). 🌐 = sigue VS Code. Las etiquetas en la pantalla de Settings de VS Code siguen el idioma de VS Code."
 }
