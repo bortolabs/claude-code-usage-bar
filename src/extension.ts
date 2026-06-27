@@ -14,7 +14,12 @@ import { evaluateAlerts, AlertResult } from "./alerts";
 import { readCurrentModel, prettyModel } from "./transcript";
 import { fetchOAuthUsage, OAuthUsageResult, OAuthUsage } from "./oauthUsage";
 import { readProjectBreakdown, ProjectUsage } from "./projectUsage";
-import { readTranscriptStats, TranscriptStats } from "./transcriptStats";
+import {
+  readTranscriptStats,
+  computeTips,
+  TranscriptStats,
+  Tip,
+} from "./transcriptStats";
 import { fetchStatus, StatusResult, StatusData, hasIssue } from "./status";
 
 /** Forma do JSON gravado por statusline-command.sh (bridge). */
@@ -453,8 +458,8 @@ export function activate(context: vscode.ExtensionContext) {
               v.monthlyBudgetUsd > 0 && v.monthToDate >= v.monthlyBudgetUsd,
           }
         : null,
-      byModel: v
-        ? v.byModel.map((m) => ({
+      byModel: v && v.stats
+        ? v.stats.byModel.map((m) => ({
             model: m.model,
             tokens: m.tokens,
             costUSD: Number(m.costUSD.toFixed(4)),
@@ -1346,8 +1351,8 @@ export function activate(context: vscode.ExtensionContext) {
       monthToDate: summary.monthToDate,
       monthProjected: summary.monthProjected,
       monthlyBudgetUsd: monthlyBudget,
-      byModel: lastStats ? lastStats.byModel : [],
-      statsVersion: lastStats ? lastStats.tableVersion : null,
+      stats: lastStats,
+      tips: lastStats ? computeTips(lastStats) : [],
     };
     item.tooltip = buildTooltip(view);
     writeExport(view);
@@ -1386,8 +1391,8 @@ export function activate(context: vscode.ExtensionContext) {
     monthToDate: number;
     monthProjected: number;
     monthlyBudgetUsd: number;
-    byModel: TranscriptStats["byModel"];
-    statsVersion: string | null;
+    stats: TranscriptStats | null;
+    tips: Tip[];
   };
 
   // Tooltip RESUMIDO do hover: só o essencial + link p/ o painel completo.
@@ -1645,7 +1650,7 @@ export function activate(context: vscode.ExtensionContext) {
         project: p.project,
         tokens: p.tokens,
       })),
-      // Custos (≈ aproximado): hoje/mês do ccusage + quebra por modelo (tabela local).
+      // Custos (≈ aproximado): hoje/mês do ccusage + quebras da tabela local.
       cost: {
         isSub: v.isSub,
         today: v.today,
@@ -1654,12 +1659,32 @@ export function activate(context: vscode.ExtensionContext) {
         budgetUsd: v.monthlyBudgetUsd,
         overBudget:
           v.monthlyBudgetUsd > 0 && v.monthToDate >= v.monthlyBudgetUsd,
-        byModel: v.byModel.map((m) => ({
-          model: m.model,
-          tokens: m.tokens,
-          costUSD: m.costUSD,
-        })),
-        tableVersion: v.statsVersion,
+        byModel: v.stats
+          ? v.stats.byModel.map((m) => ({
+              model: m.model,
+              tokens: m.tokens,
+              costUSD: m.costUSD,
+            }))
+          : [],
+        byProject: v.stats
+          ? v.stats.byProject.map((p) => ({
+              project: p.project,
+              tokens: p.tokens,
+              costUSD: p.costUSD,
+            }))
+          : [],
+        byContextBucket: v.stats
+          ? v.stats.byContextBucket.map((b) => ({
+              bucket: b.bucket,
+              tokens: b.tokens,
+              costUSD: b.costUSD,
+              turns: b.turns,
+            }))
+          : [],
+        byMcpServer: v.stats ? v.stats.byMcpServer : [],
+        bySubagent: v.stats ? v.stats.bySubagent : [],
+        tips: v.tips,
+        tableVersion: v.stats ? v.stats.tableVersion : null,
       },
       settings: collectSettings(),
       // Caminho/comando efetivo p/ exibir como placeholder quando o campo está

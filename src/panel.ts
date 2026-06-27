@@ -55,6 +55,11 @@ export interface PanelData {
     budgetUsd: number;
     overBudget: boolean;
     byModel: { model: string; tokens: number; costUSD: number }[];
+    byProject: { project: string; tokens: number; costUSD: number }[];
+    byContextBucket: { bucket: string; tokens: number; costUSD: number; turns: number }[];
+    byMcpServer: { name: string; calls: number }[];
+    bySubagent: { name: string; calls: number }[];
+    tips: { id: string; level: "warn" | "info"; values: Record<string, string | number> }[];
     tableVersion: string | null;
   };
   /** Valores atuais dos settings (key → valor) para a aba Config. */
@@ -99,6 +104,7 @@ function panelStrings() {
     tabs: {
       sessao: vscode.l10n.t("Sessão"),
       historico: vscode.l10n.t("Histórico"),
+      custos: vscode.l10n.t("Custos"),
       status: vscode.l10n.t("Status"),
       config: vscode.l10n.t("Config"),
     },
@@ -120,10 +126,28 @@ function panelStrings() {
       projected: vscode.l10n.t("Projeção do mês"),
       budget: vscode.l10n.t("Orçamento"),
       byModel: vscode.l10n.t("Por modelo (5h)"),
+      byContext: vscode.l10n.t("Por tamanho de contexto (5h)"),
+      byContextHelp: vscode.l10n.t("Turnos com mais contexto custam mais por resposta — /compact ajuda a enxugar."),
+      counts: vscode.l10n.t("MCP e subagentes (5h)"),
+      mcp: vscode.l10n.t("Servidores MCP"),
+      subagents: vscode.l10n.t("Subagentes"),
+      calls: vscode.l10n.t("{0}×"),
+      turns: vscode.l10n.t("{0} turnos"),
+      countsHelp: vscode.l10n.t("Contagem de chamadas — não dá pra atribuir tokens a um tool isolado do turno."),
+      empty: vscode.l10n.t("Sem dados de custo ainda."),
       equiv: vscode.l10n.t("equiv."),
       approxNote: vscode.l10n.t("≈ aproximado · local, sem chamada externa"),
       subNote: vscode.l10n.t("sua assinatura cobre — equivalente de API (≈ aproximado)"),
       tableV: vscode.l10n.t("tabela v{0}"),
+      tips: {
+        title: vscode.l10n.t("Dicas"),
+        none: vscode.l10n.t("Sem dicas agora — uso equilibrado. 👍"),
+        context: vscode.l10n.t("Contexto grande (>150k) puxa ~{0}% do custo. Use /compact ou abra sessões novas pra tarefas separadas."),
+        cacheRead: vscode.l10n.t("~{0}% dos tokens são releitura de contexto (cache). Sessões muito longas relendo tudo — /compact ajuda."),
+        opus: vscode.l10n.t("Opus concentra ~{0}% do custo. Pra tarefas leves, Sonnet/Haiku cortam bastante."),
+        mcp: vscode.l10n.t("O servidor MCP \"{0}\" foi chamado {1}×. Vale conferir chamadas redundantes."),
+        subagents: vscode.l10n.t("Subagentes puxam ~{0}% do custo. Úteis, mas pesados — avalie reduzir o fan-out."),
+      },
     },
     sec: {
       appearance: vscode.l10n.t("Aparência"),
@@ -340,10 +364,10 @@ function panelHtml(): string {
   .toggle.on { border-color: var(--ok); color: var(--vscode-foreground); }
   .toggle.off { opacity: .7; }
   /* Abas */
-  .tabs { display: flex; gap: 4px; margin: 4px 0 12px; border-bottom: 1px solid var(--track); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 2px 4px; margin: 4px 0 12px; border-bottom: 1px solid var(--track); }
   .tab {
     font-family: var(--vscode-font-family); font-size: 12px;
-    padding: 6px 10px; cursor: pointer; border: none; background: none;
+    padding: 6px 8px; cursor: pointer; border: none; background: none;
     color: var(--vscode-descriptionForeground); border-bottom: 2px solid transparent;
     margin-bottom: -1px;
   }
@@ -569,19 +593,6 @@ function panelHtml(): string {
     return '<div class="track"><div class="fill' + fillCls + '" style="' + fillStyle + '"></div></div>';
   }
 
-  // Card "Projetos nesta sessão" (#4): barras por projeto no bloco de 5h.
-  function projectsCard(projects) {
-    const list = (projects || []).filter(function(p){ return p && p.tokens > 0; });
-    if (!list.length) return '';
-    const max = Math.max.apply(null, list.map(function(p){ return p.tokens; }).concat([1]));
-    const rows = list.map(function(p){
-      const pct = (p.tokens / max) * 100;
-      return '<div class="row"><div class="row-head"><span class="row-label">' + esc(p.project) +
-        '</span><span class="row-val">' + fmtTok(p.tokens) + '</span></div>' + bar(pct, null) + '</div>';
-    }).join('');
-    return card('<div class="styles-title">' + esc(L.projectsTitle) + '</div>' + rows);
-  }
-
   // Linha simples rótulo/valor (sem barra) p/ os cards de custo.
   function kvRow(label, val) {
     return '<div class="row"><div class="row-head"><span class="row-label">' + esc(label) +
@@ -628,6 +639,89 @@ function panelHtml(): string {
     const ver = cost.tableVersion ? ' · ' + fmt(L.cost.tableV, cost.tableVersion) : '';
     return card('<div class="styles-title">' + esc(L.cost.byModel) + '</div>' + rows +
       '<div class="cfg-help-line">' + esc(L.cost.approxNote + ver) + '</div>');
+  }
+
+  // Card "Por projeto" (custo ≈): supera o antigo projectsCard (que era só tokens).
+  function projectsCostCard(cost) {
+    const list = ((cost && cost.byProject) || []).filter(function(p){ return p && (p.costUSD > 0 || p.tokens > 0); });
+    if (!list.length) return '';
+    const sub = !!cost.isSub;
+    const max = Math.max.apply(null, list.map(function(p){ return p.costUSD; }).concat([0.0001]));
+    const rows = list.map(function(p){
+      const pct = (p.costUSD / max) * 100;
+      const val = fmtTok(p.tokens) + ' · ' + (sub ? '~' : '') + fmtUsd(p.costUSD) + (sub ? ' ' + L.cost.equiv : '');
+      return '<div class="row"><div class="row-head"><span class="row-label">' + esc(p.project) +
+        '</span><span class="row-val">' + esc(val) + '</span></div>' + bar(pct, null) + '</div>';
+    }).join('');
+    return card('<div class="styles-title">' + esc(L.projectsTitle) + '</div>' + rows);
+  }
+
+  // Barra dos buckets de contexto: tinge de warn os turnos com contexto grande.
+  function bucketBar(pct, warn) {
+    pct = Math.max(0, Math.min(100, pct));
+    return '<div class="track"><div class="fill bg-' + (warn ? 'warn' : 'ok') + '" style="width:' + pct + '%"></div></div>';
+  }
+
+  // Card "Por tamanho de contexto": custo por faixa de contexto do turno (5h).
+  function bucketsCard(cost) {
+    const list = ((cost && cost.byContextBucket) || []).filter(function(b){ return b && b.turns > 0; });
+    if (!list.length) return '';
+    const sub = !!cost.isSub;
+    const max = Math.max.apply(null, list.map(function(b){ return b.costUSD; }).concat([0.0001]));
+    const rows = list.map(function(b){
+      const big = (b.bucket === '150–200k' || b.bucket === '>200k');
+      const pct = (b.costUSD / max) * 100;
+      const val = fmt(L.cost.turns, b.turns) + ' · ' + (sub ? '~' : '') + fmtUsd(b.costUSD);
+      return '<div class="row"><div class="row-head"><span class="row-label">' + esc(b.bucket) +
+        (big ? ' ⚠' : '') + '</span><span class="row-val">' + esc(val) + '</span></div>' + bucketBar(pct, big) + '</div>';
+    }).join('');
+    return card('<div class="styles-title">' + esc(L.cost.byContext) + '</div>' + rows +
+      '<div class="cfg-help-line">' + esc(L.cost.byContextHelp) + '</div>');
+  }
+
+  // Card "MCP e subagentes": CONTAGEM de chamadas (sem custo — não dá pra atribuir).
+  function countsCard(cost) {
+    const mcp = ((cost && cost.byMcpServer) || []).filter(function(x){ return x && x.calls > 0; });
+    const sub = ((cost && cost.bySubagent) || []).filter(function(x){ return x && x.calls > 0; });
+    if (!mcp.length && !sub.length) return '';
+    function listRows(arr) {
+      return arr.map(function(x){
+        return '<div class="st-comp"><span>' + esc(x.name) + '</span>' +
+          '<span class="st-comp-status">' + esc(fmt(L.cost.calls, x.calls)) + '</span></div>';
+      }).join('');
+    }
+    var html = '<div class="styles-title">' + esc(L.cost.counts) + '</div>';
+    if (mcp.length) html += '<div class="st-recent"><b>' + esc(L.cost.mcp) + '</b></div>' + listRows(mcp);
+    if (sub.length) html += '<div class="st-recent"><b>' + esc(L.cost.subagents) + '</b></div>' + listRows(sub);
+    html += '<div class="cfg-help-line">' + esc(L.cost.countsHelp) + '</div>';
+    return card(html);
+  }
+
+  // Monta o texto localizado de uma dica a partir do id + values.
+  function tipText(tp) {
+    const t = L.cost.tips;
+    const v = tp.values || {};
+    switch (tp.id) {
+      case 'context': return fmt(t.context, v.pct);
+      case 'cacheRead': return fmt(t.cacheRead, v.pct);
+      case 'opus': return fmt(t.opus, v.pct);
+      case 'mcp': return String(t.mcp).replace('{0}', v.name).replace('{1}', v.calls);
+      case 'subagents': return fmt(t.subagents, v.pct);
+      default: return '';
+    }
+  }
+
+  // Card "Dicas": lista heurística de economia (⚠ alerta / ℹ informativo).
+  function tipsCard(cost) {
+    if (!cost) return '';
+    const tips = (cost.tips || []).filter(function(tp){ return tp && tipText(tp); });
+    const rows = tips.length
+      ? tips.map(function(tp){
+          const icon = tp.level === 'warn' ? '⚠' : 'ℹ';
+          return '<div class="st-recent">' + icon + ' ' + esc(tipText(tp)) + '</div>';
+        }).join('')
+      : '<div class="st-recent">' + esc(L.cost.tips.none) + '</div>';
+    return card('<div class="styles-title">' + esc(L.cost.tips.title) + '</div>' + rows);
   }
 
   // Card "Fonte de dados": mostra a fonte ativa (oauth/statusline/ccusage) e,
@@ -768,7 +862,7 @@ function panelHtml(): string {
   }
 
   function tabsBar(statusIssue) {
-    const tabs = [['sessao',L.tabs.sessao],['historico',L.tabs.historico],['status',L.tabs.status],['config',L.tabs.config]];
+    const tabs = [['sessao',L.tabs.sessao],['historico',L.tabs.historico],['custos',L.tabs.custos],['status',L.tabs.status],['config',L.tabs.config]];
     return '<div class="tabs">' + tabs.map(function(t){
       const badge = (t[0]==='status' && statusIssue) ? ' ⚠' : '';
       return '<button class="tab' + (t[0]===activeTab?' active':'') + '" data-tab="' + t[0] + '">' + t[1] + badge + '</button>';
@@ -822,9 +916,13 @@ function panelHtml(): string {
         '</div>' + rows) + sourceCard(d.source);
     } else if (activeTab === 'historico') {
       const sparkHtml = sparkline(d.daily);
-      body = (sparkHtml ? card(sparkHtml) : '') + costCard(d.cost) +
-        byModelCard(d.cost) + projectsCard(d.projects);
+      body = sparkHtml ? card(sparkHtml) : '';
       if (!body) body = '<div class="empty">' + esc(L.noHistory) + '</div>';
+    } else if (activeTab === 'custos') {
+      // Aba dedicada: hoje/mês + quebras por modelo/projeto/contexto + MCP/subagentes + dicas.
+      body = costCard(d.cost) + byModelCard(d.cost) + projectsCostCard(d.cost) +
+        bucketsCard(d.cost) + countsCard(d.cost) + tipsCard(d.cost);
+      if (!body) body = '<div class="empty">' + esc(L.cost.empty) + '</div>';
     } else if (activeTab === 'status') {
       body = statusTab(d.status);
     } else if (activeTab === 'config') {

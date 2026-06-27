@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.27.0
+
+- **Nova aba "Custos"** (entre Histórico e Status) — reúne tudo de gasto num lugar só:
+  - **Custos** (hoje / mês / projeção do ccusage + barra de orçamento em API).
+  - **Por modelo (5h)** — custo ≈ por modelo (tabela local).
+  - **Por projeto (5h)** — agora com **custo** (antes era só tokens no Histórico); inclui o
+    projeto sintético **"subagentes"** (gasto das sidechains).
+  - **Por tamanho de contexto (5h)** — custo por faixa de contexto do turno
+    (`<50k … >200k`); as faixas **>150k** ficam **destacadas** (custam mais por resposta).
+  - **MCP e subagentes (5h)** — **contagem** de chamadas por servidor MCP e por subagente
+    (não dá pra atribuir tokens a um tool isolado do turno).
+  - **Dicas** — análise **local, sem LLM**, com sugestões de economia (ex.: contexto grande
+    puxando o custo → `/compact`; releitura de cache; Opus concentrando o gasto → Sonnet/Haiku;
+    servidor MCP muito chamado; subagentes pesados). Sempre rotulado **"≈ aproximado"**.
+- **Histórico** ficou enxuto: só o **sparkline** dos últimos dias (o resto migrou pra Custos).
+- Mantém tudo da 0.26.0 (motor de custo, alerta de orçamento, modo custo na status bar).
+
 ## 0.26.0
 
 - **Custos por modelo, hoje e mês (novo).** A aba **Histórico** ganhou dois cards:

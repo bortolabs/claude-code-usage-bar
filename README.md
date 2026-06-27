@@ -184,6 +184,19 @@ fica em **tempo da sessão de 5h** e nos **limites do plano**.
 Se você usa **API/pay-as-you-go**, defina `accountType: api` — aí o custo é real, com teto
 (`costCapUsd`) e alerta.
 
+## Aba "Custos" & Dicas
+
+A aba **Custos** reúne o gasto num lugar só: **hoje / mês / projeção** (números do ccusage),
+**barra de orçamento** (`monthlyBudgetUsd`, só API) e quebras **por modelo**, **por projeto**
+(inclui o grupo "subagentes"), **por tamanho de contexto** e a **contagem** de chamadas por
+servidor **MCP** e por **subagente**. As quebras de custo vêm de uma **tabela de preços local**
+sobre os seus transcripts — **local, sem rede, sem LLM** — sempre rotuladas **"≈ aproximado ·
+tabela vX"**. O custo oficial continua sendo o do ccusage; a tabela só serve pra **atribuir**.
+
+O card **Dicas** sugere economia a partir desses números (ex.: contexto grande puxando o gasto
+→ `/compact`; muita releitura de cache; Opus concentrando o custo → Sonnet/Haiku para tarefas
+leves). Desligue toda essa análise (e a leitura de disco) com `insightsEnabled: false`.
+
 ## Alerta de burn rate
 
 A extensão avisa quando o **ritmo de gasto** projeta estourar antes do reset — algo que o

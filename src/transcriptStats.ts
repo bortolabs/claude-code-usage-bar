@@ -45,11 +45,30 @@ export interface TranscriptStats {
   totalTokens: number;
   totalCostUSD: number;
   turns: number;
+  /** Totais por tipo de token (p/ heurísticas das dicas). */
+  tokenTotals: { input: number; output: number; cacheRead: number; cacheWrite: number };
   /** Sempre true: custo vem da tabela local, não do ccusage. */
   approximate: true;
   /** Versão da tabela de preços usada (p/ exibir "tabela vX"). */
   tableVersion: string;
 }
+
+/** Nível visual da dica. */
+export type TipLevel = "warn" | "info";
+/** Dica estruturada (texto é localizado na UI a partir de `id` + `values`). */
+export interface Tip {
+  id: string;
+  level: TipLevel;
+  values: Record<string, string | number>;
+}
+
+// Limiares das dicas (heurísticos, ajustáveis num só lugar).
+const TIP_CTX_BIG_SHARE = 0.25; // contexto >150k respondendo por ≥25% do custo
+const TIP_CACHE_READ_SHARE = 0.7; // cache-read ≥70% dos tokens de input
+const TIP_OPUS_SHARE = 0.7; // Opus ≥70% do custo
+const TIP_MCP_CALLS = 40; // servidor MCP com >40 chamadas
+const TIP_SUBAGENT_SHARE = 0.4; // subagentes ≥40% do custo
+const TIP_MIN_TURNS = 5; // amostra mínima p/ arriscar uma dica
 
 /** Faixas de tamanho de contexto (input + cache_read do turno), em ordem. */
 const CONTEXT_BUCKETS: { key: string; max: number }[] = [
@@ -102,6 +121,11 @@ class Accum {
   totalTokens = 0;
   totalCostUSD = 0;
   turns = 0;
+  // Totais por tipo de token (p/ as dicas: ex. share de cache-read).
+  tInput = 0;
+  tOutput = 0;
+  tCacheRead = 0;
+  tCacheWrite = 0;
 
   add(map: Map<string, TokenCost>, key: string, tokens: number, cost: number) {
     const cur = map.get(key) ?? { tokens: 0, costUSD: 0 };
@@ -135,6 +159,11 @@ function onLine(acc: Accum, o: any, dirName: string, windowStartMs: number, wind
   acc.totalTokens += tokens;
   acc.totalCostUSD += cost;
   acc.turns += 1;
+  const nn = (v: unknown) => (typeof v === "number" ? v : 0);
+  acc.tInput += nn(usage.input_tokens);
+  acc.tOutput += nn(usage.output_tokens);
+  acc.tCacheRead += nn(usage.cache_read_input_tokens);
+  acc.tCacheWrite += nn(usage.cache_creation_input_tokens);
 
   // Por modelo (rótulo amigável; desconhecido cai no id cru).
   const modelLabel = prettyModel(rawModel) || rawModel || "—";
@@ -276,6 +305,12 @@ export function readTranscriptStats(
     totalTokens: acc.totalTokens,
     totalCostUSD: acc.totalCostUSD,
     turns: acc.turns,
+    tokenTotals: {
+      input: acc.tInput,
+      output: acc.tOutput,
+      cacheRead: acc.tCacheRead,
+      cacheWrite: acc.tCacheWrite,
+    },
     approximate: true,
     tableVersion: pricingTableVersion,
   };
@@ -291,7 +326,69 @@ function emptyStats(): TranscriptStats {
     totalTokens: 0,
     totalCostUSD: 0,
     turns: 0,
+    tokenTotals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     approximate: true,
     tableVersion: pricingTableVersion,
   };
+}
+
+/**
+ * Gera dicas heurísticas de economia a partir das estatísticas — local, sem LLM.
+ * Retorna estruturas (`id` + `values`); o texto é montado/traduzido na UI.
+ * Conservador: sem amostra mínima (`TIP_MIN_TURNS`) não arrisca nenhuma dica.
+ */
+export function computeTips(s: TranscriptStats): Tip[] {
+  const tips: Tip[] = [];
+  const total = s.totalCostUSD;
+  if (total <= 0 || s.turns < TIP_MIN_TURNS) {
+    return tips;
+  }
+  const pctOf = (x: number) => Math.round((x / total) * 100);
+
+  // (1) Contexto grande (>150k) concentra o custo → /compact / sessões novas.
+  const bigCtx = s.byContextBucket
+    .filter((b) => b.bucket === "150–200k" || b.bucket === ">200k")
+    .reduce((a, b) => a + b.costUSD, 0);
+  if (bigCtx / total >= TIP_CTX_BIG_SHARE) {
+    tips.push({ id: "context", level: "warn", values: { pct: pctOf(bigCtx) } });
+  }
+
+  // (2) Releitura de contexto (cache-read) domina os tokens de input.
+  const inputSide =
+    s.tokenTotals.input + s.tokenTotals.cacheRead + s.tokenTotals.cacheWrite;
+  if (inputSide > 0 && s.tokenTotals.cacheRead / inputSide >= TIP_CACHE_READ_SHARE) {
+    tips.push({
+      id: "cacheRead",
+      level: "info",
+      values: { pct: Math.round((s.tokenTotals.cacheRead / inputSide) * 100) },
+    });
+  }
+
+  // (3) Opus concentra o custo → Sonnet/Haiku p/ tarefas leves.
+  const opus = s.byModel
+    .filter((m) => /opus/i.test(m.model))
+    .reduce((a, m) => a + m.costUSD, 0);
+  if (opus / total >= TIP_OPUS_SHARE) {
+    tips.push({ id: "opus", level: "info", values: { pct: pctOf(opus) } });
+  }
+
+  // (4) Servidor MCP muito chamado.
+  const topMcp = s.byMcpServer[0];
+  if (topMcp && topMcp.calls > TIP_MCP_CALLS) {
+    tips.push({
+      id: "mcp",
+      level: "info",
+      values: { name: topMcp.name, calls: topMcp.calls },
+    });
+  }
+
+  // (5) Subagentes concentram o custo.
+  const sub = s.byProject
+    .filter((p) => p.project === SUBAGENTS_PROJECT)
+    .reduce((a, p) => a + p.costUSD, 0);
+  if (sub / total >= TIP_SUBAGENT_SHARE) {
+    tips.push({ id: "subagents", level: "info", values: { pct: pctOf(sub) } });
+  }
+
+  return tips;
 }
