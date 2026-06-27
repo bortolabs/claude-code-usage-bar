@@ -2,15 +2,30 @@
 
 ## 0.27.1
 
-- **Performance (Fase 3).** A análise local dos transcripts ficou bem mais leve:
-  - **Cache por assinatura de mtime** no agregador: antes de ler os arquivos, faz uma passada
-    barata (só `stat`) e, se nada mudou desde o último cálculo, devolve o resultado em cache —
-    sem re-ler nem re-parsear. Na prática, um tick ocioso caiu de **~230ms** para **~0,3ms**.
-  - **Fim de uma varredura de disco redundante:** a quebra "Por projeto" passou a vir do mesmo
-    agregador de custo (com `$`), então o antigo cálculo só-tokens (`projectUsage`) — que já não
-    aparecia mais na UI desde a 0.27.0 — foi **removido**. Agora é **uma** leitura de
-    `~/.claude/projects` por ciclo, em vez de duas.
-- Sem mudança visível no painel — é só otimização interna.
+Release consolidada — reúne tudo desde a 0.25.1. Chega o **acompanhamento de custos** e os
+**insights locais** (nosso "coach" de gasto), além de um bom ganho de performance.
+
+- **💰 Custos por modelo, hoje e mês.** Custo de **hoje**, **mês até agora** e **projeção do
+  mês** (números oficiais do ccusage), mais a quebra **por modelo** (Opus/Sonnet/Haiku…)
+  calculada de uma **tabela de preços local** sobre os seus transcripts. Em **assinatura**, o
+  `$` aparece como **equivalente de API** (`~`), nunca como cobrança; em **API** dá pra definir
+  um **orçamento mensal** com **alerta** (consumido **e** projeção).
+- **🧭 Nova aba "Custos"** com tudo num lugar só: hoje/mês + quebra por **modelo**, **projeto**
+  e **tamanho de contexto**, mais a **contagem** de chamadas por servidor **MCP** e por
+  **subagente**.
+- **🧠 Dicas (Insights) — local, sem LLM.** Sugestões de economia a partir dos seus próprios
+  números: contexto grande puxando o custo → `/compact`, muita releitura de cache, Opus
+  concentrando o gasto → Sonnet/Haiku, MCP/subagentes pesados. Sempre rotulado **"≈ aproximado
+  · tabela vX"** — o número oficial continua sendo o do ccusage.
+- **📟 Modo "custo" na status bar** (`statusBarValue`): o número pode mostrar **cota** (padrão),
+  **custo de hoje** ou **custo do bloco de 5h**, mantendo o anel/estilo.
+- **🛠 Export `v2`:** o JSON de export ganhou `today`, `month` e `byModel[]` (marcados
+  `approximate`) — pra agentes/scripts.
+- **⚡ Performance:** a análise dos transcripts ganhou **cache por mtime** (tick ocioso de
+  ~230ms → ~0,3ms) e o fim de uma varredura de disco redundante — agora é **uma** leitura por ciclo.
+- **🐞 Correção:** tooltip da status bar que mostrava "reseta em 0m" divergente do painel (0.25.2).
+
+Tudo **local, sem rede e sem LLM**; em 5 idiomas (pt/en/es/fr/de).
 
 ## 0.27.0
 
