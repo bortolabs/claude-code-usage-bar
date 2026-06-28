@@ -1,4 +1,4 @@
-import * as vscode from "vscode";
+import { tr } from "./i18n";
 import { CcusageData } from "./ccusage";
 
 export interface AlertInput {
@@ -143,7 +143,7 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
   if (input.block && input.costCap > 0 && input.block.projectedCost != null) {
     if (input.block.projectedCost > input.costCap) {
       reasons.push(
-        vscode.l10n.t(
+        tr(
           "Nesse ritmo: {0} até o reset (teto {1})",
           fmtUsd(input.block.projectedCost),
           fmtUsd(input.costCap)
@@ -161,7 +161,7 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
     input.block.projectedTokens > input.tokenCap
   ) {
     reasons.push(
-      vscode.l10n.t(
+      tr(
         "Nesse ritmo: {0} tokens até o reset (teto {1})",
         fmtTok(input.block.projectedTokens),
         fmtTok(input.tokenCap)
@@ -178,7 +178,7 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
     input.block.burnCostPerHour > input.maxPerHour
   ) {
     reasons.push(
-      vscode.l10n.t(
+      tr(
         "Ritmo alto: {0}/h (limite {1}/h)",
         fmtUsd(input.block.burnCostPerHour),
         fmtUsd(input.maxPerHour)
@@ -195,7 +195,7 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
   );
   if (proj5h != null && proj5h >= 100) {
     reasons.push(
-      vscode.l10n.t("Sessão 5h projeta atingir 100% antes do reset")
+      tr("Sessão 5h projeta atingir 100% antes do reset")
     );
     keys.push("plan5h");
   }
@@ -206,7 +206,7 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
   );
   if (proj7d != null && proj7d >= 100) {
     reasons.push(
-      vscode.l10n.t("Limite semanal projeta atingir 100% antes do reset")
+      tr("Limite semanal projeta atingir 100% antes do reset")
     );
     keys.push("plan7d");
   }
@@ -230,7 +230,7 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
   }
   if (pacing && reasons.length > 0) {
     reasons.push(
-      vscode.l10n.t(
+      tr(
         "💡 Pra não estourar: pause ~{0} ou reduza o ritmo ~{1}%",
         fmtMins(pacing.waitMin),
         String(Math.max(1, Math.round(pacing.reducePct)))
