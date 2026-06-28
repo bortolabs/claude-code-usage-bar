@@ -61,6 +61,8 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | Tooltips dos gráficos no webview | Tooltip flutuante próprio (o `title` nativo não renderiza) com o valor absoluto do dia | 0.29.2 |
 | Alertas seguem a bandeira | Banner de burn rate (e a dica de ritmo) migrados pro `tr()` — seguem o idioma escolhido, não o do VS Code | 0.29.4 |
 | **Dashboard completo + export HTML** | Comando que abre **tudo de uma vez** numa aba do editor (grid responsivo, seções expandidas, ao vivo) + export de um **`.html` autocontido** pro navegador (snapshot com tema próprio) | 0.30.0 |
+| **Dashboard de analytics** | Renderer dedicado: KPIs (incl. **cache hit rate**), composição de custo por tipo de token, gráfico temporal empilhado, **insights** locais, tabelas e breakdowns (modelo/projeto/sessão/contexto/skills/plugins/MCP/subagentes); janela Hoje/Semana/Mês/Tudo | 0.31.0 |
+| **AI advice (LLM, opt-in)** | Relatório de coaching em Markdown gerado por LLM (BYO key, Anthropic `/v1/messages` ou OpenAI-compatível), a partir dos agregados + amostra de prompts; chave no SecretStorage, com confirmação | 0.31.0 |
 
 ## 💡 Próximas ideias
 

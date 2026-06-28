@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.30.0",
+  "version": "0.31.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -67,6 +67,14 @@
       {
         "command": "claudeUsageBar.exportDashboardHtml",
         "title": "%cmd.exportDashboardHtml.title%"
+      },
+      {
+        "command": "claudeUsageBar.aiAdvice",
+        "title": "%cmd.aiAdvice.title%"
+      },
+      {
+        "command": "claudeUsageBar.setAiAdviceKey",
+        "title": "%cmd.setAiAdviceKey.title%"
       },
       {
         "command": "claudeUsageBar.cycleStyle",
@@ -383,6 +391,46 @@
           "type": "string",
           "default": "",
           "markdownDescription": "%config.exportStatePath.desc%"
+        },
+        "claudeUsageBar.dashboardWindow": {
+          "type": "string",
+          "enum": [
+            "today",
+            "week",
+            "month",
+            "all"
+          ],
+          "default": "today",
+          "markdownDescription": "%config.dashboardWindow.desc%"
+        },
+        "claudeUsageBar.aiAdviceApiStyle": {
+          "type": "string",
+          "enum": [
+            "anthropic",
+            "openai"
+          ],
+          "default": "anthropic",
+          "markdownDescription": "%config.aiAdviceApiStyle.desc%"
+        },
+        "claudeUsageBar.aiAdviceEndpoint": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.aiAdviceEndpoint.desc%"
+        },
+        "claudeUsageBar.aiAdviceModel": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.aiAdviceModel.desc%"
+        },
+        "claudeUsageBar.aiAdvicePromptWindowDays": {
+          "type": "number",
+          "default": 30,
+          "markdownDescription": "%config.aiAdvicePromptWindowDays.desc%"
+        },
+        "claudeUsageBar.aiAdviceMaxPrompts": {
+          "type": "number",
+          "default": 40,
+          "markdownDescription": "%config.aiAdviceMaxPrompts.desc%"
         }
       }
     }

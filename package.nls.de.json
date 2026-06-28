@@ -71,5 +71,13 @@
   "config.tipsSubagentPct.desc": "Subagenten-Tipp: warnt, wenn **Subagenten** ≥ diesen % der Kosten ausmachen. Standard 40.",
   "config.language.desc": "Plugin-Sprache (Panel, Statusleiste, Warnungen). `auto` (Standard) folgt der VS-Code-Sprache; oder erzwinge `pt`/`en`/`es`/`fr`/`de`. Umschaltbar über die Flaggen in **Config → Idioma**. Hinweis: Die Beschriftungen auf diesem Settings-Bildschirm folgen der VS-Code-Sprache.",
   "cmd.openDashboard.title": "Claude Usage: Dashboard öffnen",
-  "cmd.exportDashboardHtml.title": "Claude Usage: Dashboard exportieren (HTML)"
+  "cmd.exportDashboardHtml.title": "Claude Usage: Dashboard exportieren (HTML)",
+  "cmd.aiAdvice.title": "Claude Usage: AI advice (Coaching-Bericht)",
+  "cmd.setAiAdviceKey.title": "Claude Usage: AI-advice-Schlüssel festlegen",
+  "config.dashboardWindow.desc": "Fenster des Analyse-Dashboards (Heute/Woche/Monat/Alles).",
+  "config.aiAdviceEndpoint.desc": "AI-advice-Endpunkt (leer = Anthropic /v1/messages).",
+  "config.aiAdviceModel.desc": "AI-advice-Modell (leer = claude-opus-4-8).",
+  "config.aiAdviceApiStyle.desc": "AI-advice-API-Stil: anthropic (/v1/messages) oder openai (kompatibel).",
+  "config.aiAdvicePromptWindowDays.desc": "AI advice: Fenster (Tage) zum Stichproben deiner Prompts.",
+  "config.aiAdviceMaxPrompts.desc": "AI advice: maximale Anzahl der Stichproben-Prompts."
 }
