@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.31.1
+
+- **AI advice agora aceita endpoints locais (http).** A chamada escolhe `http`/`https` pelo
+  protocolo da URL — então dá pra apontar pra um **LLM local grátis** (Ollama em
+  `http://localhost:11434/v1/chat/completions`, LM Studio em `:1234`) e os dados **não saem da
+  máquina**. Continua aceitando free tiers OpenAI-compatíveis (Gemini/Groq/OpenRouter) e a
+  Anthropic (pago).
+- **Deixa claro que a key do AI advice é separada da assinatura.** O prompt do comando "Definir
+  chave do AI advice" agora explica que é uma **API key do provedor** (paga ou de um LLM
+  local/free tier), **não** a assinatura do Claude Code.
+- **README:** nova seção **"Recursos por aba"** (panorama antes dos screenshots) e um guia de
+  **qual key usar no AI advice**, com as opções grátis.
+
 ## 0.31.0
 
 - **📊 Dashboard de analytics de verdade** (substitui o "fullscreen" da 0.30, que só refluía a

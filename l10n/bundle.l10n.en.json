@@ -265,5 +265,6 @@
   "{0}% do custo é geração (output) — o token mais caro (~5× o input). Respostas mais enxutas economizam.": "{0}% of the cost is generation (output) — the priciest token (~5× input). Leaner responses save.",
   "{0}% do seu custo veio de turnos com contexto >150k. Use /compact no meio da tarefa e /clear ao trocar de assunto.": "{0}% of your cost came from turns with >150k context. Use /compact mid-task and /clear when switching topics.",
   "Ótimo aproveitamento de cache: {0}% de cache hit. Releitura barata em vez de reprocessar contexto.": "Great cache usage: {0}% cache hit. Cheap re-reads instead of reprocessing context.",
-  "≈ aproximado · local, sem chamada externa · tabela v{0}": "≈ approximate · local, no external call · table v{0}"
+  "≈ aproximado · local, sem chamada externa · tabela v{0}": "≈ approximate · local, no external call · table v{0}",
+  "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting.": "Paid provider API key (Anthropic sk-ant-… or OpenAI-compatible) — separate from your Claude Code subscription. Stored in the secure store (SecretStorage), never in a setting."
 }
