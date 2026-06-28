@@ -143,6 +143,8 @@
   "Fonte de dados": "Fuente de datos",
   "Fonte ativa": "Fuente activa",
   "desativado nas configurações": "desactivado en los ajustes",
+  "token OAuth não encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)": "token OAuth no encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)",
+  "falha ao consultar oauth/usage ({0})": "fallo al consultar oauth/usage ({0})",
   "≈ tempo · reseta {0}": "≈ tiempo · reinicia {0}",
   "ccusage (≈ tempo)": "ccusage (≈ tiempo)",
   "oauth/usage — cota real": "oauth/usage — cuota real",

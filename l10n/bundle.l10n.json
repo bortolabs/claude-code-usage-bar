@@ -101,6 +101,8 @@
   "Usar este caminho": "Usar este caminho",
   "em {0}": "em {0}",
   "desativado nas configurações": "desativado nas configurações",
+  "token OAuth não encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)": "token OAuth não encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)",
+  "falha ao consultar oauth/usage ({0})": "falha ao consultar oauth/usage ({0})",
   "{0} — recuando, nova tentativa em ~{1}": "{0} — recuando, nova tentativa em ~{1}",
   "Ver status": "Ver status",
   "Anthropic — {0} ({1})": "Anthropic — {0} ({1})",

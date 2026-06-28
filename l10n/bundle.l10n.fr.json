@@ -143,6 +143,8 @@
   "Fonte de dados": "Source des données",
   "Fonte ativa": "Source active",
   "desativado nas configurações": "désactivé dans les paramètres",
+  "token OAuth não encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)": "jeton OAuth introuvable (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)",
+  "falha ao consultar oauth/usage ({0})": "échec de la requête oauth/usage ({0})",
   "≈ tempo · reseta {0}": "≈ temps · réinit. {0}",
   "ccusage (≈ tempo)": "ccusage (≈ temps)",
   "oauth/usage — cota real": "oauth/usage — quota réel",

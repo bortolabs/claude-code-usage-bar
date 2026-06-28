@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.29.2
+
+- **Corrige a janela das quebras (5h/Hoje/7d/30d) que não pegava.** Ao trocar a janela, os cards
+  **Por modelo / Por projeto / Por tamanho de contexto** continuavam presos em "5h" (só o botão
+  mudava). A troca usava o mesmo caminho de gravação que tinha quebrado o idioma (setting +
+  evento de mudança), pouco confiável. Agora vai por um **comando dedicado** que aplica a janela
+  na hora (re-varre os transcripts no novo intervalo e re-renderiza) e só então persiste no
+  setting — o filtro de tempo é aplicado em `costWindowStart()` → `readTranscriptStats()`, que
+  ignora os turnos fora de `[início, agora]`.
+- **Tooltip dos gráficos agora aparece de fato.** O `title` nativo não renderizava neste webview;
+  trocado por um tooltip flutuante próprio que segue o cursor e mostra o valor absoluto do dia
+  (tokens cheios / custo exato). As barras também destacam ao passar o mouse.
+- **Idioma: corrige texto vazado na "Fonte de dados".** Ao voltar de outro idioma (ex.: alemão)
+  pro pt-br, a linha de status do oauth/usage podia continuar com um trecho no idioma anterior
+  (ex.: "Wartezeit…"). O motivo agora é guardado **cru/estruturado** e traduzido só na hora de
+  exibir, no idioma atual.
+
 ## 0.29.1
 
 - **Corrige a seleção de idioma que não persistia.** A escolha das bandeiras agora é gravada no

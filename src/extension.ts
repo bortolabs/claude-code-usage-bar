@@ -12,7 +12,12 @@ import {
 } from "./ccusage";
 import { evaluateAlerts, AlertResult } from "./alerts";
 import { readCurrentTurn, prettyModel } from "./transcript";
-import { fetchOAuthUsage, OAuthUsageResult, OAuthUsage } from "./oauthUsage";
+import {
+  fetchOAuthUsage,
+  OAuthUsageResult,
+  OAuthUsage,
+  OAuthUnavailableReason,
+} from "./oauthUsage";
 import {
   readTranscriptStats,
   computeTips,
@@ -146,6 +151,43 @@ function fmtDuration(deltaMs: number): string {
     return `${h}h${String(m).padStart(2, "0")}`;
   }
   return `${m}m`;
+}
+
+// Janela das QUEBRAS de custo (aba Custos). Valor de runtime autoritativo —
+// ver costWindowValue — pra não depender de config.update propagar.
+type CostWindow = "5h" | "today" | "7d" | "30d";
+
+// Motivo do oauth/usage estar indisponível, em forma ESTRUTURADA. Guardamos o
+// estado cru (não a string já traduzida) e só montamos o texto na hora de
+// exibir — assim ele acompanha o idioma ATUAL do plugin. Sem isto, a frase fica
+// congelada no idioma em que a falha ocorreu (ex.: voltar do alemão pro pt e
+// ainda ver "Wartezeit…" na Fonte de dados).
+type OAuthStatusReason =
+  | { kind: "disabled" }
+  | OAuthUnavailableReason
+  | { kind: "backoff"; inner: OAuthUnavailableReason; waitMs: number };
+
+/** Monta o texto do motivo no idioma atual (chamado no render). */
+function localizeOAuthReason(r: OAuthStatusReason | null): string | null {
+  if (!r) {
+    return null;
+  }
+  switch (r.kind) {
+    case "disabled":
+      return tr("desativado nas configurações");
+    case "noToken":
+      return tr(
+        "token OAuth não encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)"
+      );
+    case "httpError":
+      return tr("falha ao consultar oauth/usage ({0})", r.detail);
+    case "backoff":
+      return tr(
+        "{0} — recuando, nova tentativa em ~{1}",
+        localizeOAuthReason(r.inner) ?? "—",
+        fmtDuration(r.waitMs)
+      );
+  }
 }
 
 /**
@@ -284,12 +326,22 @@ export function activate(context: vscode.ExtensionContext) {
 
   let lastState: UsageState | null = null;
   let lastCcusage: CcusageResult | null = null;
+  // Janela das quebras de custo: valor de runtime AUTORITATIVO (não lemos
+  // cfg().get a cada uso). As bandeiras/botões gravam aqui via comando dedicado
+  // e SÓ então persistem no setting — assim a troca vale na hora, sem depender
+  // de config.update propagar/disparar o evento (que se mostrou não confiável,
+  // igual ao bug do idioma). Inicia do setting salvo (respeita o que o usuário
+  // já tinha) e é re-sincronizado se ele editar direto nas Settings.
+  let costWindowValue: CostWindow = ((): CostWindow => {
+    const w = cfg().get<string>("costWindow");
+    return w === "today" || w === "7d" || w === "30d" ? w : "5h";
+  })();
   // Uso REAL do plano (igual /usage), via endpoint OAuth — fonte primária.
   let lastOAuth: OAuthUsageResult | null = null;
   let lastOAuthOkMs = 0; // quando o oauth respondeu com sucesso pela última vez
   // Resultado da ÚLTIMA tentativa de oauth/usage (p/ mostrar a fonte e, quando
   // cai no fallback, explicar o motivo — em vez de cair no ccusage em silêncio).
-  let lastOAuthStatus: { ok: boolean; reason: string | null } = {
+  let lastOAuthStatus: { ok: boolean; reason: OAuthStatusReason | null } = {
     ok: false,
     reason: null,
   };
@@ -532,11 +584,7 @@ export function activate(context: vscode.ExtensionContext) {
   // "5h" = bloco atual (reset do oauth ou startMs do ccusage); "today" = meia-noite
   // local; "7d"/"30d" = janela móvel. O fim é sempre "agora".
   const costWindowStart = (): number => {
-    const w = (cfg().get<string>("costWindow") ?? "5h") as
-      | "5h"
-      | "today"
-      | "7d"
-      | "30d";
+    const w = costWindowValue;
     const now = Date.now();
     if (w === "today") {
       const d = new Date();
@@ -605,10 +653,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (!(cfg().get<boolean>("useOAuthUsage") ?? true)) {
       lastOAuth = null;
       lastOAuthOkMs = 0;
-      lastOAuthStatus = {
-        ok: false,
-        reason: tr("desativado nas configurações"),
-      };
+      lastOAuthStatus = { ok: false, reason: { kind: "disabled" } };
       render();
       return;
     }
@@ -657,13 +702,11 @@ export function activate(context: vscode.ExtensionContext) {
       oauthFailStreak = Math.min(oauthFailStreak + 1, 8);
       const waitMs = Math.min(15 * 60_000, 10_000 * Math.pow(2, oauthFailStreak));
       oauthBackoffUntilMs = Date.now() + waitMs;
+      // Guarda o motivo CRU + o tempo de recuo; a frase é montada no render, no
+      // idioma atual (ver localizeOAuthReason). Não congelar a string aqui.
       lastOAuthStatus = {
         ok: false,
-        reason: tr(
-          "{0} — recuando, nova tentativa em ~{1}",
-          res.reason,
-          fmtDuration(waitMs)
-        ),
+        reason: { kind: "backoff", inner: res.reason, waitMs },
       };
     }
     // Falha pontual: NÃO descarta o último resultado bom (evita o flicker
@@ -1411,11 +1454,7 @@ export function activate(context: vscode.ExtensionContext) {
       monthlyBudgetUsd: monthlyBudget,
       stats: lastStats,
       tips: lastStats ? computeTips(lastStats, tipThresholds()) : [],
-      costWindow: (cfg().get<string>("costWindow") ?? "5h") as
-        | "5h"
-        | "today"
-        | "7d"
-        | "30d",
+      costWindow: costWindowValue,
     };
     item.tooltip = buildTooltip(view);
     writeExport(view);
@@ -1669,7 +1708,7 @@ export function activate(context: vscode.ExtensionContext) {
         ? tr("oauth/usage: ok ✓ (cota real)")
         : tr(
             "oauth/usage: indisponível — {0}",
-            lastOAuthStatus.reason ?? "—"
+            localizeOAuthReason(lastOAuthStatus.reason) ?? "—"
           );
     const sourceStatuslineLine = slRate
       ? tr("statusline: dados frescos ✓")
@@ -1917,6 +1956,28 @@ export function activate(context: vscode.ExtensionContext) {
         render();
       }
     }),
+    // Janela das quebras de custo (botões da aba Custos). Atualiza o valor de
+    // runtime AUTORITATIVO na hora (recalcula + renderiza) e SÓ então persiste no
+    // setting — assim a troca vale mesmo se config.update falhar/atrasar (foi o
+    // que quebrou o idioma). Sem isto, as quebras ficavam presas em "5h".
+    vscode.commands.registerCommand(
+      "claudeUsageBar.setCostWindow",
+      async (win?: string) => {
+        const valid: CostWindow[] = ["5h", "today", "7d", "30d"];
+        const v = (valid as string[]).includes(win as string)
+          ? (win as CostWindow)
+          : "5h";
+        costWindowValue = v;
+        refreshStats(); // re-walk na nova janela + render (não espera o setting)
+        // Persiste pra refletir nas Settings e sobreviver ao reload (best-effort).
+        try {
+          await cfg().update("costWindow", v, vscode.ConfigurationTarget.Global);
+        } catch {
+          // setting pode não estar registrado (vsix instalado sobre janela viva);
+          // o valor de runtime já garante o comportamento nesta sessão.
+        }
+      }
+    ),
     vscode.commands.registerCommand("claudeUsageBar.openPanel", () => {
       viewProvider.reveal();
       render();
@@ -1954,6 +2015,13 @@ export function activate(context: vscode.ExtensionContext) {
         // Mudou a janela das quebras ou o gate de insights → recalcula as stats
         // (re-walk com a nova janela). Os limiares das dicas são reaplicados no
         // próximo render (computeTips lê os settings), então readState basta.
+        // Editar o setting direto nas Settings também vale: re-sincroniza o valor
+        // de runtime autoritativo a partir do setting antes de recalcular.
+        if (e.affectsConfiguration("claudeUsageBar.costWindow")) {
+          const w = cfg().get<string>("costWindow");
+          costWindowValue =
+            w === "today" || w === "7d" || w === "30d" ? w : "5h";
+        }
         if (
           e.affectsConfiguration("claudeUsageBar.costWindow") ||
           e.affectsConfiguration("claudeUsageBar.insightsEnabled")

@@ -318,7 +318,17 @@ function panelHtml(): string {
     background: var(--ok); opacity: .55; min-height: 2px;
   }
   .spark-bar.today { opacity: 1; }
+  .spark-bar:hover { opacity: 1; outline: 1px solid var(--vscode-focusBorder); }
   .spark-labels { display: flex; justify-content: space-between; font-size: 9.5px; color: var(--vscode-descriptionForeground); margin-top: 3px; }
+  /* Tooltip flutuante das barras (o title nativo não renderiza neste webview). */
+  .spark-tip {
+    position: fixed; z-index: 1000; pointer-events: none; display: none;
+    background: var(--vscode-editorHoverWidget-background, #252526);
+    color: var(--vscode-editorHoverWidget-foreground, #cccccc);
+    border: 1px solid var(--vscode-editorHoverWidget-border, #454545);
+    border-radius: 4px; padding: 3px 7px; font-size: 11px;
+    white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.35);
+  }
   .style-btns { display: flex; gap: 6px; flex-wrap: wrap; }
   .sbtn {
     font-family: var(--vscode-font-family); font-size: 12px;
@@ -615,7 +625,7 @@ function panelHtml(): string {
       const h = Math.max(2, Math.round((v / max) * 100));
       const today = i === days.length - 1 ? ' today' : '';
       const tip = (d.date || '') + ' · ' + fmtVal(v);
-      return '<div class="spark-bar' + today + '" style="height:' + h + '%" title="' + esc(tip) + '"></div>';
+      return '<div class="spark-bar' + today + '" style="height:' + h + '%" data-tip="' + esc(tip) + '"></div>';
     }).join('');
     // rótulos só nas pontas (primeiro e último dia), pra não poluir.
     const first = days[0].date || '';
@@ -1055,11 +1065,12 @@ function panelHtml(): string {
         b.classList.add('active');
       });
     });
-    // Seletor de janela das quebras (aba Custos): grava costWindow e re-renderiza
-    // (o host recomputa as stats na nova janela e devolve os dados).
+    // Seletor de janela das quebras (aba Custos): via comando dedicado (não o
+    // setConfig genérico) — o host atualiza o valor de runtime na hora, recomputa
+    // as stats na nova janela e devolve os dados (que re-renderizam os títulos).
     document.querySelectorAll('.sbtn[data-costwin]').forEach(function(b){
       b.addEventListener('click', function(){
-        vscode.postMessage({ type: 'setConfig', key: 'costWindow', value: b.getAttribute('data-costwin') });
+        vscode.postMessage({ type: 'setCostWindow', value: b.getAttribute('data-costwin') });
         document.querySelectorAll('.sbtn[data-costwin]').forEach(function(x){ x.classList.remove('active'); });
         b.classList.add('active');
       });
@@ -1144,6 +1155,36 @@ function panelHtml(): string {
       render(m.data);
     }
   });
+  // Tooltip flutuante das barras do sparkline: o title nativo não renderiza de
+  // forma confiável neste webview, então mostramos um <div> próprio seguindo o
+  // cursor. Delegação no document (montada UMA vez; sobrevive aos re-renders).
+  (function(){
+    var tip = document.createElement('div');
+    tip.className = 'spark-tip';
+    document.body.appendChild(tip);
+    function hide(){ tip.style.display = 'none'; }
+    function place(bar, x, y){
+      var txt = bar.getAttribute('data-tip');
+      if (!txt) { hide(); return; }
+      tip.textContent = txt;
+      tip.style.display = 'block';
+      var pad = 12;
+      var w = tip.offsetWidth, h = tip.offsetHeight;
+      var left = x + pad, top = y - h - pad;
+      if (left + w > window.innerWidth - 4) left = x - w - pad;
+      if (left < 4) left = 4;
+      if (top < 4) top = y + pad;
+      tip.style.left = left + 'px';
+      tip.style.top = top + 'px';
+    }
+    document.addEventListener('mousemove', function(e){
+      var t = e.target;
+      var bar = t && t.closest ? t.closest('.spark-bar') : null;
+      if (bar) place(bar, e.clientX, e.clientY); else hide();
+    });
+    document.addEventListener('mouseleave', hide);
+    window.addEventListener('blur', hide);
+  })();
   // pede um render inicial assim que a view monta
   vscode.postMessage({ type: 'ready' });
 </script>
@@ -1173,6 +1214,9 @@ function wireMessages(
     } else if (msg?.type === "setLanguage" && typeof msg.value === "string") {
       // Idioma do plugin: vai pro globalState via comando (sempre gravável).
       vscode.commands.executeCommand("claudeUsageBar.setLanguage", msg.value);
+    } else if (msg?.type === "setCostWindow" && typeof msg.value === "string") {
+      // Janela das quebras: comando dedicado (valor de runtime + persiste).
+      vscode.commands.executeCommand("claudeUsageBar.setCostWindow", msg.value);
     } else if (msg?.type === "setConfig" && typeof msg.key === "string") {
       // Grava o setting alterado pela aba Config.
       vscode.workspace
