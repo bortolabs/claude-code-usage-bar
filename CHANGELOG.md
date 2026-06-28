@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.29.4
+
+- **Banner de alerta agora respeita a bandeira do plugin.** Ao escolher um idioma pela bandeira
+  (ex.: inglês), o banner de burn rate continuava em português — o `alerts.ts` usava o i18n do
+  VS Code, não o override do plugin. Migrado para o `tr()`: os textos (projeções de custo/tokens,
+  ritmo alto, projeção 5h/semanal e a **dica de ritmo**) agora seguem o idioma escolhido.
+- **Screenshots novas no README.** Galeria atualizada (Sessão com a dica de ritmo, Custos +
+  Insights, Status, Config), agora com a **status bar à mostra** no rodapé de cada print. Corrige
+  também as imagens que não carregavam na listagem (os nomes apontavam para arquivos inexistentes).
+
 ## 0.29.3
 
 Release consolidada (0.28.2 → 0.29.3). Destaques desde a v0.28.1:

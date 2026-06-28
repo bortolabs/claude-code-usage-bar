@@ -25,23 +25,26 @@ plugin na hora). Sem tradução para o idioma ativo, cai no português.
 
 ## Screenshots
 
-**Na status bar** (o que dá nome ao plugin) — o anel/percentual da sessão fica sempre à vista:
+A **status bar** (que dá nome ao plugin) aparece no rodapé de cada print — anel/percentual da cota da sessão de 5h e tempo até o reset, sempre à vista.
+
+Aba **Sessão** — anel da cota de 5h, barras de uso de tokens/tempo/semana, **contexto ao vivo**, modelo e fonte de dados. No topo, a **dica de ritmo** sugere quanto pausar (ou o quanto desacelerar) pra não estourar antes do reset:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/00-status-bar.png" width="520" alt="Indicador na status bar do VS Code: anel de progresso + percentual da cota da sessão de 5h e tempo até o reset">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/01-sessao.png" width="340" alt="Aba Sessão: anel da cota de 5h, barras de uso de tokens, tempo e semana (7d), contexto ao vivo, modelo em uso, card 'Fonte de dados', e no topo a dica de ritmo do alerta de burn rate">
 </p>
 
-Painel: aba **Sessão** (anel + uso 5h/7d + **contexto ao vivo** + fonte de dados) e aba **Custos** (hoje/mês, custo por modelo/projeto/tamanho de contexto e **Dicas**):
+Aba **Custos** — hoje/mês/projeção, sparklines de custo e tokens por dia, seletor de janela (5h/Hoje/7d/30d) e quebras por modelo/projeto; mais abaixo, custo por **tamanho de contexto** (com custo por turno), contagem de **MCP/subagentes** e as **Dicas** heurísticas de economia:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/01-sessao.png" width="360" alt="Aba Sessão: anel da cota da sessão de 5h, barras de uso de tokens, tempo, semana (7d) e contexto ao vivo, modelo em uso, e o card 'Fonte de dados'">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/02-custos.png" width="360" alt="Aba Custos: hoje/mês/projeção, sparklines de custo e tokens por dia, seletor de janela (5h/Hoje/7d/30d), custo por modelo/projeto/tamanho de contexto e dicas">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/02-custos.png" width="340" alt="Aba Custos: hoje/mês/projeção, sparklines de custo e tokens por dia, seletor de janela 5h/Hoje/7d/30d, e custo por modelo/projeto">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/03-custos-insights.png" width="340" alt="Aba Custos (continuação): custo por tamanho de contexto com custo por turno, contagem de chamadas MCP e de subagentes, e Dicas heurísticas de economia">
 </p>
 
-Aba **Config** com **seções e cards colapsáveis** (idioma com bandeiras, toggles, cores, alertas):
+Aba **Status** (saúde da Anthropic ao vivo) e aba **Config** (seções colapsáveis, idioma com bandeiras e limiares das dicas ajustáveis):
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/03-config.png" width="360" alt="Aba Config: card de Idioma com bandeiras, seção Aparência com o seletor visual de estilo, e demais seções recolhidas em cards colapsáveis">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/04-status.png" width="340" alt="Aba Status: status da Anthropic ao vivo — incidentes ativos, componentes e resolvidos recentemente">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/05-config.png" width="340" alt="Aba Config: seções colapsáveis, card de Idioma com bandeiras, e os limiares das Dicas de custo ajustáveis">
 </p>
 
 Mostra a **cota real da sessão** — o mesmo número do `/usage` — em **qualquer ambiente**
