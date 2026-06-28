@@ -49,15 +49,29 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | **Motor de custo + custos hoje/mês** | Tabela de preços local (`pricing.ts`); custo de hoje/mês/projeção (ccusage); orçamento mensal com alerta; modo "custo" na status bar | 0.26 |
 | **Aba "Custos" + Insights/Dicas** | Quebra por modelo/projeto/contexto + contagem de MCP/subagentes; dicas de economia heurísticas (local, sem LLM); export v2 | 0.27 |
 | Performance do agregador | Cache por mtime (tick ocioso ~230ms → ~0,3ms) + fim de uma varredura de disco redundante | 0.27.1 |
+| Contexto ao vivo do transcript | Contexto% calculado direto do último turno (tokens ÷ janela do modelo), não mais preso na statusline velha | 0.28.1 |
+| Janela configurável das quebras | Seletor **5h · Hoje · 7d · 30d** para as quebras (modelo/projeto/contexto, MCP/subagentes, dicas); comando dedicado `setCostWindow` | 0.28.1 |
+| Sparklines de custo e tokens/dia | Mini-gráficos de `$`/dia e tokens/dia na aba Custos, com tooltip de valor absoluto | 0.28.1 |
+| Limiares das Dicas como settings | Os 5 gatilhos do motor de dicas viram settings (`tipsContextBigPct`, `tipsCacheReadPct`, `tipsOpusPct`, `tipsMcpCalls`, `tipsSubagentPct`) | 0.28.1 |
+| Cor da status bar = uso, não tempo | No fallback do ccusage a cor reflete custo/uso de tokens, nunca o tempo decorrido (tempo acabando é bom: vem reset) | 0.28.2 |
+| Custo por turno por contexto | Cada faixa de tamanho de contexto mostra o custo médio `~$X/turno`, não só o total | 0.28.2 |
+| Cards colapsáveis em tudo | Todos os cards de conteúdo recolhem/expandem e lembram o estado — aba Custos bem mais enxuta | 0.28.2 |
+| Idioma por bandeiras 🇧🇷🇬🇧🇪🇸🇫🇷🇩🇪 | Card "Idioma" troca o idioma de todo o plugin na hora, independente do VS Code; persiste no globalState | 0.29.0 |
+| Dica de ritmo no alerta | Quando projeta estourar a sessão 5h / teto de custo, o banner sugere quanto pausar ou reduzir o ritmo (local, sem rede) | 0.29.3 |
+| Tooltips dos gráficos no webview | Tooltip flutuante próprio (o `title` nativo não renderiza) com o valor absoluto do dia | 0.29.2 |
+| Alertas seguem a bandeira | Banner de burn rate (e a dica de ritmo) migrados pro `tr()` — seguem o idioma escolhido, não o do VS Code | 0.29.4 |
+| **Dashboard completo + export HTML** | Comando que abre **tudo de uma vez** numa aba do editor (grid responsivo, seções expandidas, ao vivo) + export de um **`.html` autocontido** pro navegador (snapshot com tema próprio) | 0.30.0 |
 
 ## 💡 Próximas ideias
 
 | # | Feature | O que faz | Esforço | Viável? |
 | --- | --- | --- | --- | --- |
-| 11 | **Janela configurável na aba Custos** | Alternar a janela das quebras de custo entre **hoje / 7d / 30d** (o agregador já aceita janela arbitrária; hoje usa só o bloco de 5h) | Baixo | ✅ |
-| 12 | **Sparkline de custo/dia** | Mini-gráfico de `$`/dia no Histórico/Custos (reusa o `costUSD` do `ccusage daily`) | Baixo | ✅ |
-| 13 | **Thresholds das Dicas como settings** | Expor os limiares do motor de dicas (hoje constantes) pra ajustar a sensibilidade | Baixo | ✅ |
-| 10 | **Multi-conta / perfis** | Alternar entre contas (pessoal vs trabalho) | Alto | ⚠️ depende do setup |
+| 14 | **Comparativo de janelas** | "Esta semana vs. anterior", "hoje vs. média dos últimos N dias" — delta de custo/tokens na aba Custos. Reusa `ccusage daily`, não toca em oauth/credenciais | Baixo | ✅ |
+| 15 | **Quebra por dia da semana / hora** | Heatmap ou barras de quando você mais gasta (por dia-da-semana ou faixa horária). Reusa o agregador (`transcriptStats.ts`) | Médio | ✅ |
+| 16 | **Orçamento/meta por token** | Hoje o orçamento é só por `$`/mês; expor um teto por **tokens** (5h/dia/semana) com alerta, complementando o de custo | Baixo | ✅ |
+| 17 | **Resumo semanal de custo** | Notificação opt-in com o resumo da semana (custo, top modelo/projeto, delta vs. anterior) — reusa o resumo de fim de bloco | Baixo | ✅ |
+| 18 | **Export de custo em CSV** | Botão pra exportar a quebra (por dia/modelo/projeto) em CSV, além do JSON v2 que já existe | Baixo | ✅ |
+| 10 | **Multi-conta / perfis** | Alternar entre contas (pessoal vs trabalho): token/transcripts por perfil. Mexe em fonte de dados, oauth e persistência — fechar escopo antes | Alto | ⚠️ depende do setup |
 
 ## 🌐 Externo / operacional (fora do código)
 

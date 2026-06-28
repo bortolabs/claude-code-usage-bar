@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.30.0
+
+- **🖥️ Dashboard completo numa aba do editor.** Novo comando **"Claude Usage: Abrir dashboard"**
+  (e um botão ⛶ no topo do painel) abre uma **aba larga** com **tudo de uma vez** — Sessão, Custos,
+  quebras (modelo/projeto/contexto), gráficos, dicas, Status e Config — num **grid responsivo** que
+  se reorganiza conforme a largura, em vez das abas estreitas da barra lateral. Abre com **todas as
+  seções expandidas** e atualiza **ao vivo** igual à sidebar (refresh, troca de janela das quebras,
+  troca de idioma). Reusa o mesmo motor de dados — sem fonte nova.
+- **⬇ Exportar dashboard em HTML.** Comando **"Claude Usage: Exportar dashboard (HTML)"** (e botão ⬇)
+  gera um **`.html` autocontido** com os dados do momento — abre no **navegador**, dá pra
+  compartilhar ou arquivar. É um **snapshot** (sem rede, sem depender do VS Code): traz um tema
+  próprio embutido pras cores ficarem certas fora do editor e marca a **hora de geração**. A aba de
+  Configurações e os botões interativos ficam de fora do arquivo (não funcionariam no navegador).
+- A barra lateral continua **idêntica** (abas, cards colapsáveis, idioma) — o dashboard é uma visão
+  adicional, não um substituto.
+- i18n: as strings novas entram nos 5 idiomas (pt/en/es/fr/de), em paridade.
+
 ## 0.29.4
 
 - **Banner de alerta agora respeita a bandeira do plugin.** Ao escolher um idioma pela bandeira

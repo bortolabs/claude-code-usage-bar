@@ -69,5 +69,7 @@
   "config.tipsOpusPct.desc": "Modell-Tipp: warnt, wenn **Opus** ≥ diesen % der Kosten verursacht (schlägt Sonnet/Haiku für leichte Aufgaben vor). Standard 70.",
   "config.tipsMcpCalls.desc": "MCP-Tipp: warnt, wenn ein MCP-Server **öfter als** diese Anzahl im Fenster aufgerufen wird. Standard 40.",
   "config.tipsSubagentPct.desc": "Subagenten-Tipp: warnt, wenn **Subagenten** ≥ diesen % der Kosten ausmachen. Standard 40.",
-  "config.language.desc": "Plugin-Sprache (Panel, Statusleiste, Warnungen). `auto` (Standard) folgt der VS-Code-Sprache; oder erzwinge `pt`/`en`/`es`/`fr`/`de`. Umschaltbar über die Flaggen in **Config → Idioma**. Hinweis: Die Beschriftungen auf diesem Settings-Bildschirm folgen der VS-Code-Sprache."
+  "config.language.desc": "Plugin-Sprache (Panel, Statusleiste, Warnungen). `auto` (Standard) folgt der VS-Code-Sprache; oder erzwinge `pt`/`en`/`es`/`fr`/`de`. Umschaltbar über die Flaggen in **Config → Idioma**. Hinweis: Die Beschriftungen auf diesem Settings-Bildschirm folgen der VS-Code-Sprache.",
+  "cmd.openDashboard.title": "Claude Usage: Dashboard öffnen",
+  "cmd.exportDashboardHtml.title": "Claude Usage: Dashboard exportieren (HTML)"
 }

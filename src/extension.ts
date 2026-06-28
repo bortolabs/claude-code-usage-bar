@@ -2,7 +2,12 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { UsageViewProvider, PanelData } from "./panel";
+import {
+  UsageViewProvider,
+  DashboardPanel,
+  exportDashboardHtml,
+  PanelData,
+} from "./panel";
 import {
   runCcusage,
   runCcusageDaily,
@@ -911,6 +916,10 @@ export function activate(context: vscode.ExtensionContext) {
     return { today, monthToDate: mtd, monthProjected };
   };
 
+  // Último PanelData renderizado — usado pelo export de HTML (snapshot) mesmo
+  // quando o dashboard não está aberto.
+  let lastPanelData: PanelData | undefined;
+
   const render = () => {
     const c = cfg();
     const warn = c.get<number>("warnThreshold") ?? 60;
@@ -1459,10 +1468,12 @@ export function activate(context: vscode.ExtensionContext) {
     item.tooltip = buildTooltip(view);
     writeExport(view);
 
-    viewProvider.update(
-      buildPanelData(view),
-      c.get<BarStyle>("barStyle") ?? "ring"
-    );
+    const panelData = buildPanelData(view);
+    const barStyle = c.get<BarStyle>("barStyle") ?? "ring";
+    lastPanelData = panelData; // p/ o export funcionar mesmo sem o dashboard aberto
+    viewProvider.update(panelData, barStyle);
+    // Espelha os mesmos dados no dashboard (aba do editor), quando aberto.
+    DashboardPanel.current?.update(panelData, barStyle);
   };
 
   type View = {
@@ -1983,6 +1994,51 @@ export function activate(context: vscode.ExtensionContext) {
       render();
       refreshAll();
     }),
+    // Abre (ou revela) o dashboard numa aba do editor: todas as seções num grid.
+    vscode.commands.registerCommand("claudeUsageBar.openDashboard", () => {
+      const dash = DashboardPanel.createOrShow();
+      dash.onReady = refreshAll;
+      render();
+      refreshAll();
+    }),
+    // Exporta o dashboard como .html autocontido (snapshot dos dados atuais).
+    vscode.commands.registerCommand(
+      "claudeUsageBar.exportDashboardHtml",
+      async () => {
+        const data = DashboardPanel.current?.lastData() ?? lastPanelData;
+        if (!data) {
+          vscode.window.showInformationMessage(
+            tr("Aguardando dados do Claude Code…")
+          );
+          return;
+        }
+        const html = exportDashboardHtml(data, new Date().toLocaleString());
+        const defaultUri = vscode.Uri.file(
+          path.join(os.homedir(), "claude-usage-dashboard.html")
+        );
+        const uri = await vscode.window.showSaveDialog({
+          defaultUri,
+          saveLabel: tr("Exportar HTML"),
+          filters: { HTML: ["html"] },
+        });
+        if (!uri) return;
+        try {
+          fs.writeFileSync(uri.fsPath, html, "utf8");
+        } catch (e) {
+          vscode.window.showErrorMessage(
+            tr("Falha ao exportar: {0}", String((e as Error)?.message ?? e))
+          );
+          return;
+        }
+        const open = await vscode.window.showInformationMessage(
+          tr("Dashboard exportado."),
+          tr("Abrir no navegador")
+        );
+        if (open) {
+          vscode.env.openExternal(uri);
+        }
+      }
+    ),
     // Troca o idioma do plugin (acionado pelas bandeiras no painel). Persiste no
     // globalState (sempre gravável), re-renderiza e remonta o webview (o
     // dicionário traduzido `L` é injetado no HTML).
@@ -1995,6 +2051,7 @@ export function activate(context: vscode.ExtensionContext) {
         setLang(v);
         render();
         viewProvider.rebuild();
+        DashboardPanel.current?.rebuild();
       }
     )
   );

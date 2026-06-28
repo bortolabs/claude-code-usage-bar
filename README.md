@@ -47,6 +47,12 @@ Aba **Status** (saúde da Anthropic ao vivo) e aba **Config** (seções colapsá
   <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/05-config.png" width="340" alt="Aba Config: seções colapsáveis, card de Idioma com bandeiras, e os limiares das Dicas de custo ajustáveis">
 </p>
 
+**Dashboard completo** (_Claude Usage: Abrir dashboard_) — abre numa **aba do editor**, larga, com **tudo de uma vez** num **grid responsivo** e **todas as seções expandidas**: Sessão, Custos e quebras, gráficos e Status. Atualiza ao vivo como a barra lateral. Dá pra **exportar um `.html` autocontido** (_Claude Usage: Exportar dashboard (HTML)_) pra abrir no **navegador** ou compartilhar — um snapshot com tema próprio embutido:
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/06-dashboard.png" width="820" alt="Dashboard completo numa aba do editor: grid de três colunas (Sessão, Custos, Status) com todas as seções abertas — anel da cota 5h, uso/semana/contexto, custos de hoje/mês/projeção, sparklines de custo e tokens por dia, quebras por modelo/projeto/contexto, MCP e subagentes, Dicas, e o status da Anthropic">
+</p>
+
 Mostra a **cota real da sessão** — o mesmo número do `/usage` — em **qualquer ambiente**
 (app, IDE ou terminal). O anel é o uso da sessão de 5h; a barra de tempo mostra quanto da
 janela já passou.
@@ -181,6 +187,10 @@ Você escolhe como ver:
   - **Config** — edite todos os settings por controles visuais (toggles, selects, números,
     cor), com botões de comando e link para o `settings.json`.
   Clicar no item da status bar (ou _Claude Usage: Abrir painel_) revela essa view.
+- **Dashboard (aba do editor)** — _Claude Usage: Abrir dashboard_ (ou o botão ⛶ no topo do
+  painel) abre **tudo de uma vez** num **grid amplo** com as seções expandidas, em vez das
+  abas estreitas. _Claude Usage: Exportar dashboard (HTML)_ (botão ⬇) gera um **`.html`
+  autocontido** (snapshot) pra abrir no navegador/compartilhar.
 
 ## Custo: assinatura vs API
 
@@ -245,6 +255,8 @@ janela vira** — com botões **"Abrir painel"** e **"Silenciar 1h"**.
 - **Hover** → breakdown completo no tooltip.
 - Paleta de comandos:
   - `Claude Usage: Abrir painel (anel SVG)`
+  - `Claude Usage: Abrir dashboard`
+  - `Claude Usage: Exportar dashboard (HTML)`
   - `Claude Usage: Alternar estilo da status bar`
   - `Claude Usage: Atualizar agora`
 
