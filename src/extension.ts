@@ -2,12 +2,14 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { UsageViewProvider, PanelData } from "./panel";
 import {
-  UsageViewProvider,
   DashboardPanel,
   exportDashboardHtml,
-  PanelData,
-} from "./panel";
+  DashboardData,
+  DashWindow,
+  DashSeriesPoint,
+} from "./dashboard";
 import {
   runCcusage,
   runCcusageDaily,
@@ -30,6 +32,8 @@ import {
   Tip,
   TipThresholds,
 } from "./transcriptStats";
+import { computeInsightTexts } from "./insights";
+import { runAiAdvice, setAiAdviceKey } from "./aiAdvice";
 import { fetchStatus, StatusResult, StatusData, hasIssue } from "./status";
 import { initI18n, setLang, tr } from "./i18n";
 
@@ -341,6 +345,11 @@ export function activate(context: vscode.ExtensionContext) {
     const w = cfg().get<string>("costWindow");
     return w === "today" || w === "7d" || w === "30d" ? w : "5h";
   })();
+  // Janela do DASHBOARD (independente da janela das quebras da sidebar).
+  let dashboardWindowValue: DashWindow = ((): DashWindow => {
+    const w = cfg().get<string>("dashboardWindow");
+    return w === "week" || w === "month" || w === "all" ? w : "today";
+  })();
   // Uso REAL do plano (igual /usage), via endpoint OAuth — fonte primária.
   let lastOAuth: OAuthUsageResult | null = null;
   let lastOAuthOkMs = 0; // quando o oauth respondeu com sucesso pela última vez
@@ -610,6 +619,86 @@ export function activate(context: vscode.ExtensionContext) {
       : block
       ? block.startMs
       : now - 5 * 3600 * 1000;
+  };
+
+  // Início da janela do dashboard (Hoje/Semana/Mês/Tudo).
+  const dashWindowStart = (w: DashWindow): number => {
+    const now = Date.now();
+    if (w === "today") {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    }
+    if (w === "week") {
+      return now - 7 * 24 * 3600 * 1000;
+    }
+    if (w === "month") {
+      return now - 30 * 24 * 3600 * 1000;
+    }
+    return 0; // "all" = tudo (epoch 0)
+  };
+
+  // Monta o payload do dashboard de analytics para a janela ativa.
+  const buildDashboardData = (): DashboardData => {
+    const w = dashboardWindowValue;
+    const s = readTranscriptStats(dashWindowStart(w));
+    const cr = s.tokenTotals.cacheRead;
+    const cw = s.tokenTotals.cacheWrite;
+    const hitRate = cr + cw > 0 ? (cr / (cr + cw)) * 100 : 0;
+    // Série temporal: por hora quando "Hoje", por dia nas demais janelas.
+    const useHour = w === "today";
+    const points: DashSeriesPoint[] = (useHour ? s.byHour : s.byDay).map((p: any) => ({
+      label: useHour ? String(p.hour).slice(11) : String(p.date).slice(5), // "HH:00" / "MM-DD"
+      input: p.input,
+      output: p.output,
+      cacheRead: p.cacheRead,
+      cacheWrite: p.cacheWrite,
+      tokens: p.tokens,
+      costUSD: p.costUSD,
+      messages: p.messages,
+    }));
+    return {
+      window: w,
+      kpis: {
+        costUSD: s.totalCostUSD,
+        messages: s.turns,
+        input: s.tokenTotals.input,
+        output: s.tokenTotals.output,
+        cacheRead: cr,
+        cacheWrite: cw,
+        cacheHitRate: hitRate,
+        totalTokens: s.totalTokens,
+      },
+      costByType: s.costByType,
+      series: { unit: useHour ? "hour" : "day", points },
+      insights: computeInsightTexts(s),
+      byModel: s.byModel,
+      byProject: s.byProject.map((p) => ({
+        project: p.project,
+        costUSD: p.costUSD,
+        tokens: p.tokens,
+      })),
+      bySession: s.bySession.map((x) => ({
+        session: x.session,
+        project: x.project,
+        costUSD: x.costUSD,
+        tokens: x.tokens,
+        messages: x.messages,
+        durationMs: Math.max(0, x.lastTs - x.firstTs),
+      })),
+      byContext: s.byContextBucket.map((b) => ({
+        bucket: b.bucket,
+        costUSD: b.costUSD,
+        tokens: b.tokens,
+        turns: b.turns,
+      })),
+      bySkill: s.bySkill,
+      byPlugin: s.byPlugin,
+      byMcp: s.byMcpServer,
+      bySubagent: s.bySubagent,
+      isSub: resolveAccountType() === "subscription",
+      tableVersion: s.tableVersion,
+    };
   };
 
   // Limiares das dicas a partir dos settings (shares em % → fração).
@@ -915,10 +1004,6 @@ export function activate(context: vscode.ExtensionContext) {
       dayOfMonth > 0 ? (mtd / dayOfMonth) * daysInMonth : mtd;
     return { today, monthToDate: mtd, monthProjected };
   };
-
-  // Último PanelData renderizado — usado pelo export de HTML (snapshot) mesmo
-  // quando o dashboard não está aberto.
-  let lastPanelData: PanelData | undefined;
 
   const render = () => {
     const c = cfg();
@@ -1470,10 +1555,11 @@ export function activate(context: vscode.ExtensionContext) {
 
     const panelData = buildPanelData(view);
     const barStyle = c.get<BarStyle>("barStyle") ?? "ring";
-    lastPanelData = panelData; // p/ o export funcionar mesmo sem o dashboard aberto
     viewProvider.update(panelData, barStyle);
-    // Espelha os mesmos dados no dashboard (aba do editor), quando aberto.
-    DashboardPanel.current?.update(panelData, barStyle);
+    // Atualiza o dashboard de analytics (aba do editor), quando aberto.
+    if (DashboardPanel.current) {
+      DashboardPanel.current.update(buildDashboardData());
+    }
   };
 
   type View = {
@@ -2001,17 +2087,22 @@ export function activate(context: vscode.ExtensionContext) {
       render();
       refreshAll();
     }),
+    // Troca a janela do dashboard (Hoje/Semana/Mês/Tudo) e re-renderiza.
+    vscode.commands.registerCommand(
+      "claudeUsageBar.setDashboardWindow",
+      (value?: string) => {
+        const valid = ["today", "week", "month", "all"];
+        const v = (valid.includes(value as string) ? value : "today") as DashWindow;
+        dashboardWindowValue = v;
+        cfg().update("dashboardWindow", v, vscode.ConfigurationTarget.Global);
+        DashboardPanel.current?.update(buildDashboardData());
+      }
+    ),
     // Exporta o dashboard como .html autocontido (snapshot dos dados atuais).
     vscode.commands.registerCommand(
       "claudeUsageBar.exportDashboardHtml",
       async () => {
-        const data = DashboardPanel.current?.lastData() ?? lastPanelData;
-        if (!data) {
-          vscode.window.showInformationMessage(
-            tr("Aguardando dados do Claude Code…")
-          );
-          return;
-        }
+        const data = buildDashboardData();
         const html = exportDashboardHtml(data, new Date().toLocaleString());
         const defaultUri = vscode.Uri.file(
           path.join(os.homedir(), "claude-usage-dashboard.html")
@@ -2021,7 +2112,9 @@ export function activate(context: vscode.ExtensionContext) {
           saveLabel: tr("Exportar HTML"),
           filters: { HTML: ["html"] },
         });
-        if (!uri) return;
+        if (!uri) {
+          return;
+        }
         try {
           fs.writeFileSync(uri.fsPath, html, "utf8");
         } catch (e) {
@@ -2038,6 +2131,13 @@ export function activate(context: vscode.ExtensionContext) {
           vscode.env.openExternal(uri);
         }
       }
+    ),
+    // AI advice (LLM, BYO key) — relatório de coaching em Markdown.
+    vscode.commands.registerCommand("claudeUsageBar.aiAdvice", () =>
+      runAiAdvice(context, buildDashboardData())
+    ),
+    vscode.commands.registerCommand("claudeUsageBar.setAiAdviceKey", () =>
+      setAiAdviceKey(context)
     ),
     // Troca o idioma do plugin (acionado pelas bandeiras no painel). Persiste no
     // globalState (sempre gravável), re-renderiza e remonta o webview (o

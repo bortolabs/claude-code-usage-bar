@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { costFor, UsageLike, pricingTableVersion } from "./pricing";
+import { costForSplit, CostBreakdown, UsageLike, pricingTableVersion } from "./pricing";
 import { prettyModel } from "./transcript";
 
 /**
@@ -21,7 +21,15 @@ export interface TokenCost {
   tokens: number;
   costUSD: number;
 }
-export interface ModelStat extends TokenCost {
+/** Quebra por tipo de token (tokens + custo) — usada em modelo/dia/hora/sessão. */
+export interface TokenSplit {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  messages: number;
+}
+export interface ModelStat extends TokenCost, TokenSplit {
   model: string; // rótulo amigável (prettyModel)
 }
 export interface ProjectStat extends TokenCost {
@@ -30,6 +38,19 @@ export interface ProjectStat extends TokenCost {
 export interface BucketStat extends TokenCost {
   bucket: string; // chave do tamanho de contexto (ver CONTEXT_BUCKETS)
   turns: number;
+}
+export interface DayStat extends TokenCost, TokenSplit {
+  date: string; // 'YYYY-MM-DD' (local)
+}
+export interface HourStat extends TokenCost, TokenSplit {
+  hour: string; // 'YYYY-MM-DD HH:00' (local)
+}
+export interface SessionStat extends TokenCost {
+  session: string; // id da sessão (basename do .jsonl, ou dir-pai p/ subagentes)
+  project: string;
+  messages: number;
+  firstTs: number;
+  lastTs: number;
 }
 export interface CountStat {
   name: string;
@@ -42,11 +63,20 @@ export interface TranscriptStats {
   byContextBucket: BucketStat[];
   byMcpServer: CountStat[];
   bySubagent: CountStat[];
+  bySkill: CountStat[];
+  byPlugin: CountStat[];
+  byDay: DayStat[]; // ordem cronológica (asc), no máx. ~90 dias
+  byHour: HourStat[]; // ordem cronológica (asc), no máx. ~72 horas
+  bySession: SessionStat[]; // por custo (desc), limitado
   totalTokens: number;
   totalCostUSD: number;
   turns: number;
-  /** Totais por tipo de token (p/ heurísticas das dicas). */
+  /** Totais por tipo de token (p/ heurísticas das dicas e KPIs). */
   tokenTotals: { input: number; output: number; cacheRead: number; cacheWrite: number };
+  /** Custo total separado por tipo de token (composição de custo). */
+  costByType: { input: number; output: number; cacheRead: number; cacheWrite: number };
+  /** Fração (0–1) do custo vindo de sessões com duração ≥ 8h (p/ insight). */
+  longSessionCostShare: number;
   /** Sempre true: custo vem da tabela local, não do ccusage. */
   approximate: true;
   /** Versão da tabela de preços usada (p/ exibir "tabela vX"). */
@@ -123,13 +153,56 @@ function projectName(cwd: string | undefined, dirName: string): string {
 
 /** Nome sintético do "projeto" que agrupa o gasto dos subagentes (sidechains). */
 const SUBAGENTS_PROJECT = "subagentes";
+/** Rótulo de plugin p/ skills sem namespace (built-in). */
+const BUILTIN_PLUGIN = "(built-in)";
+
+/** Acumulador "cheio": tokens + custo + quebra por tipo + nº de mensagens. */
+interface FullTC extends TokenCost, TokenSplit {}
+function emptyFull(): FullTC {
+  return {
+    tokens: 0,
+    costUSD: 0,
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    messages: 0,
+  };
+}
+
+/** Contribuição de UM turno (computada uma vez em onLine). */
+interface TurnContrib {
+  tokens: number;
+  cost: number;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+
+function pad2(n: number): string {
+  return n < 10 ? "0" + n : String(n);
+}
+function dayKey(ts: number): string {
+  const d = new Date(ts);
+  return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+}
+function hourKey(ts: number): string {
+  const d = new Date(ts);
+  return dayKey(ts) + " " + pad2(d.getHours()) + ":00";
+}
 
 class Accum {
-  byModel = new Map<string, TokenCost>();
+  byModel = new Map<string, FullTC>();
   byProject = new Map<string, TokenCost>();
   byBucket = new Map<string, BucketStat>();
   byMcp = new Map<string, number>();
   bySub = new Map<string, number>();
+  bySkill = new Map<string, number>();
+  byPlugin = new Map<string, number>();
+  byDay = new Map<string, FullTC>();
+  byHour = new Map<string, FullTC>();
+  bySession = new Map<string, SessionStat>();
   totalTokens = 0;
   totalCostUSD = 0;
   turns = 0;
@@ -138,6 +211,11 @@ class Accum {
   tOutput = 0;
   tCacheRead = 0;
   tCacheWrite = 0;
+  // Custo total separado por tipo de token (composição de custo).
+  cInput = 0;
+  cOutput = 0;
+  cCacheRead = 0;
+  cCacheWrite = 0;
 
   add(map: Map<string, TokenCost>, key: string, tokens: number, cost: number) {
     const cur = map.get(key) ?? { tokens: 0, costUSD: 0 };
@@ -145,13 +223,33 @@ class Accum {
     cur.costUSD += cost;
     map.set(key, cur);
   }
+
+  /** Acumula a contribuição de um turno num mapa "cheio" (modelo/dia/hora). */
+  addFull(map: Map<string, FullTC>, key: string, c: TurnContrib) {
+    const x = map.get(key) ?? emptyFull();
+    x.tokens += c.tokens;
+    x.costUSD += c.cost;
+    x.input += c.input;
+    x.output += c.output;
+    x.cacheRead += c.cacheRead;
+    x.cacheWrite += c.cacheWrite;
+    x.messages += 1;
+    map.set(key, x);
+  }
 }
 
 /**
  * Processa uma linha de transcript já parseada (objeto JSON).
  * Só conta turnos de assistant com `message.usage`. Acumula no `acc`.
  */
-function onLine(acc: Accum, o: any, dirName: string, windowStartMs: number, windowEndMs: number) {
+function onLine(
+  acc: Accum,
+  o: any,
+  dirName: string,
+  sessionId: string,
+  windowStartMs: number,
+  windowEndMs: number
+) {
   const msg = o?.message;
   const usage: UsageLike | undefined = msg?.usage;
   if (!usage) {
@@ -167,29 +265,71 @@ function onLine(acc: Accum, o: any, dirName: string, windowStartMs: number, wind
   }
 
   const tokens = sumUsage(usage);
-  const cost = costFor(usage, rawModel);
+  const cb: CostBreakdown = costForSplit(usage, rawModel);
+  const cost = cb.total;
+  const nn = (v: unknown) => (typeof v === "number" ? v : 0);
+  const inTok = nn(usage.input_tokens);
+  const outTok = nn(usage.output_tokens);
+  const crTok = nn(usage.cache_read_input_tokens);
+  const cwTok = nn(usage.cache_creation_input_tokens);
+
   acc.totalTokens += tokens;
   acc.totalCostUSD += cost;
   acc.turns += 1;
-  const nn = (v: unknown) => (typeof v === "number" ? v : 0);
-  acc.tInput += nn(usage.input_tokens);
-  acc.tOutput += nn(usage.output_tokens);
-  acc.tCacheRead += nn(usage.cache_read_input_tokens);
-  acc.tCacheWrite += nn(usage.cache_creation_input_tokens);
+  acc.tInput += inTok;
+  acc.tOutput += outTok;
+  acc.tCacheRead += crTok;
+  acc.tCacheWrite += cwTok;
+  acc.cInput += cb.input;
+  acc.cOutput += cb.output;
+  acc.cCacheRead += cb.cacheRead;
+  acc.cCacheWrite += cb.cacheWrite;
+
+  const contrib: TurnContrib = {
+    tokens,
+    cost,
+    input: inTok,
+    output: outTok,
+    cacheRead: crTok,
+    cacheWrite: cwTok,
+  };
 
   // Por modelo (rótulo amigável; desconhecido cai no id cru).
   const modelLabel = prettyModel(rawModel) || rawModel || "—";
-  acc.add(acc.byModel, modelLabel, tokens, cost);
+  acc.addFull(acc.byModel, modelLabel, contrib);
+
+  // Por dia / por hora (data local do turno).
+  acc.addFull(acc.byDay, dayKey(ts), contrib);
+  acc.addFull(acc.byHour, hourKey(ts), contrib);
 
   // Por projeto: sidechains (subagentes) vão pro projeto sintético.
   const isSide = o?.isSidechain === true;
   const proj = isSide ? SUBAGENTS_PROJECT : projectName(o?.cwd, dirName);
   acc.add(acc.byProject, proj, tokens, cost);
 
+  // Por sessão (cada .jsonl). Mantém também duração (first/last timestamp).
+  const sess = acc.bySession.get(sessionId) ?? {
+    session: sessionId,
+    project: proj,
+    tokens: 0,
+    costUSD: 0,
+    messages: 0,
+    firstTs: ts,
+    lastTs: ts,
+  };
+  sess.tokens += tokens;
+  sess.costUSD += cost;
+  sess.messages += 1;
+  if (ts < sess.firstTs) {
+    sess.firstTs = ts;
+  }
+  if (ts > sess.lastTs) {
+    sess.lastTs = ts;
+  }
+  acc.bySession.set(sessionId, sess);
+
   // Por tamanho de contexto: input + cache_read do turno.
-  const ctxTokens =
-    (typeof usage.input_tokens === "number" ? usage.input_tokens : 0) +
-    (typeof usage.cache_read_input_tokens === "number" ? usage.cache_read_input_tokens : 0);
+  const ctxTokens = inTok + crTok;
   const bk = bucketFor(ctxTokens);
   const cur = acc.byBucket.get(bk) ?? { bucket: bk, tokens: 0, costUSD: 0, turns: 0 };
   cur.tokens += tokens;
@@ -197,7 +337,7 @@ function onLine(acc: Accum, o: any, dirName: string, windowStartMs: number, wind
   cur.turns += 1;
   acc.byBucket.set(bk, cur);
 
-  // MCP / subagentes: CONTAGEM de chamadas a partir dos blocos tool_use.
+  // MCP / subagentes / skills / plugins: CONTAGEM a partir dos blocos tool_use.
   // (Não dá pra atribuir tokens a um tool_use isolado dentro do turno.)
   const content = msg?.content;
   if (Array.isArray(content)) {
@@ -214,6 +354,20 @@ function onLine(acc: Accum, o: any, dirName: string, windowStartMs: number, wind
         // O tool de subagente já foi chamado de "Task" e de "Agent".
         const sub = (block.input && block.input.subagent_type) || "subagente";
         acc.bySub.set(String(sub), (acc.bySub.get(String(sub)) ?? 0) + 1);
+      } else if (name === "Skill") {
+        // Skill: input.skill = nome ('plugin:skill' p/ skills de plugin).
+        const inp = block.input || {};
+        const raw = inp.skill || inp.command || inp.name;
+        if (raw && typeof raw === "string") {
+          acc.bySkill.set(raw, (acc.bySkill.get(raw) ?? 0) + 1);
+          const colon = raw.indexOf(":");
+          if (colon > 0) {
+            const plugin = raw.slice(0, colon);
+            acc.byPlugin.set(plugin, (acc.byPlugin.get(plugin) ?? 0) + 1);
+          } else {
+            acc.byPlugin.set(BUILTIN_PLUGIN, (acc.byPlugin.get(BUILTIN_PLUGIN) ?? 0) + 1);
+          }
+        }
       }
     }
   }
@@ -265,6 +419,20 @@ function collectFiles(
   }
 }
 
+/**
+ * Id da sessão a partir do caminho do .jsonl: o basename sem extensão, ou — quando
+ * o arquivo é de subagente (`<sessão>/subagents/agent-*.jsonl`) — a pasta-pai da
+ * `subagents/`, p/ os subagentes rolarem pra sessão principal.
+ */
+function sessionIdFor(full: string): string {
+  const norm = full.replace(/\\/g, "/");
+  const idx = norm.indexOf("/subagents/");
+  if (idx !== -1) {
+    return path.basename(norm.slice(0, idx));
+  }
+  return path.basename(full, ".jsonl");
+}
+
 /** Lê e processa UM arquivo (só no cache-miss), despachando cada turno pra onLine. */
 function processFile(
   ref: FileRef,
@@ -278,6 +446,7 @@ function processFile(
   } catch {
     return;
   }
+  const sessionId = sessionIdFor(ref.full);
   for (const line of content.split("\n")) {
     // Fast-path: só linhas de turno (com usage) interessam.
     if (!line || line.indexOf('"usage"') === -1) {
@@ -289,7 +458,7 @@ function processFile(
     } catch {
       continue;
     }
-    onLine(acc, o, ref.dirName, windowStartMs, windowEndMs);
+    onLine(acc, o, ref.dirName, sessionId, windowStartMs, windowEndMs);
   }
 }
 
@@ -360,13 +529,37 @@ export function readTranscriptStats(
   const byContextBucket = CONTEXT_BUCKETS.map((b) => acc.byBucket.get(b.key)).filter(
     (b): b is BucketStat => !!b && b.turns > 0
   );
-  const byMcpServer = Array.from(acc.byMcp.entries())
-    .map(([name, calls]) => ({ name, calls }))
-    .sort((a, b) => b.calls - a.calls)
-    .slice(0, limit);
-  const bySubagent = Array.from(acc.bySub.entries())
-    .map(([name, calls]) => ({ name, calls }))
-    .sort((a, b) => b.calls - a.calls)
+  const countList = (m: Map<string, number>) =>
+    Array.from(m.entries())
+      .map(([name, calls]) => ({ name, calls }))
+      .sort((a, b) => b.calls - a.calls)
+      .slice(0, limit);
+  const byMcpServer = countList(acc.byMcp);
+  const bySubagent = countList(acc.bySub);
+  const bySkill = countList(acc.bySkill);
+  const byPlugin = countList(acc.byPlugin);
+  // Séries temporais: ordem cronológica asc; cap p/ não inflar o payload.
+  const byDay = Array.from(acc.byDay.entries())
+    .map(([date, f]) => ({ date, ...f }))
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+    .slice(-90);
+  const byHour = Array.from(acc.byHour.entries())
+    .map(([hour, f]) => ({ hour, ...f }))
+    .sort((a, b) => (a.hour < b.hour ? -1 : a.hour > b.hour ? 1 : 0))
+    .slice(-72);
+  // Share de custo de sessões longas (≥8h) — calculado sobre TODAS as sessões.
+  const EIGHT_H = 8 * 3600 * 1000;
+  let sessTotal = 0;
+  let sessLong = 0;
+  for (const s of acc.bySession.values()) {
+    sessTotal += s.costUSD;
+    if (s.lastTs - s.firstTs >= EIGHT_H) {
+      sessLong += s.costUSD;
+    }
+  }
+  const longSessionCostShare = sessTotal > 0 ? sessLong / sessTotal : 0;
+  const bySession = Array.from(acc.bySession.values())
+    .sort((a, b) => b.costUSD - a.costUSD || b.tokens - a.tokens)
     .slice(0, limit);
 
   const stats: TranscriptStats = {
@@ -375,6 +568,11 @@ export function readTranscriptStats(
     byContextBucket,
     byMcpServer,
     bySubagent,
+    bySkill,
+    byPlugin,
+    byDay,
+    byHour,
+    bySession,
     totalTokens: acc.totalTokens,
     totalCostUSD: acc.totalCostUSD,
     turns: acc.turns,
@@ -384,6 +582,13 @@ export function readTranscriptStats(
       cacheRead: acc.tCacheRead,
       cacheWrite: acc.tCacheWrite,
     },
+    costByType: {
+      input: acc.cInput,
+      output: acc.cOutput,
+      cacheRead: acc.cCacheRead,
+      cacheWrite: acc.cCacheWrite,
+    },
+    longSessionCostShare,
     approximate: true,
     tableVersion: pricingTableVersion,
   };
@@ -398,10 +603,17 @@ function emptyStats(): TranscriptStats {
     byContextBucket: [],
     byMcpServer: [],
     bySubagent: [],
+    bySkill: [],
+    byPlugin: [],
+    byDay: [],
+    byHour: [],
+    bySession: [],
     totalTokens: 0,
     totalCostUSD: 0,
     turns: 0,
     tokenTotals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    costByType: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    longSessionCostShare: 0,
     approximate: true,
     tableVersion: pricingTableVersion,
   };

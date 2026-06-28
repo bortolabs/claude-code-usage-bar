@@ -67,16 +67,28 @@ function num(v: unknown): number {
   return typeof v === "number" && isFinite(v) ? v : 0;
 }
 
+/** Custo (USD) de um turno separado por tipo de token — soma em `.total`. */
+export interface CostBreakdown {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  total: number;
+}
+
 /**
- * Custo aproximado (USD) de UM turno, dado o `usage` e o id do modelo.
- * Fórmula: input·in + output·out + cacheRead·in·0,1 + write5m·in·1,25 + write1h·in·2,
- * com as taxas em $/token (tabela /1e6). Quando o transcript não detalha o TTL do
- * cache (`cache_creation.ephemeral_*`), trata todo `cache_creation_input_tokens`
- * como 5min (1,25×) — o caso comum.
+ * Custo aproximado (USD) de UM turno SEPARADO por tipo de token, dado o `usage` e
+ * o id do modelo. Fórmula: input·in + output·out + cacheRead·in·0,1 +
+ * write5m·in·1,25 + write1h·in·2, com as taxas em $/token (tabela /1e6). Quando o
+ * transcript não detalha o TTL do cache (`cache_creation.ephemeral_*`), trata todo
+ * `cache_creation_input_tokens` como 5min (1,25×) — o caso comum.
  */
-export function costFor(usage: UsageLike | undefined, modelId: string | null | undefined): number {
+export function costForSplit(
+  usage: UsageLike | undefined,
+  modelId: string | null | undefined
+): CostBreakdown {
   if (!usage) {
-    return 0;
+    return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
   }
   const r = ratesFor(modelId);
   const inRate = r.input / 1_000_000;
@@ -84,7 +96,7 @@ export function costFor(usage: UsageLike | undefined, modelId: string | null | u
 
   const input = num(usage.input_tokens);
   const output = num(usage.output_tokens);
-  const cacheRead = num(usage.cache_read_input_tokens);
+  const cacheReadTok = num(usage.cache_read_input_tokens);
 
   let write5m = 0;
   let write1h = 0;
@@ -97,11 +109,22 @@ export function costFor(usage: UsageLike | undefined, modelId: string | null | u
     write5m = num(usage.cache_creation_input_tokens);
   }
 
-  return (
-    input * inRate +
-    output * outRate +
-    cacheRead * inRate * 0.1 +
-    write5m * inRate * 1.25 +
-    write1h * inRate * 2
-  );
+  const inputCost = input * inRate;
+  const outputCost = output * outRate;
+  const cacheReadCost = cacheReadTok * inRate * 0.1;
+  const cacheWriteCost = write5m * inRate * 1.25 + write1h * inRate * 2;
+  return {
+    input: inputCost,
+    output: outputCost,
+    cacheRead: cacheReadCost,
+    cacheWrite: cacheWriteCost,
+    total: inputCost + outputCost + cacheReadCost + cacheWriteCost,
+  };
+}
+
+/**
+ * Custo aproximado (USD) de UM turno (total). Wrapper sobre `costForSplit`.
+ */
+export function costFor(usage: UsageLike | undefined, modelId: string | null | undefined): number {
+  return costForSplit(usage, modelId).total;
 }

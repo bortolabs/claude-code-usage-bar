@@ -71,5 +71,13 @@
   "config.tipsSubagentPct.desc": "Consejo de subagentes: avisa cuando los **subagentes** representan ≥ este % del costo. Predeterminado 40.",
   "config.language.desc": "Idioma del plugin (panel, barra de estado, alertas). `auto` (predeterminado) sigue el idioma de VS Code; o fuerza `pt`/`en`/`es`/`fr`/`de`. Cámbialo con las banderas en **Config → Idioma**. Nota: las etiquetas de esta pantalla de Settings siguen el idioma de VS Code.",
   "cmd.openDashboard.title": "Claude Usage: Abrir dashboard",
-  "cmd.exportDashboardHtml.title": "Claude Usage: Exportar panel (HTML)"
+  "cmd.exportDashboardHtml.title": "Claude Usage: Exportar panel (HTML)",
+  "cmd.aiAdvice.title": "Claude Usage: AI advice (informe de coaching)",
+  "cmd.setAiAdviceKey.title": "Claude Usage: Definir clave del AI advice",
+  "config.dashboardWindow.desc": "Ventana del panel de analítica (Hoy/Semana/Mes/Todo).",
+  "config.aiAdviceEndpoint.desc": "Endpoint del AI advice (vacío = Anthropic /v1/messages).",
+  "config.aiAdviceModel.desc": "Modelo del AI advice (vacío = claude-opus-4-8).",
+  "config.aiAdviceApiStyle.desc": "Estilo de API del AI advice: anthropic (/v1/messages) u openai (compatible).",
+  "config.aiAdvicePromptWindowDays.desc": "AI advice: ventana (días) para muestrear tus prompts.",
+  "config.aiAdviceMaxPrompts.desc": "AI advice: número máximo de prompts muestreados."
 }

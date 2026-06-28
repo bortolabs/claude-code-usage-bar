@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.31.0
+
+- **📊 Dashboard de analytics de verdade** (substitui o "fullscreen" da 0.30, que só refluía a
+  sidebar). O comando **"Abrir dashboard"** agora abre uma visão pensada em **métricas e dimensões**:
+  - **Cards de KPI:** Custo · Mensagens · Input · Output · Cache (miss) · Cache (hit) · **Cache hit rate**.
+  - **Composição de custo** por tipo de token (barra empilhada com `$` e `%`: input/output/cache-read/cache-write).
+  - **Gráfico ao longo do tempo** (barras empilhadas) com **toggle** Tokens (composição)/Custo/Mensagens
+    e tooltip — **por hora** na janela "Hoje", **por dia** nas demais.
+  - **Insights** em linguagem natural (locais, sem rede): contexto >150k, sessões 8h+, cache hit rate,
+    share de output/Opus, MCP, subagentes.
+  - **Breakdowns em barras** (×contagem/`$` e `%`): por **modelo · projeto · sessão · contexto ·
+    skills · plugins · MCP · subagentes**.
+  - **Tabelas** por **modelo** (4 tipos de token + msgs + custo) e por **período** (dia/hora).
+  - **Seletor de janela** no topo: **Hoje · Semana · Mês · Tudo**.
+- **🧮 Novas métricas no agregador** (local, sem rede): custo separado por **tipo de token**
+  (`pricing.costForSplit`), **cache hit rate**, séries **por dia/hora** com split, **por sessão**
+  (com duração) e **skills/plugins** (dos blocos `tool_use` do `Skill`).
+- **✦ AI advice (opt-in, BYO key).** Botão/comando que gera um **relatório de coaching em Markdown**
+  a partir dos seus agregados + uma amostra dos seus prompts, via **Anthropic `/v1/messages`** (ou um
+  endpoint OpenAI-compatível). A chave fica no **SecretStorage** (comando "Definir chave do AI
+  advice"); **confirmação explícita** antes de enviar — é a única parte do plugin que sai da máquina.
+- **⬇ Export `.html`** agora exporta o dashboard de analytics (snapshot autocontido, tema próprio).
+- Sidebar **inalterada**; i18n nos 5 idiomas em paridade.
+
 ## 0.30.0
 
 - **🖥️ Dashboard completo numa aba do editor.** Novo comando **"Claude Usage: Abrir dashboard"**
