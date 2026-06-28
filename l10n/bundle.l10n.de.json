@@ -266,5 +266,15 @@
   "{0}% do seu custo veio de turnos com contexto >150k. Use /compact no meio da tarefa e /clear ao trocar de assunto.": "{0}% deiner Kosten stammen aus Turns mit >150k Kontext. Nutze /compact mitten in der Aufgabe und /clear beim Themenwechsel.",
   "Ótimo aproveitamento de cache: {0}% de cache hit. Releitura barata em vez de reprocessar contexto.": "Hervorragende Cache-Nutzung: {0}% Cache-Hit. Günstiges Wiederlesen statt Kontext neu zu verarbeiten.",
   "≈ aproximado · local, sem chamada externa · tabela v{0}": "≈ ungefähr · lokal, kein externer Aufruf · Tabelle v{0}",
-  "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting.": "Kostenpflichtiger API-Schlüssel des Anbieters (Anthropic sk-ant-… oder OpenAI-kompatibel) — getrennt von deinem Claude-Code-Abo. Im sicheren Speicher (SecretStorage) abgelegt, nie in einer Einstellung."
+  "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting.": "Kostenpflichtiger API-Schlüssel des Anbieters (Anthropic sk-ant-… oder OpenAI-kompatibel) — getrennt von deinem Claude-Code-Abo. Im sicheren Speicher (SecretStorage) abgelegt, nie in einer Einstellung.",
+  "AI advice (coaching por IA)": "AI advice (KI-Coaching)",
+  "Amostra de prompts: janela (dias)": "Prompt-Stichprobe: Fenster (Tage)",
+  "Amostra de prompts: máximo": "Prompt-Stichprobe: Maximum",
+  "Definir chave": "Schlüssel festlegen",
+  "Endpoint (vazio = Anthropic)": "Endpunkt (leer = Anthropic)",
+  "Estilo da API (anthropic/openai)": "API-Stil (anthropic/openai)",
+  "Gerar AI advice": "AI advice erstellen",
+  "Modelo (vazio = claude-opus-4-8)": "Modell (leer = claude-opus-4-8)",
+  "Presets": "Presets",
+  "Relatório de coaching por IA (opt-in, BYO key). Use um preset abaixo, defina a chave e gere. A chave fica no cofre seguro (SecretStorage), separada da assinatura.": "KI-Coaching-Bericht (opt-in, BYO key). Wähle unten ein Preset, lege den Schlüssel fest und generiere. Der Schlüssel liegt im sicheren Speicher (SecretStorage), getrennt vom Abo."
 }

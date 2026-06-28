@@ -266,5 +266,15 @@
   "{0}% do seu custo veio de turnos com contexto >150k. Use /compact no meio da tarefa e /clear ao trocar de assunto.": "{0}% de votre coût vient de tours avec un contexte >150k. Utilisez /compact en cours de tâche et /clear en changeant de sujet.",
   "Ótimo aproveitamento de cache: {0}% de cache hit. Releitura barata em vez de reprocessar contexto.": "Excellente utilisation du cache : {0}% de cache hit. Relectures bon marché au lieu de retraiter le contexte.",
   "≈ aproximado · local, sem chamada externa · tabela v{0}": "≈ approximatif · local, sans appel externe · table v{0}",
-  "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting.": "Clé d’API payante du fournisseur (Anthropic sk-ant-… ou compatible OpenAI) — distincte de votre abonnement Claude Code. Conservée dans le coffre sécurisé (SecretStorage), jamais dans un paramètre."
+  "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting.": "Clé d’API payante du fournisseur (Anthropic sk-ant-… ou compatible OpenAI) — distincte de votre abonnement Claude Code. Conservée dans le coffre sécurisé (SecretStorage), jamais dans un paramètre.",
+  "AI advice (coaching por IA)": "AI advice (coaching par IA)",
+  "Amostra de prompts: janela (dias)": "Échantillon de prompts : fenêtre (jours)",
+  "Amostra de prompts: máximo": "Échantillon de prompts : maximum",
+  "Definir chave": "Définir la clé",
+  "Endpoint (vazio = Anthropic)": "Endpoint (vide = Anthropic)",
+  "Estilo da API (anthropic/openai)": "Style d'API (anthropic/openai)",
+  "Gerar AI advice": "Générer AI advice",
+  "Modelo (vazio = claude-opus-4-8)": "Modèle (vide = claude-opus-4-8)",
+  "Presets": "Préréglages",
+  "Relatório de coaching por IA (opt-in, BYO key). Use um preset abaixo, defina a chave e gere. A chave fica no cofre seguro (SecretStorage), separada da assinatura.": "Rapport de coaching par IA (opt-in, BYO key). Choisissez un préréglage ci-dessous, définissez la clé et générez. La clé est conservée dans le coffre sécurisé (SecretStorage), distincte de l'abonnement."
 }

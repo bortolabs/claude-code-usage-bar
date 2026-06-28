@@ -266,5 +266,15 @@
   "{0}% do seu custo veio de turnos com contexto >150k. Use /compact no meio da tarefa e /clear ao trocar de assunto.": "El {0}% de tu costo vino de turnos con contexto >150k. Usa /compact a mitad de tarea y /clear al cambiar de tema.",
   "Ótimo aproveitamento de cache: {0}% de cache hit. Releitura barata em vez de reprocessar contexto.": "Gran aprovechamiento de caché: {0}% de cache hit. Relecturas baratas en vez de reprocesar contexto.",
   "≈ aproximado · local, sem chamada externa · tabela v{0}": "≈ aproximado · local, sin llamada externa · tabla v{0}",
-  "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting.": "API key de pago del proveedor (Anthropic sk-ant-… u OpenAI-compatible) — separada de tu suscripción de Claude Code. Se guarda en el almacén seguro (SecretStorage), nunca en una configuración."
+  "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting.": "API key de pago del proveedor (Anthropic sk-ant-… u OpenAI-compatible) — separada de tu suscripción de Claude Code. Se guarda en el almacén seguro (SecretStorage), nunca en una configuración.",
+  "AI advice (coaching por IA)": "AI advice (coaching por IA)",
+  "Amostra de prompts: janela (dias)": "Muestra de prompts: ventana (días)",
+  "Amostra de prompts: máximo": "Muestra de prompts: máximo",
+  "Definir chave": "Definir clave",
+  "Endpoint (vazio = Anthropic)": "Endpoint (vacío = Anthropic)",
+  "Estilo da API (anthropic/openai)": "Estilo de API (anthropic/openai)",
+  "Gerar AI advice": "Generar AI advice",
+  "Modelo (vazio = claude-opus-4-8)": "Modelo (vacío = claude-opus-4-8)",
+  "Presets": "Presets",
+  "Relatório de coaching por IA (opt-in, BYO key). Use um preset abaixo, defina a chave e gere. A chave fica no cofre seguro (SecretStorage), separada da assinatura.": "Informe de coaching por IA (opt-in, BYO key). Elige un preset abajo, define la clave y genera. La clave se guarda en el almacén seguro (SecretStorage), separada de la suscripción."
 }
