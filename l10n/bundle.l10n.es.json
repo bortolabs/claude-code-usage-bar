@@ -140,6 +140,7 @@
   "Ritmo alto: {0}/h (limite {1}/h)": "Ritmo alto: {0}/h (límite {1}/h)",
   "Sessão 5h projeta atingir 100% antes do reset": "La sesión 5h proyecta alcanzar el 100% antes del reinicio",
   "Limite semanal projeta atingir 100% antes do reset": "El límite semanal proyecta alcanzar el 100% antes del reinicio",
+  "💡 Pra não estourar: pause ~{0} ou reduza o ritmo ~{1}%": "💡 Para no pasarte: pausa ~{0} o reduce el ritmo ~{1}%",
   "Fonte de dados": "Fuente de datos",
   "Fonte ativa": "Fuente activa",
   "desativado nas configurações": "desactivado en los ajustes",

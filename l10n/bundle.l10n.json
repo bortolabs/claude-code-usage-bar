@@ -165,6 +165,7 @@
   "Ritmo alto: {0}/h (limite {1}/h)": "Ritmo alto: {0}/h (limite {1}/h)",
   "Sessão 5h projeta atingir 100% antes do reset": "Sessão 5h projeta atingir 100% antes do reset",
   "Limite semanal projeta atingir 100% antes do reset": "Limite semanal projeta atingir 100% antes do reset",
+  "💡 Pra não estourar: pause ~{0} ou reduza o ritmo ~{1}%": "💡 Pra não estourar: pause ~{0} ou reduza o ritmo ~{1}%",
   "Claude Usage — orçamento mensal: já usou {0} de {1}.": "Claude Usage — orçamento mensal: já usou {0} de {1}.",
   "Claude Usage — no ritmo atual o mês deve fechar em ~{0} (orçamento {1}).": "Claude Usage — no ritmo atual o mês deve fechar em ~{0} (orçamento {1}).",
   "Custos": "Custos",

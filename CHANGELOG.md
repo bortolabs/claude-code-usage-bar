@@ -2,6 +2,12 @@
 
 ## 0.29.2
 
+- **Dica de ritmo no alerta de burn rate.** Quando a sessão 5h (ou o teto de custo) projeta
+  atingir 100% antes do reset, o banner agora sugere **quanto pausar** (esperar X min sem gastar
+  tokens) **ou quanto reduzir o ritmo** pra não estourar — ex.: *"💡 Pra não estourar: pause ~3
+  min ou reduza o ritmo ~15%"*. É o mesmo modelo do alerta (enquanto **uso% ≤ tempo%**, não há
+  estouro previsto): pausar deixa o tempo correr até empatar com o consumo. Tudo local, sem rede.
+- **Bandeira do inglês = 🇺🇸** (no card de Idioma e no README), como combinado.
 - **Corrige a janela das quebras (5h/Hoje/7d/30d) que não pegava.** Ao trocar a janela, os cards
   **Por modelo / Por projeto / Por tamanho de contexto** continuavam presos em "5h" (só o botão
   mudava). A troca usava o mesmo caminho de gravação que tinha quebrado o idioma (setting +

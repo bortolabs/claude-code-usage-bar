@@ -18,7 +18,7 @@ precisar parar pra rodar `/usage`.
 
 > ℹ️ A listagem no **VS Code Marketplace** está **temporariamente indisponível** (em revisão junto ao suporte da Microsoft). Use o **Open VSX** ou o **`.vsix`** acima enquanto isso.
 
-**Idiomas / Languages:** 🇧🇷 **Português** (base), 🇬🇧 **English**, 🇪🇸 **Español**,
+**Idiomas / Languages:** 🇧🇷 **Português** (base), 🇺🇸 **English**, 🇪🇸 **Español**,
 🇫🇷 **Français**, 🇩🇪 **Deutsch**. Por padrão segue o idioma do VS Code, mas dá pra
 **forçar** um idioma pelas **bandeiras** na aba **Config → Idioma** (troca toda a UI do
 plugin na hora). Sem tradução para o idioma ativo, cai no português.

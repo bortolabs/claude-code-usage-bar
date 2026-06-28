@@ -594,7 +594,7 @@ function panelHtml(): string {
   // Bandeiras de idioma: troca o idioma de TODO o plugin (globalState).
   function langButtons() {
     const cur = curLang || 'auto';
-    const opts = [['auto','🌐'],['pt','🇧🇷'],['en','🇬🇧'],['es','🇪🇸'],['fr','🇫🇷'],['de','🇩🇪']];
+    const opts = [['auto','🌐'],['pt','🇧🇷'],['en','🇺🇸'],['es','🇪🇸'],['fr','🇫🇷'],['de','🇩🇪']];
     return '<div class="styles"><div class="cfg-help-line">' + esc(L.cfg.langHelp) + '</div><div class="style-btns lang-row">' +
       opts.map(function(o){
         return '<button class="sbtn lang-btn' + (o[0]===cur?' active':'') + '" data-lang="' + o[0] + '" title="' + o[0] + '">' + o[1] + '</button>';
