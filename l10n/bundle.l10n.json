@@ -215,5 +215,12 @@
   "{0}/turno": "{0}/turno",
   "Idioma": "Idioma",
   "Idioma de todo o plugin (painel, status bar, alertas). 🌐 = segue o VS Code. Os rótulos na tela de Settings do VS Code seguem o idioma do VS Code.": "Idioma de todo o plugin (painel, status bar, alertas). 🌐 = segue o VS Code. Os rótulos na tela de Settings do VS Code seguem o idioma do VS Code.",
-  "Por dia": "Por dia"
+  "Por dia": "Por dia",
+  "Abrir dashboard": "Abrir dashboard",
+  "Exportar HTML": "Exportar HTML",
+  "Dashboard de uso do Claude": "Dashboard de uso do Claude",
+  "Gerado em {0}": "Gerado em {0}",
+  "Dashboard exportado.": "Dashboard exportado.",
+  "Abrir no navegador": "Abrir no navegador",
+  "Falha ao exportar: {0}": "Falha ao exportar: {0}"
 }

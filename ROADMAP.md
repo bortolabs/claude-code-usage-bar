@@ -60,6 +60,7 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | Dica de ritmo no alerta | Quando projeta estourar a sessão 5h / teto de custo, o banner sugere quanto pausar ou reduzir o ritmo (local, sem rede) | 0.29.3 |
 | Tooltips dos gráficos no webview | Tooltip flutuante próprio (o `title` nativo não renderiza) com o valor absoluto do dia | 0.29.2 |
 | Alertas seguem a bandeira | Banner de burn rate (e a dica de ritmo) migrados pro `tr()` — seguem o idioma escolhido, não o do VS Code | 0.29.4 |
+| **Dashboard completo + export HTML** | Comando que abre **tudo de uma vez** numa aba do editor (grid responsivo, seções expandidas, ao vivo) + export de um **`.html` autocontido** pro navegador (snapshot com tema próprio) | 0.30.0 |
 
 ## 💡 Próximas ideias
 
@@ -70,7 +71,6 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | 16 | **Orçamento/meta por token** | Hoje o orçamento é só por `$`/mês; expor um teto por **tokens** (5h/dia/semana) com alerta, complementando o de custo | Baixo | ✅ |
 | 17 | **Resumo semanal de custo** | Notificação opt-in com o resumo da semana (custo, top modelo/projeto, delta vs. anterior) — reusa o resumo de fim de bloco | Baixo | ✅ |
 | 18 | **Export de custo em CSV** | Botão pra exportar a quebra (por dia/modelo/projeto) em CSV, além do JSON v2 que já existe | Baixo | ✅ |
-| 19 | **Dashboard completo em HTML** | Abrir uma visão **fullscreen** (aba do editor, não a barra lateral estreita) com tudo de uma vez — sessão, custos, quebras, gráficos, status — em layout amplo. Variante: **exportar um `.html` autocontido** pra abrir no navegador/compartilhar. Reusa o render do `panel.ts` num `WebviewPanel` | Médio | ✅ |
 | 10 | **Multi-conta / perfis** | Alternar entre contas (pessoal vs trabalho): token/transcripts por perfil. Mexe em fonte de dados, oauth e persistência — fechar escopo antes | Alto | ⚠️ depende do setup |
 
 ## 🌐 Externo / operacional (fora do código)

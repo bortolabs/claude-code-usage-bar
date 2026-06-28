@@ -99,6 +99,10 @@ function panelStrings() {
     waiting: tr("Aguardando dados do Claude Code…"),
     title: tr("Claude Usage"),
     refresh: tr("Atualizar"),
+    openDashboard: tr("Abrir dashboard"),
+    exportHtml: tr("Exportar HTML"),
+    dashboardTitle: tr("Dashboard de uso do Claude"),
+    exportedAt: tr("Gerado em {0}"),
     updating: tr("atualizando…"),
     updated: tr("atualizado {0}"),
     agoS: tr("há {0}s"),
@@ -270,16 +274,58 @@ function panelStrings() {
   };
 }
 
-/** HTML compartilhado entre a view da sidebar e (se usado) um painel. */
-function panelHtml(): string {
+type PanelMode = "sidebar" | "dashboard";
+
+/**
+ * HTML compartilhado entre a view da sidebar, o dashboard (WebviewPanel) e o
+ * export estático (.html aberto no navegador).
+ * - mode 'sidebar' (default): comportamento original, abas, sem regressão.
+ * - mode 'dashboard': sem abas, todas as seções num grid responsivo.
+ * - staticData presente: variante autocontida (dados embutidos, sem VS Code,
+ *   com fallback de tema e sem elementos interativos via .needs-host).
+ */
+function panelHtml(opts?: {
+  mode?: PanelMode;
+  staticData?: PanelData;
+  generatedAt?: string;
+}): string {
+  const mode: PanelMode = opts?.mode ?? "sidebar";
+  const isDash = mode === "dashboard";
+  const staticData = opts?.staticData ?? null;
+  const isExport = !!staticData;
+  const generatedAt = opts?.generatedAt ?? "";
   const nonce = String(Date.now()) + "x";
   const loc = panelStrings();
+  // Fora do VS Code (export aberto no navegador) as variáveis --vscode-* não
+  // resolvem. Definimos um tema escuro padrão cobrindo as usadas no <style>.
+  const themeFallback = isExport
+    ? `:root {
+      --vscode-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, sans-serif;
+      --vscode-foreground: #cccccc;
+      --vscode-descriptionForeground: #9d9d9d;
+      --vscode-editorWidget-border: #3a3a3a;
+      --vscode-editorWidget-background: #252526;
+      --vscode-button-secondaryBackground: #313131;
+      --vscode-button-secondaryForeground: #cccccc;
+      --vscode-button-secondaryHoverBackground: #3c3c3c;
+      --vscode-focusBorder: #007fd4;
+      --vscode-editorHoverWidget-background: #252526;
+      --vscode-editorHoverWidget-foreground: #cccccc;
+      --vscode-editorHoverWidget-border: #454545;
+      --vscode-input-background: #2a2a2a;
+      --vscode-input-foreground: #dddddd;
+      --vscode-input-border: #444444;
+      --vscode-textLink-foreground: #4daafc;
+    }
+    body { background: #1e1e1e; }`
+    : "";
   return `<!DOCTYPE html>
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
 <style>
+  ${themeFallback}
   :root {
     --ok: #4caf78;
     --warn: #e0a52b;
@@ -401,6 +447,22 @@ function panelHtml(): string {
   }
   .tab:hover { color: var(--vscode-foreground); }
   .tab.active { color: var(--vscode-foreground); border-bottom-color: var(--ok); }
+  /* Dashboard (WebviewPanel / export): sem abas, tudo num grid responsivo. */
+  body.mode-dashboard { padding: 18px 24px; }
+  .mode-dashboard .tabs { display: none; }
+  .mode-dashboard .tabs-wrap {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 16px; align-items: start; max-width: 1500px; margin: 8px auto 0;
+  }
+  .mode-dashboard .dash-sec { min-width: 0; }
+  .mode-dashboard .dash-sec-title {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
+    font-weight: 600; color: var(--vscode-foreground); margin: 0 0 8px;
+  }
+  .mode-dashboard .header, .mode-dashboard .alert,
+  .mode-dashboard .footer { max-width: 1500px; margin-left: auto; margin-right: auto; }
+  /* Some no export (.html no navegador): tudo que depende do host VS Code. */
+  .is-export .needs-host { display: none !important; }
   /* Form de configurações */
   .cfg-section-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--vscode-descriptionForeground); margin: 14px 0 6px; }
   /* Título da seção quando é o 1º item do próprio card (1 card por seção). */
@@ -458,10 +520,19 @@ function panelHtml(): string {
   .bgc-ok { background: var(--ok); } .bgc-warn { background: var(--warn); } .bgc-err { background: var(--err); }
 </style>
 </head>
-<body>
+<body class="${isDash ? "mode-dashboard" : ""}${isExport ? " is-export" : ""}">
   <div id="app"><div class="empty">${loc.waiting}</div></div>
 <script nonce="${nonce}">
-  const vscode = acquireVsCodeApi();
+  // No webview do VS Code, acquireVsCodeApi existe; no .html exportado (browser)
+  // não — então usamos um stub no-op pra não quebrar o script.
+  const vscode = (typeof acquireVsCodeApi === 'function')
+    ? acquireVsCodeApi()
+    : { getState: function(){ return null; }, setState: function(){}, postMessage: function(){} };
+  // Modo dashboard (grid, sem abas) e dados embutidos do export (ou null).
+  const DASHBOARD = ${isDash ? "true" : "false"};
+  const STATIC_DATA = ${staticData ? JSON.stringify(staticData) : "null"};
+  const STATIC_GENERATED_AT = ${JSON.stringify(generatedAt)};
+  const IS_EXPORT = !!STATIC_DATA;
   // Strings já traduzidas (idioma ativo do VS Code), injetadas pelo host.
   const L = ${JSON.stringify(loc)};
   const colorVar = { ok: 'var(--ok)', warn: 'var(--warn)', err: 'var(--err)' };
@@ -479,6 +550,9 @@ function panelHtml(): string {
   let collapsed = persisted.collapsed || {};
   // Estado recolhido dos cards de conteúdo (id do card → true = recolhido).
   let cardCollapsed = persisted.cardc || {};
+  // Dashboard: abre SEMPRE com todas as seções expandidas. Resetamos o estado
+  // recolhido na 1ª render (o usuário ainda pode recolher durante a sessão).
+  let dashInit = false;
   function saveState(){ if (vscode.setState) vscode.setState({ activeTab: activeTab, collapsed: collapsed, cardc: cardCollapsed }); }
 
   // Schema dos settings para a aba Config (key, label, tipo, opções).
@@ -553,6 +627,12 @@ function panelHtml(): string {
   }
   // Atualiza só o texto do "atualizado há Xs" (chamado a cada 1s).
   function tickLastUpd() {
+    // No export estático não há atualização ao vivo: mostra a hora de geração.
+    if (IS_EXPORT) {
+      var ex = document.getElementById('lastUpd');
+      if (ex) ex.textContent = STATIC_GENERATED_AT ? fmt(L.exportedAt, STATIC_GENERATED_AT) : '';
+      return;
+    }
     var el = document.getElementById('lastUpd');
     if (el) el.textContent = updatedAtMs ? fmt(L.updated, fmtSince(updatedAtMs)) : '';
   }
@@ -967,6 +1047,8 @@ function panelHtml(): string {
   function render(d, force) {
     if (!d) { d = lastData; if (!d) return; }
     lastData = d;
+    // No dashboard, garante tudo aberto ao montar (reseta só uma vez).
+    if (DASHBOARD && !dashInit) { collapsed = {}; cardCollapsed = {}; dashInit = true; }
     // Na aba Config NÃO reconstruímos o conteúdo a cada atualização de dados
     // vinda da extensão (ticks de ccusage/oauth/status ou o "eco" do próprio
     // setConfig que acabou de salvar). Recriar o formulário apagaria o que o
@@ -976,19 +1058,32 @@ function panelHtml(): string {
     // aberta apenas guardamos os dados novos em lastData (já feito acima) e os
     // reaplicamos quando o usuário troca de aba e volta. Se o form ainda não
     // está na tela (1ª montagem), deixamos renderizar normalmente.
-    if (activeTab === 'config' && !force && document.querySelector('[data-key]')) {
-      return;
+    if (!force && document.querySelector('[data-key]')) {
+      // Sidebar: na aba Config não reconstruímos a cada tick (apagaria edições).
+      // Dashboard: a Config fica sempre montada; só protegemos se um campo dela
+      // estiver focado (senão atualizamos as demais seções ao vivo normalmente).
+      if (!DASHBOARD && activeTab === 'config') return;
+      if (DASHBOARD && document.activeElement &&
+          document.activeElement.closest &&
+          document.activeElement.closest('[data-key]')) return;
     }
     if (d.barStyle) curStyle = d.barStyle;
     if (d.lang) curLang = d.lang;
     if (d.updatedAtMs) updatedAtMs = d.updatedAtMs;
     const ringOverride = d.ringColorOverride || null;
 
+    // Botões de atalho (somem no export via .needs-host): abrir o dashboard
+    // (só na sidebar) e exportar o .html (na sidebar e no dashboard).
+    const openDashBtn = DASHBOARD ? '' :
+      '<button id="openDashboardBtn" class="refresh needs-host" title="' + esc(L.openDashboard) + '" aria-label="' + esc(L.openDashboard) + '"><span class="ic">⛶</span></button>';
+    const exportBtn =
+      '<button id="exportHtmlBtn" class="refresh needs-host" title="' + esc(L.exportHtml) + '" aria-label="' + esc(L.exportHtml) + '"><span class="ic">⬇</span></button>';
     const header =
-      '<div class="header"><span class="title">' + esc(L.title) + '</span>' +
+      '<div class="header"><span class="title">' + esc(DASHBOARD ? L.dashboardTitle : L.title) + '</span>' +
       '<div class="header-right">' +
       '<span id="lastUpd" class="last-upd"></span>' +
-      '<button id="refreshBtn" class="refresh" title="' + esc(L.refresh) + '" aria-label="' + esc(L.refresh) + '"><span class="ic">↻</span></button>' +
+      openDashBtn + exportBtn +
+      '<button id="refreshBtn" class="refresh needs-host" title="' + esc(L.refresh) + '" aria-label="' + esc(L.refresh) + '"><span class="ic">↻</span></button>' +
       '</div></div>';
 
     // Alerta sempre visível (qualquer aba), pois é importante.
@@ -1000,47 +1095,64 @@ function panelHtml(): string {
       alertHtml = '<div class="alert' + sev + '"><div class="alert-title">⚠ ' + esc(d.alert.message) + '</div>' + extra + '</div>';
     }
 
-    let body = '';
-    if (activeTab === 'sessao') {
-      const rows = (d.rows || []).map(function(row) {
-        const pct = row.pct == null ? null : Math.max(0, Math.min(100, row.pct));
-        return '<div class="row"><div class="row-head"><span class="row-label">' + esc(row.label) +
-          '</span><span class="row-val">' + esc(row.value) + '</span></div>' + bar(pct, ringOverride) + '</div>';
-      }).join('');
-      body = card('<div class="ring-wrap">' +
-        ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub, ringOverride) +
-        '</div>' + rows) + sourceCard(d.source);
-    } else if (activeTab === 'custos') {
-      // Aba dedicada: hoje/mês + custo/dia + tokens/dia + seletor + quebras + dicas.
-      const c = d.cost;
-      const hasStats = !!(c && (c.byModel.length || c.byProject.length ||
-        c.byContextBucket.length || c.byMcpServer.length || c.bySubagent.length));
-      const sparks = costSparkline(d.daily) + sparkline(d.daily);
-      body = costCard(c) + (sparks ? collapsibleCard('daily', L.cost.daily, sparks) : '') +
-        (hasStats
-          ? windowSelector(c.window) + byModelCard(c) + projectsCostCard(c) +
-            bucketsCard(c) + countsCard(c) + tipsCard(c)
-          : '');
-      if (!body) body = '<div class="empty">' + esc(L.cost.empty) + '</div>';
-    } else if (activeTab === 'status') {
-      body = statusTab(d.status);
-    } else if (activeTab === 'config') {
-      // Os controles de estilo e do alerta de burn rate agora vivem dentro das
-      // seções (Aparência / Alertas e cores) — sem cards standalone redundantes.
-      body = configTab(d.settings, d.placeholders);
+    // Conteúdo de uma seção/aba — reusado pela sidebar (1 por vez) e pelo
+    // dashboard (todas num grid). 'force' propaga p/ o re-monte do form da Config.
+    function tabBody(tab) {
+      if (tab === 'sessao') {
+        const rows = (d.rows || []).map(function(row) {
+          const pct = row.pct == null ? null : Math.max(0, Math.min(100, row.pct));
+          return '<div class="row"><div class="row-head"><span class="row-label">' + esc(row.label) +
+            '</span><span class="row-val">' + esc(row.value) + '</span></div>' + bar(pct, ringOverride) + '</div>';
+        }).join('');
+        return card('<div class="ring-wrap">' +
+          ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub, ringOverride) +
+          '</div>' + rows) + sourceCard(d.source);
+      }
+      if (tab === 'custos') {
+        // Aba dedicada: hoje/mês + custo/dia + tokens/dia + seletor + quebras + dicas.
+        const c = d.cost;
+        const hasStats = !!(c && (c.byModel.length || c.byProject.length ||
+          c.byContextBucket.length || c.byMcpServer.length || c.bySubagent.length));
+        const sparks = costSparkline(d.daily) + sparkline(d.daily);
+        var cb = costCard(c) + (sparks ? collapsibleCard('daily', L.cost.daily, sparks) : '') +
+          (hasStats
+            ? windowSelector(c.window) + byModelCard(c) + projectsCostCard(c) +
+              bucketsCard(c) + countsCard(c) + tipsCard(c)
+            : '');
+        return cb || ('<div class="empty">' + esc(L.cost.empty) + '</div>');
+      }
+      if (tab === 'status') return statusTab(d.status);
+      if (tab === 'config') {
+        // Os controles de estilo e do alerta de burn rate vivem dentro das
+        // seções (Aparência / Alertas e cores) — sem cards standalone redundantes.
+        return configTab(d.settings, d.placeholders);
+      }
+      return '';
+    }
+
+    let body;
+    if (DASHBOARD) {
+      // Sem abas: todas as seções num grid. No export a Config sai (interativa).
+      var secs = IS_EXPORT ? ['sessao','custos','status'] : ['sessao','custos','status','config'];
+      body = '<div class="tabs-wrap">' + secs.map(function(t){
+        return '<section data-tab="' + t + '" class="dash-sec">' +
+          '<div class="dash-sec-title">' + esc(L.tabs[t]) + '</div>' + tabBody(t) + '</section>';
+      }).join('') + '</div>';
+    } else {
+      body = tabBody(activeTab);
     }
 
     // Badge ⚠ na aba Status quando há incidente/degradação.
     const statusIssue = !!(d.status && (d.status.indicator !== 'none' ||
       (d.status.incidents && d.status.incidents.length)));
-    // Créditos discretos só na aba Sessão: versão + link do repo (autor).
+    // Créditos discretos: na aba Sessão (sidebar) ou sempre no dashboard.
     var creditsHtml = '';
-    if (activeTab === 'sessao' && d.credits && d.credits.version) {
+    if ((DASHBOARD || activeTab === 'sessao') && d.credits && d.credits.version) {
       creditsHtml = '<div class="credits">v' + esc(d.credits.version) +
         ' · <a href="#" id="openRepo">bortolabs/claude-code-usage-bar</a></div>';
     }
     document.getElementById('app').innerHTML =
-      header + alertHtml + tabsBar(statusIssue) + body +
+      header + alertHtml + (DASHBOARD ? '' : tabsBar(statusIssue)) + body +
       '<div class="footer">' + esc(d.footer || '') + creditsHtml + '</div>';
     tickLastUpd();
     wireEvents();
@@ -1146,6 +1258,10 @@ function panelHtml(): string {
         setTimeout(function(){ lu.classList.remove('flash'); }, 1200); }
       vscode.postMessage({ type: 'refresh' });
     });
+    const od = document.getElementById('openDashboardBtn');
+    if (od) od.addEventListener('click', function(){ vscode.postMessage({ type: 'openDashboard' }); });
+    const eh = document.getElementById('exportHtmlBtn');
+    if (eh) eh.addEventListener('click', function(){ vscode.postMessage({ type: 'exportDashboardHtml' }); });
   }
 
   window.addEventListener('message', function(e) {
@@ -1185,8 +1301,10 @@ function panelHtml(): string {
     document.addEventListener('mouseleave', hide);
     window.addEventListener('blur', hide);
   })();
-  // pede um render inicial assim que a view monta
-  vscode.postMessage({ type: 'ready' });
+  // Export estático: renderiza os dados embutidos. Webview: pede um render
+  // inicial assim que monta (o host responde com o último estado).
+  if (STATIC_DATA) { render(STATIC_DATA); }
+  else { vscode.postMessage({ type: 'ready' }); }
 </script>
 </body>
 </html>`;
@@ -1270,6 +1388,10 @@ function wireMessages(
       vscode.env.openExternal(
         vscode.Uri.parse("https://github.com/bortolabs/claude-code-usage-bar")
       );
+    } else if (msg?.type === "openDashboard") {
+      vscode.commands.executeCommand("claudeUsageBar.openDashboard");
+    } else if (msg?.type === "exportDashboardHtml") {
+      vscode.commands.executeCommand("claudeUsageBar.exportDashboardHtml");
     } else if (msg?.type === "ready") {
       onReady();
     }
@@ -1348,4 +1470,80 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
       vscode.commands.executeCommand("claudeUsageView.focus");
     }
   }
+}
+
+/**
+ * Painel "dashboard" numa aba do editor (WebviewPanel): a mesma informação da
+ * sidebar, porém sem abas — todas as seções num grid amplo. Recebe os mesmos
+ * updates via postMessage e reusa o protocolo de mensagens (wireMessages).
+ */
+export class DashboardPanel {
+  public static current: DashboardPanel | undefined;
+  private panel: vscode.WebviewPanel;
+  private last?: { data: PanelData; barStyle: string };
+  private msgDisposable?: vscode.Disposable;
+  /** Chamado quando a webview sinaliza que montou e quer dados. */
+  public onReady?: () => void;
+
+  private constructor() {
+    this.panel = vscode.window.createWebviewPanel(
+      "claudeUsageDashboard",
+      tr("Dashboard de uso do Claude"),
+      vscode.ViewColumn.Active,
+      { enableScripts: true, retainContextWhenHidden: true }
+    );
+    this.msgDisposable = wireMessages(this.panel.webview, () => {
+      // Webview montou e pediu dados: envia o último estado conhecido.
+      if (this.last) {
+        this.panel.webview.postMessage({
+          type: "data",
+          data: this.last.data,
+          barStyle: this.last.barStyle,
+        });
+      }
+      this.onReady?.();
+    });
+    this.panel.onDidDispose(() => {
+      this.msgDisposable?.dispose();
+      DashboardPanel.current = undefined;
+    });
+    this.panel.webview.html = panelHtml({ mode: "dashboard" });
+  }
+
+  /** Cria — ou revela, se já existir — o painel do dashboard. */
+  static createOrShow(): DashboardPanel {
+    if (DashboardPanel.current) {
+      DashboardPanel.current.panel.reveal(vscode.ViewColumn.Active);
+      return DashboardPanel.current;
+    }
+    DashboardPanel.current = new DashboardPanel();
+    return DashboardPanel.current;
+  }
+
+  update(data: PanelData, barStyle: string) {
+    this.last = { data, barStyle };
+    this.panel.webview.postMessage({ type: "data", data, barStyle });
+  }
+
+  /** Reconstrói o HTML (troca de idioma — o dicionário `L` é injetado no HTML). */
+  rebuild() {
+    this.panel.title = tr("Dashboard de uso do Claude");
+    this.panel.webview.html = panelHtml({ mode: "dashboard" });
+  }
+
+  /** Último PanelData conhecido — usado pelo export p/ pegar o estado atual. */
+  lastData(): PanelData | undefined {
+    return this.last?.data;
+  }
+}
+
+/**
+ * HTML autocontido (.html) do dashboard, com os dados embutidos (snapshot).
+ * Abre no navegador sem depender do VS Code (tema/escala próprios, sem fetch).
+ */
+export function exportDashboardHtml(
+  data: PanelData,
+  generatedAt?: string
+): string {
+  return panelHtml({ mode: "dashboard", staticData: data, generatedAt });
 }

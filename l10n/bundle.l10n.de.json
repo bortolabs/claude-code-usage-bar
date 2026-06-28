@@ -215,5 +215,12 @@
   "{0}/turno": "{0}/Turn",
   "Idioma": "Sprache",
   "Idioma de todo o plugin (painel, status bar, alertas). 🌐 = segue o VS Code. Os rótulos na tela de Settings do VS Code seguem o idioma do VS Code.": "Sprache für das ganze Plugin (Panel, Statusleiste, Warnungen). 🌐 = folgt VS Code. Die Beschriftungen im VS-Code-Settings-Bildschirm folgen der VS-Code-Sprache.",
-  "Por dia": "Pro Tag"
+  "Por dia": "Pro Tag",
+  "Abrir dashboard": "Dashboard öffnen",
+  "Exportar HTML": "HTML exportieren",
+  "Dashboard de uso do Claude": "Claude-Nutzungs-Dashboard",
+  "Gerado em {0}": "Erstellt am {0}",
+  "Dashboard exportado.": "Dashboard exportiert.",
+  "Abrir no navegador": "Im Browser öffnen",
+  "Falha ao exportar: {0}": "Export fehlgeschlagen: {0}"
 }

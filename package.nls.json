@@ -69,5 +69,7 @@
   "config.tipsOpusPct.desc": "Dica de modelo: avisa quando o **Opus** concentra ≥ esta % do custo (sugere Sonnet/Haiku p/ tarefas leves). Padrão 70.",
   "config.tipsMcpCalls.desc": "Dica de MCP: avisa quando um servidor MCP é chamado **mais que** este número de vezes na janela. Padrão 40.",
   "config.tipsSubagentPct.desc": "Dica de subagentes: avisa quando os **subagentes** respondem por ≥ esta % do custo. Padrão 40.",
-  "config.language.desc": "Idioma do plugin (painel, status bar, alertas). `auto` (padrão) segue o idioma do VS Code; ou force `pt`/`en`/`es`/`fr`/`de`. Dá pra trocar pelas bandeiras na aba **Config → Idioma**. Obs.: os rótulos desta tela de Settings seguem o idioma do VS Code."
+  "config.language.desc": "Idioma do plugin (painel, status bar, alertas). `auto` (padrão) segue o idioma do VS Code; ou force `pt`/`en`/`es`/`fr`/`de`. Dá pra trocar pelas bandeiras na aba **Config → Idioma**. Obs.: os rótulos desta tela de Settings seguem o idioma do VS Code.",
+  "cmd.openDashboard.title": "Claude Usage: Abrir dashboard",
+  "cmd.exportDashboardHtml.title": "Claude Usage: Exportar dashboard (HTML)"
 }
