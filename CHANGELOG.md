@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.32.1
+
+- **🪟 Seletor de janela sempre visível na aba Custos.** Antes, quando a janela ativa (padrão 5h)
+  estava vazia, o seletor **5h · Hoje · 7d · 30d** sumia junto com as quebras — então não dava pra
+  trocar pra 7d/30d pra ver os dados. Agora, com a análise ligada, o seletor fica **sempre** na tela
+  e a janela vazia mostra **"Sem dados nesta janela. Tente 7d ou 30d acima."**. Com a análise
+  desligada, aparece a dica pra ativar **"Analisar transcripts (custos)"** na Config.
+- i18n nos 5 idiomas em paridade.
+
 ## 0.32.0
 
 - **⚙️ AI advice configurável na aba Config.** Nova seção **"AI advice"** no painel (não precisa

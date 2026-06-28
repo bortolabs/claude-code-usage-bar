@@ -191,6 +191,8 @@
   "{0} turnos": "{0} turnos",
   "Contagem de chamadas — não dá pra atribuir tokens a um tool isolado do turno.": "Conteo de llamadas — no se pueden atribuir tokens a una herramienta aislada del turno.",
   "Sem dados de custo ainda.": "Sin datos de costo aún.",
+  "Sem dados nesta janela. Tente 7d ou 30d acima.": "Sin datos en esta ventana. Prueba 7d o 30d arriba.",
+  "Ative \"Analisar transcripts (custos)\" na Config pra ver as quebras.": "Activa \"Analizar transcripciones (costos)\" en Config para ver los desgloses.",
   "Dicas": "Consejos",
   "Sem dicas agora — uso equilibrado. 👍": "Sin consejos por ahora — uso equilibrado. 👍",
   "Contexto grande (>150k) puxa ~{0}% do custo. Use /compact ou abra sessões novas pra tarefas separadas.": "El contexto grande (>150k) genera ~{0}% del costo. Usa /compact o abre sesiones nuevas para tareas separadas.",
