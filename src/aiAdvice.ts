@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as https from "https";
+import * as http from "http";
 import { tr } from "./i18n";
 import { DashboardData } from "./dashboard";
 
@@ -52,7 +53,9 @@ function readConfig(): AiAdviceConfig {
 export async function setAiAdviceKey(context: vscode.ExtensionContext): Promise<void> {
   const key = await vscode.window.showInputBox({
     title: tr("Chave de API do AI advice"),
-    prompt: tr("A chave fica no cofre seguro do VS Code (SecretStorage), nunca num setting."),
+    prompt: tr(
+      "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting."
+    ),
     password: true,
     ignoreFocusOut: true,
   });
@@ -257,11 +260,13 @@ function callLLM(cfg: AiAdviceConfig, apiKey: string, system: string, user: stri
     } else {
       headers["authorization"] = "Bearer " + apiKey;
     }
-    const req = https.request(
+    // http p/ endpoints locais (Ollama/LM Studio em localhost), https p/ o resto.
+    const lib = url.protocol === "http:" ? http : https;
+    const req = lib.request(
       {
         method: "POST",
         hostname: url.hostname,
-        port: url.port || 443,
+        port: url.port || (url.protocol === "http:" ? 80 : 443),
         path: url.pathname + url.search,
         headers,
         timeout: 120000,

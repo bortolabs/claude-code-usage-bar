@@ -23,6 +23,17 @@ precisar parar pra rodar `/usage`.
 **forçar** um idioma pelas **bandeiras** na aba **Config → Idioma** (troca toda a UI do
 plugin na hora). Sem tradução para o idioma ativo, cai no português.
 
+## Recursos por aba
+
+- **Status bar** (o indicador) — anel/percentual da **cota real da sessão de 5h** (igual ao `/usage`) + tempo até o reset; 4 estilos (anel/barra/número/ícone), cor por **projeção de estouro**, e um modo que mostra **custo** no lugar da cota.
+- **Aba Sessão** — cota 5h e **semana (7d)**, **contexto ao vivo** (% da janela do modelo), modelo em uso, **fonte de dados** ativa (oauth/statusline/ccusage) e o motivo do fallback; **alerta de burn rate** com **dica de ritmo** (quanto pausar/desacelerar pra não estourar antes do reset).
+- **Aba Custos** — hoje/mês/projeção e **orçamento mensal** com alerta; **sparklines** de custo e tokens por dia; seletor de janela (5h/Hoje/7d/30d) e **quebras** por modelo/projeto/**tamanho de contexto** (com custo por turno); contagem de **MCP/subagentes**; **Dicas** heurísticas de economia (locais) e **export de uso em JSON** (pra agentes/scripts).
+- **Aba Status** — saúde da Anthropic ao vivo (`status.claude.com`): indicador geral, componentes, incidentes e resolvidos recentemente; **badge** na status bar e **notificação** de incidentes.
+- **Aba Config** — edita os settings de forma visual (seções colapsáveis, toggles, file pickers), **idioma por bandeiras** 🇧🇷🇺🇸🇪🇸🇫🇷🇩🇪 e os **limiares das Dicas** ajustáveis.
+- **Dashboard de analytics** (aba do editor, _Claude Usage: Abrir dashboard_) — **KPIs** (incl. **cache hit rate**), **composição de custo por tipo de token**, **gráfico ao longo do tempo** (empilhado, por hora/dia, com toggle), **insights** em linguagem natural, **tabelas** por modelo/período e **breakdowns** (modelo · projeto · sessão · contexto · skills · plugins · MCP · subagentes); janela **Hoje/Semana/Mês/Tudo**, **export `.html`** e **AI advice** opcional — relatório de coaching por IA com **sua própria key** (uma **API key paga separada da assinatura**, ou um **LLM local grátis** / **free tier**; veja abaixo).
+
+> Tudo **local, sem rede e sem LLM** — exceto a cota real (`api/oauth/usage`), a aba **Status** e o **AI advice** (opt-in), que fazem chamadas externas.
+
 ## Screenshots
 
 A **status bar** (que dá nome ao plugin) aparece no rodapé de cada print — anel/percentual da cota da sessão de 5h e tempo até o reset, sempre à vista.
@@ -52,6 +63,16 @@ Aba **Status** (saúde da Anthropic ao vivo) e aba **Config** (seções colapsá
 <p align="center">
   <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/06-dashboard.png" width="900" alt="Dashboard de analytics numa aba do editor: cards de KPI (custo, mensagens, input, output, cache miss, cache hit, cache hit rate), barra de composição de custo por tipo de token, gráfico de barras empilhadas de uso ao longo do tempo, callouts de insights, tabelas por modelo e por período, e breakdowns em barras por modelo/projeto/sessão/contexto/skills/plugins/MCP/subagentes">
 </p>
+
+### AI advice — qual key usar (incl. opções grátis)
+
+O **AI advice** usa **sua própria API key** (BYO), gravada no **SecretStorage** (comando _Claude Usage: Definir chave do AI advice_). **Não** usa a sua assinatura do Claude Code — é uma chamada de API à parte. Opções:
+
+- **Local, grátis e privado (recomendado — os dados não saem da máquina):** [Ollama](https://ollama.com) ou LM Studio. Use `aiAdviceApiStyle: openai`, `aiAdviceEndpoint: http://localhost:11434/v1/chat/completions` (Ollama) ou `http://localhost:1234/v1/chat/completions` (LM Studio), `aiAdviceModel` com um modelo que você baixou (ex.: `llama3.1`, `qwen2.5`, `gpt-oss`) e a key pode ser qualquer texto (ex.: `ollama`).
+- **Free tier na nuvem** (OpenAI-compatível): **Google Gemini** (`https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`, ex.: `gemini-2.0-flash`), **Groq** (`https://api.groq.com/openai/v1/chat/completions`) ou **OpenRouter** (modelos com sufixo `:free`). Use `aiAdviceApiStyle: openai` e a key do provedor.
+- **Anthropic** (padrão, **pago**): `aiAdviceApiStyle: anthropic` + uma API key `sk-ant-…` (não há free tier de API).
+
+> Modelos pequenos/locais dão conselhos mais simples; pra um relatório mais afiado, um modelo maior ajuda. De toda forma, o resto do plugin é 100% local — só o AI advice (opt-in) faz a chamada que você configurar.
 
 Mostra a **cota real da sessão** — o mesmo número do `/usage` — em **qualquer ambiente**
 (app, IDE ou terminal). O anel é o uso da sessão de 5h; a barra de tempo mostra quanto da
