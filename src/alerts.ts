@@ -70,6 +70,71 @@ function projectLimitPct(
   return usedPct + ratePerSec * remainingSec;
 }
 
+/** Minutos → rótulo curto ("3 min", "1h05"). Mínimo de 1 min. */
+function fmtMins(min: number): string {
+  const m = Math.max(1, Math.round(min));
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    const rm = m % 60;
+    return rm > 0 ? `${h}h${String(rm).padStart(2, "0")}` : `${h}h`;
+  }
+  return `${m} min`;
+}
+
+/**
+ * Dica de ritmo: dado o "fôlego" até o teto (headroom, na mesma unidade de
+ * ritmo×tempo), o ritmo de consumo por minuto e os minutos até o reset, calcula
+ * quanto PAUSAR (idle) ou quanto REDUZIR o ritmo pra NÃO estourar antes do reset.
+ *
+ * `runwayMin` = quanto o fôlego dura no ritmo atual. Se já dura até o reset
+ * (>= remainingMin), não há estouro previsto → null (sem dica). Senão:
+ *  - pausar `remainingMin - runwayMin` empata o ritmo médio com o tempo;
+ *  - reduzir o ritmo em `(1 - runwayMin/remainingMin)` faz o fôlego durar o resto.
+ * É a mesma ideia do alerta: enquanto uso% <= tempo%, não estoura.
+ */
+function pacingHint(
+  headroom: number,
+  ratePerMin: number,
+  remainingMin: number
+): { waitMin: number; reducePct: number } | null {
+  if (!(headroom > 0) || !(ratePerMin > 0) || !(remainingMin > 0)) {
+    return null;
+  }
+  const runwayMin = headroom / ratePerMin;
+  if (runwayMin >= remainingMin) {
+    return null; // o ritmo atual já cabe até o reset
+  }
+  return {
+    waitMin: remainingMin - runwayMin,
+    reducePct: (1 - runwayMin / remainingMin) * 100,
+  };
+}
+
+/**
+ * Dica de ritmo p/ um limite percentual do plano (5h), no MESMO modelo do alerta
+ * (ritmo médio desde o início): fôlego = 100 - uso%; ritmo = uso% / minutos
+ * decorridos. Só devolve algo quando projeta estourar antes do reset.
+ */
+function planPacingHint(
+  usedPct: number | null,
+  resetsAtSec: number | null,
+  windowSeconds: number
+): { waitMin: number; reducePct: number } | null {
+  if (usedPct == null || !resetsAtSec) {
+    return null;
+  }
+  const remainingMs = resetsAtSec * 1000 - Date.now();
+  if (remainingMs <= 0) {
+    return null;
+  }
+  const remainingMin = remainingMs / 60000;
+  const elapsedMin = (windowSeconds * 1000 - remainingMs) / 60000;
+  if (elapsedMin <= 1) {
+    return null; // cedo demais
+  }
+  return pacingHint(100 - usedPct, usedPct / elapsedMin, remainingMin);
+}
+
 export function evaluateAlerts(input: AlertInput): AlertResult {
   const reasons: string[] = [];
   const keys: string[] = [];
@@ -144,6 +209,33 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
       vscode.l10n.t("Limite semanal projeta atingir 100% antes do reset")
     );
     keys.push("plan7d");
+  }
+
+  // Dica de ritmo (💡): só quando ALGO projeta estouro antes do reset. Prioriza a
+  // projeção 5h do plano (ritmo médio); no modo custo, usa o $/h vs o teto. Vira
+  // uma sub-linha do alerta — NÃO entra na `key` de dedupe (não é um tipo novo de
+  // alerta, então não dispara notificação por si só).
+  let pacing = planPacingHint(input.fiveHour, input.fiveHourResetsAt, 5 * 3600);
+  if (
+    !pacing &&
+    input.block &&
+    input.costCap > 0 &&
+    input.block.burnCostPerHour
+  ) {
+    pacing = pacingHint(
+      input.costCap - input.block.costUSD,
+      input.block.burnCostPerHour / 60,
+      input.block.remainingMinutes
+    );
+  }
+  if (pacing && reasons.length > 0) {
+    reasons.push(
+      vscode.l10n.t(
+        "💡 Pra não estourar: pause ~{0} ou reduza o ritmo ~{1}%",
+        fmtMins(pacing.waitMin),
+        String(Math.max(1, Math.round(pacing.reducePct)))
+      )
+    );
   }
 
   return {

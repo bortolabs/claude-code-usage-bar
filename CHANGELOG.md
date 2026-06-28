@@ -1,5 +1,83 @@
 # Changelog
 
+## 0.29.3
+
+Release consolidada (0.28.2 → 0.29.3). Destaques desde a v0.28.1:
+
+- **🌍 Idioma com bandeiras 🇧🇷🇺🇸🇪🇸🇫🇷🇩🇪.** Card **"Idioma"** na Config: clicar numa bandeira
+  troca o idioma de **todo o plugin** (painel, status bar, tooltips, alertas) na hora,
+  independente do VS Code. `🌐` = seguir o VS Code. A escolha **persiste** (globalState) e até o
+  motivo de "fonte indisponível" é traduzido no idioma atual (sem mais texto vazado de outro
+  idioma).
+- **💡 Dica de ritmo no alerta de burn rate.** Quando a sessão 5h (ou o teto de custo) projeta
+  bater 100% antes do reset, o banner sugere **quanto pausar** ou **quanto reduzir o ritmo** pra
+  não estourar — ex.: *"pause ~3 min ou reduza o ritmo ~15%"*. Enquanto **uso% ≤ tempo%**, não há
+  estouro previsto; pausar deixa o tempo empatar com o consumo. Local, sem rede.
+- **🪟 Janela das quebras que pega de fato.** Trocar **5h · Hoje · 7d · 30d** agora reflete na
+  hora em *Por modelo / Por projeto / Por tamanho de contexto* (antes ficavam presos em "5h").
+- **📊 Tooltips dos gráficos.** Passar o mouse nas barras mostra o valor absoluto do dia (número
+  cheio de tokens / custo exato) — via tooltip próprio (o nativo não renderizava no webview).
+- **🎨 Aba Custos mais enxuta.** Todos os cards **colapsáveis** (e lembram o estado), **custo por
+  turno** em cada faixa de contexto, e a **cor da status bar reflete o uso de tokens, nunca o
+  tempo decorrido** (tempo acabando é bom: vem reset).
+
+Histórico detalhado por versão abaixo.
+
+## 0.29.2
+
+- **Corrige a janela das quebras (5h/Hoje/7d/30d) que não pegava.** Ao trocar a janela, os cards
+  **Por modelo / Por projeto / Por tamanho de contexto** continuavam presos em "5h" (só o botão
+  mudava). A troca usava o mesmo caminho de gravação que tinha quebrado o idioma (setting +
+  evento de mudança), pouco confiável. Agora vai por um **comando dedicado** que aplica a janela
+  na hora (re-varre os transcripts no novo intervalo e re-renderiza) e só então persiste no
+  setting — o filtro de tempo é aplicado em `costWindowStart()` → `readTranscriptStats()`, que
+  ignora os turnos fora de `[início, agora]`.
+- **Tooltip dos gráficos agora aparece de fato.** O `title` nativo não renderizava neste webview;
+  trocado por um tooltip flutuante próprio que segue o cursor e mostra o valor absoluto do dia
+  (tokens cheios / custo exato). As barras também destacam ao passar o mouse.
+- **Idioma: corrige texto vazado na "Fonte de dados".** Ao voltar de outro idioma (ex.: alemão)
+  pro pt-br, a linha de status do oauth/usage podia continuar com um trecho no idioma anterior
+  (ex.: "Wartezeit…"). O motivo agora é guardado **cru/estruturado** e traduzido só na hora de
+  exibir, no idioma atual.
+
+## 0.29.1
+
+- **Corrige a seleção de idioma que não persistia.** A escolha das bandeiras agora é gravada no
+  **globalState** da extensão (sempre gravável e sincronizado), em vez de num setting — settings
+  só podem ser escritos depois de registrados, então logo após instalar a extensão a gravação
+  falhava e a bandeira voltava pro 🌐. Agora gruda na hora, sem precisar recarregar a janela.
+- **Card de Idioma movido pro fim da Config** (logo após "Exportar uso").
+- **Card "Por dia" (custo/tokens) agora é colapsável** como os demais.
+- **Tooltip dos gráficos mostra o valor absoluto** ao passar o mouse: o **número cheio** de
+  tokens (ex.: `12.345.678 tokens`) e o **custo exato** do dia (ex.: `$29.10`).
+
+## 0.29.0
+
+- **Seletor de idioma com bandeiras 🇧🇷🇬🇧🇪🇸🇫🇷🇩🇪.** Novo card **"Idioma"** na aba **Config**:
+  clicar numa bandeira troca o idioma de **todo o plugin** (painel, status bar, tooltips,
+  alertas) na hora — independente do idioma do VS Code. `🌐` = seguir o VS Code (padrão).
+  Setting `language`. *(Os rótulos na tela de Settings nativa do VS Code seguem o idioma do VS
+  Code — limitação da plataforma.)*
+- README atualizado (idioma, aba Custos, contexto ao vivo, cards colapsáveis) e screenshots
+  reorganizados para destacar a status bar.
+- Correção: os campos da seção "Dicas de custo" agora caem nos padrões de boas práticas mesmo
+  antes de a janela recarregar (a 0.28.1 tinha o mapa de defaults, mas ele não estava sendo
+  aplicado de fato).
+
+## 0.28.2
+
+- **Cor da status bar = uso de TOKENS, nunca o tempo decorrido.** No fallback do ccusage (sem
+  cota real) a cor passava a alarmar conforme o **tempo** da sessão avançava — o que é o
+  contrário do desejado (tempo acabando é bom: vem reset). Agora a cor reflete só o **custo/uso**;
+  o anel ainda mostra o % de tempo, mas sem ficar vermelho por isso. (No modo cota real/oauth a
+  cor já vinha da cota 5h/7d.)
+- **Custo por turno no card "Por tamanho de contexto".** Cada faixa agora mostra também o **custo
+  médio por turno** (`~$X/turno`), deixando claro quanto cada tamanho de contexto custa por
+  resposta — não só o total do bloco.
+- **Cards colapsáveis.** Todos os cards de conteúdo (Custos, Fonte de dados, Status…) agora
+  recolhem/expandem ao clicar no título, como as seções da Config, e **lembram** o que você
+  deixou recolhido — deixa a aba Custos bem mais enxuta.
+
 ## 0.28.1
 
 Release consolidada (0.28.0 + correções). A aba **Custos** ficou mais completa e o **Contexto**

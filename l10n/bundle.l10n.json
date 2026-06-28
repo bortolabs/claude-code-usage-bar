@@ -101,6 +101,8 @@
   "Usar este caminho": "Usar este caminho",
   "em {0}": "em {0}",
   "desativado nas configurações": "desativado nas configurações",
+  "token OAuth não encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)": "token OAuth não encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)",
+  "falha ao consultar oauth/usage ({0})": "falha ao consultar oauth/usage ({0})",
   "{0} — recuando, nova tentativa em ~{1}": "{0} — recuando, nova tentativa em ~{1}",
   "Ver status": "Ver status",
   "Anthropic — {0} ({1})": "Anthropic — {0} ({1})",
@@ -163,6 +165,7 @@
   "Ritmo alto: {0}/h (limite {1}/h)": "Ritmo alto: {0}/h (limite {1}/h)",
   "Sessão 5h projeta atingir 100% antes do reset": "Sessão 5h projeta atingir 100% antes do reset",
   "Limite semanal projeta atingir 100% antes do reset": "Limite semanal projeta atingir 100% antes do reset",
+  "💡 Pra não estourar: pause ~{0} ou reduza o ritmo ~{1}%": "💡 Pra não estourar: pause ~{0} ou reduza o ritmo ~{1}%",
   "Claude Usage — orçamento mensal: já usou {0} de {1}.": "Claude Usage — orçamento mensal: já usou {0} de {1}.",
   "Claude Usage — no ritmo atual o mês deve fechar em ~{0} (orçamento {1}).": "Claude Usage — no ritmo atual o mês deve fechar em ~{0} (orçamento {1}).",
   "Custos": "Custos",
@@ -208,5 +211,9 @@
   "Dica: MCP (chamadas)": "Dica: MCP (chamadas)",
   "Dica: subagentes (% custo)": "Dica: subagentes (% custo)",
   "Tokens por dia": "Tokens por dia",
-  "Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40.": "Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40."
+  "Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40.": "Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40.",
+  "{0}/turno": "{0}/turno",
+  "Idioma": "Idioma",
+  "Idioma de todo o plugin (painel, status bar, alertas). 🌐 = segue o VS Code. Os rótulos na tela de Settings do VS Code seguem o idioma do VS Code.": "Idioma de todo o plugin (painel, status bar, alertas). 🌐 = segue o VS Code. Os rótulos na tela de Settings do VS Code seguem o idioma do VS Code.",
+  "Por dia": "Por dia"
 }

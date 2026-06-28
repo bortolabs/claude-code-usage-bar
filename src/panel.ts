@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as os from "os";
 import * as path from "path";
+import { tr } from "./i18n";
 
 /** Dados que o painel precisa para desenhar. Calculados em extension.ts. */
 export interface PanelData {
@@ -64,6 +65,8 @@ export interface PanelData {
   };
   /** Valores atuais dos settings (key → valor) para a aba Config. */
   settings: Record<string, unknown>;
+  /** Idioma ativo do plugin (globalState): auto/pt/en/es/fr/de. */
+  lang?: string;
   /** Placeholders (caminho/comando efetivo) p/ campos vazios na Config. */
   placeholders?: Record<string, string>;
   /** Créditos discretos no rodapé da aba Sessão (versão + repo). */
@@ -93,172 +96,176 @@ export interface PanelData {
  */
 function panelStrings() {
   return {
-    waiting: vscode.l10n.t("Aguardando dados do Claude Code…"),
-    title: vscode.l10n.t("Claude Usage"),
-    refresh: vscode.l10n.t("Atualizar"),
-    updating: vscode.l10n.t("atualizando…"),
-    updated: vscode.l10n.t("atualizado {0}"),
-    agoS: vscode.l10n.t("há {0}s"),
-    agoMin: vscode.l10n.t("há {0}min"),
-    agoH: vscode.l10n.t("há {0}h"),
+    waiting: tr("Aguardando dados do Claude Code…"),
+    title: tr("Claude Usage"),
+    refresh: tr("Atualizar"),
+    updating: tr("atualizando…"),
+    updated: tr("atualizado {0}"),
+    agoS: tr("há {0}s"),
+    agoMin: tr("há {0}min"),
+    agoH: tr("há {0}h"),
     tabs: {
-      sessao: vscode.l10n.t("Sessão"),
-      historico: vscode.l10n.t("Histórico"),
-      custos: vscode.l10n.t("Custos"),
-      status: vscode.l10n.t("Status"),
-      config: vscode.l10n.t("Config"),
+      sessao: tr("Sessão"),
+      historico: tr("Histórico"),
+      custos: tr("Custos"),
+      status: tr("Status"),
+      config: tr("Config"),
     },
-    stylesTitle: vscode.l10n.t("Estilo na status bar"),
+    stylesTitle: tr("Estilo na status bar"),
     styles: {
-      ring: vscode.l10n.t("◕ anel"),
-      bar: vscode.l10n.t("▰ barra"),
-      number: vscode.l10n.t("% número"),
-      icon: vscode.l10n.t("⚡ ícone"),
+      ring: tr("◕ anel"),
+      bar: tr("▰ barra"),
+      number: tr("% número"),
+      icon: tr("⚡ ícone"),
     },
-    lastDays: vscode.l10n.t("Últimos dias"),
-    tokens: vscode.l10n.t("{0} tokens"),
-    projectsTitle: vscode.l10n.t("Projetos nesta sessão (5h)"),
-    noHistory: vscode.l10n.t("Sem histórico ainda."),
+    lastDays: tr("Últimos dias"),
+    tokens: tr("{0} tokens"),
+    projectsTitle: tr("Projetos nesta sessão (5h)"),
+    noHistory: tr("Sem histórico ainda."),
     cost: {
-      title: vscode.l10n.t("Custos"),
-      perDay: vscode.l10n.t("Custo por dia"),
-      perDayTokens: vscode.l10n.t("Tokens por dia"),
-      window: vscode.l10n.t("Janela das quebras"),
-      today: vscode.l10n.t("Hoje"),
-      month: vscode.l10n.t("Mês até agora"),
-      projected: vscode.l10n.t("Projeção do mês"),
-      budget: vscode.l10n.t("Orçamento"),
-      byModel: vscode.l10n.t("Por modelo"),
-      byProject: vscode.l10n.t("Por projeto"),
-      byContext: vscode.l10n.t("Por tamanho de contexto"),
-      byContextHelp: vscode.l10n.t("Turnos com mais contexto custam mais por resposta — /compact ajuda a enxugar."),
-      counts: vscode.l10n.t("MCP e subagentes"),
-      mcp: vscode.l10n.t("Servidores MCP"),
-      subagents: vscode.l10n.t("Subagentes"),
-      calls: vscode.l10n.t("{0}×"),
-      turns: vscode.l10n.t("{0} turnos"),
-      countsHelp: vscode.l10n.t("Contagem de chamadas — não dá pra atribuir tokens a um tool isolado do turno."),
-      empty: vscode.l10n.t("Sem dados de custo ainda."),
-      equiv: vscode.l10n.t("equiv."),
-      approxNote: vscode.l10n.t("≈ aproximado · local, sem chamada externa"),
-      subNote: vscode.l10n.t("sua assinatura cobre — equivalente de API (≈ aproximado)"),
-      tableV: vscode.l10n.t("tabela v{0}"),
+      title: tr("Custos"),
+      daily: tr("Por dia"),
+      perDay: tr("Custo por dia"),
+      perDayTokens: tr("Tokens por dia"),
+      window: tr("Janela das quebras"),
+      today: tr("Hoje"),
+      month: tr("Mês até agora"),
+      projected: tr("Projeção do mês"),
+      budget: tr("Orçamento"),
+      byModel: tr("Por modelo"),
+      byProject: tr("Por projeto"),
+      byContext: tr("Por tamanho de contexto"),
+      byContextHelp: tr("Turnos com mais contexto custam mais por resposta — /compact ajuda a enxugar."),
+      counts: tr("MCP e subagentes"),
+      mcp: tr("Servidores MCP"),
+      subagents: tr("Subagentes"),
+      calls: tr("{0}×"),
+      turns: tr("{0} turnos"),
+      perTurn: tr("{0}/turno"),
+      countsHelp: tr("Contagem de chamadas — não dá pra atribuir tokens a um tool isolado do turno."),
+      empty: tr("Sem dados de custo ainda."),
+      equiv: tr("equiv."),
+      approxNote: tr("≈ aproximado · local, sem chamada externa"),
+      subNote: tr("sua assinatura cobre — equivalente de API (≈ aproximado)"),
+      tableV: tr("tabela v{0}"),
       tips: {
-        title: vscode.l10n.t("Dicas"),
-        none: vscode.l10n.t("Sem dicas agora — uso equilibrado. 👍"),
-        context: vscode.l10n.t("Contexto grande (>150k) puxa ~{0}% do custo. Use /compact ou abra sessões novas pra tarefas separadas."),
-        cacheRead: vscode.l10n.t("~{0}% dos tokens são releitura de contexto (cache). Sessões muito longas relendo tudo — /compact ajuda."),
-        opus: vscode.l10n.t("Opus concentra ~{0}% do custo. Pra tarefas leves, Sonnet/Haiku cortam bastante."),
-        mcp: vscode.l10n.t("O servidor MCP \"{0}\" foi chamado {1}×. Vale conferir chamadas redundantes."),
-        subagents: vscode.l10n.t("Subagentes puxam ~{0}% do custo. Úteis, mas pesados — avalie reduzir o fan-out."),
+        title: tr("Dicas"),
+        none: tr("Sem dicas agora — uso equilibrado. 👍"),
+        context: tr("Contexto grande (>150k) puxa ~{0}% do custo. Use /compact ou abra sessões novas pra tarefas separadas."),
+        cacheRead: tr("~{0}% dos tokens são releitura de contexto (cache). Sessões muito longas relendo tudo — /compact ajuda."),
+        opus: tr("Opus concentra ~{0}% do custo. Pra tarefas leves, Sonnet/Haiku cortam bastante."),
+        mcp: tr("O servidor MCP \"{0}\" foi chamado {1}×. Vale conferir chamadas redundantes."),
+        subagents: tr("Subagentes puxam ~{0}% do custo. Úteis, mas pesados — avalie reduzir o fan-out."),
       },
     },
     sec: {
-      appearance: vscode.l10n.t("Aparência"),
-      source: vscode.l10n.t("Fonte e atualização"),
-      account: vscode.l10n.t("Conta e limites"),
-      alerts: vscode.l10n.t("Alertas e cores"),
-      tips: vscode.l10n.t("Dicas de custo"),
-      status: vscode.l10n.t("Status da Anthropic"),
-      export: vscode.l10n.t("Exportar uso (p/ agentes/scripts)"),
+      language: tr("Idioma"),
+      appearance: tr("Aparência"),
+      source: tr("Fonte e atualização"),
+      account: tr("Conta e limites"),
+      alerts: tr("Alertas e cores"),
+      tips: tr("Dicas de custo"),
+      status: tr("Status da Anthropic"),
+      export: tr("Exportar uso (p/ agentes/scripts)"),
     },
     cfg: {
-      ringTheme: vscode.l10n.t("Tema do anel"),
-      ringColor: vscode.l10n.t("Cor do anel (mono/custom)"),
-      barStyle: vscode.l10n.t("Estilo na status bar"),
-      statusBarValue: vscode.l10n.t("Valor na status bar"),
-      monthlyBudgetUsd: vscode.l10n.t("Orçamento mensal (USD)"),
-      monthlyBudgetAlertEnabled: vscode.l10n.t("Alerta de orçamento mensal"),
-      insightsEnabled: vscode.l10n.t("Analisar transcripts (custos)"),
-      tipsHelp: vscode.l10n.t("Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40."),
-      tipsContextBigPct: vscode.l10n.t("Dica: contexto grande (% custo)"),
-      tipsCacheReadPct: vscode.l10n.t("Dica: cache-read (% input)"),
-      tipsOpusPct: vscode.l10n.t("Dica: Opus (% custo)"),
-      tipsMcpCalls: vscode.l10n.t("Dica: MCP (chamadas)"),
-      tipsSubagentPct: vscode.l10n.t("Dica: subagentes (% custo)"),
-      alignment: vscode.l10n.t("Lado da status bar"),
-      priority: vscode.l10n.t("Prioridade na status bar"),
-      useOAuthUsage: vscode.l10n.t("Usar cota real (oauth/usage)"),
-      oauthRefreshSeconds: vscode.l10n.t("Atualizar oauth (s)"),
-      ccusageCommand: vscode.l10n.t("Comando ccusage"),
-      ccusageRefreshSeconds: vscode.l10n.t("Atualizar ccusage (s)"),
-      stateFilePath: vscode.l10n.t("Arquivo de estado (statusline)"),
-      staleAfterSeconds: vscode.l10n.t("Statusline fresca por (s)"),
-      accountType: vscode.l10n.t("Tipo de conta"),
-      mode: vscode.l10n.t("Modo de exibição"),
-      costCapUsd: vscode.l10n.t("Teto de custo (USD)"),
-      sessionTokenCap: vscode.l10n.t("Teto de tokens/sessão"),
-      intenseTokensPerMin: vscode.l10n.t("Ritmo intenso (tok/min)"),
-      burnRateAlertEnabled: vscode.l10n.t("Alerta de burn rate"),
-      burnRateMaxPerHour: vscode.l10n.t("Limite de ritmo ($/h)"),
-      alertCooldownMinutes: vscode.l10n.t("Cooldown do alerta (min)"),
-      colorByProjection: vscode.l10n.t("Colorir por projeção"),
-      resetWarningMinutes: vscode.l10n.t("Aviso de fim de janela (min)"),
-      lowQuotaThreshold: vscode.l10n.t("Avisar cota baixa (% restante)"),
-      blockSummaryEnabled: vscode.l10n.t("Resumo ao fechar o bloco"),
-      warnThreshold: vscode.l10n.t("Limiar amarelo (%)"),
-      errorThreshold: vscode.l10n.t("Limiar vermelho (%)"),
-      statusCheckEnabled: vscode.l10n.t("Monitorar status"),
-      statusBadgeEnabled: vscode.l10n.t("Badge na status bar"),
-      statusNotifyEnabled: vscode.l10n.t("Notificar incidentes"),
-      statusRefreshSeconds: vscode.l10n.t("Atualizar status (s)"),
-      exportStateEnabled: vscode.l10n.t("Gravar uso em arquivo JSON"),
-      exportStatePath: vscode.l10n.t("Caminho do arquivo (vazio = padrão)"),
-      exportHelp: vscode.l10n.t("JSON com seu uso atual (cota restante, fonte), atualizado sempre — pra um agente/script ler e, por ex., parar quando a cota ficar baixa."),
+      ringTheme: tr("Tema do anel"),
+      ringColor: tr("Cor do anel (mono/custom)"),
+      barStyle: tr("Estilo na status bar"),
+      statusBarValue: tr("Valor na status bar"),
+      monthlyBudgetUsd: tr("Orçamento mensal (USD)"),
+      monthlyBudgetAlertEnabled: tr("Alerta de orçamento mensal"),
+      insightsEnabled: tr("Analisar transcripts (custos)"),
+      langHelp: tr("Idioma de todo o plugin (painel, status bar, alertas). 🌐 = segue o VS Code. Os rótulos na tela de Settings do VS Code seguem o idioma do VS Code."),
+      tipsHelp: tr("Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40."),
+      tipsContextBigPct: tr("Dica: contexto grande (% custo)"),
+      tipsCacheReadPct: tr("Dica: cache-read (% input)"),
+      tipsOpusPct: tr("Dica: Opus (% custo)"),
+      tipsMcpCalls: tr("Dica: MCP (chamadas)"),
+      tipsSubagentPct: tr("Dica: subagentes (% custo)"),
+      alignment: tr("Lado da status bar"),
+      priority: tr("Prioridade na status bar"),
+      useOAuthUsage: tr("Usar cota real (oauth/usage)"),
+      oauthRefreshSeconds: tr("Atualizar oauth (s)"),
+      ccusageCommand: tr("Comando ccusage"),
+      ccusageRefreshSeconds: tr("Atualizar ccusage (s)"),
+      stateFilePath: tr("Arquivo de estado (statusline)"),
+      staleAfterSeconds: tr("Statusline fresca por (s)"),
+      accountType: tr("Tipo de conta"),
+      mode: tr("Modo de exibição"),
+      costCapUsd: tr("Teto de custo (USD)"),
+      sessionTokenCap: tr("Teto de tokens/sessão"),
+      intenseTokensPerMin: tr("Ritmo intenso (tok/min)"),
+      burnRateAlertEnabled: tr("Alerta de burn rate"),
+      burnRateMaxPerHour: tr("Limite de ritmo ($/h)"),
+      alertCooldownMinutes: tr("Cooldown do alerta (min)"),
+      colorByProjection: tr("Colorir por projeção"),
+      resetWarningMinutes: tr("Aviso de fim de janela (min)"),
+      lowQuotaThreshold: tr("Avisar cota baixa (% restante)"),
+      blockSummaryEnabled: tr("Resumo ao fechar o bloco"),
+      warnThreshold: tr("Limiar amarelo (%)"),
+      errorThreshold: tr("Limiar vermelho (%)"),
+      statusCheckEnabled: tr("Monitorar status"),
+      statusBadgeEnabled: tr("Badge na status bar"),
+      statusNotifyEnabled: tr("Notificar incidentes"),
+      statusRefreshSeconds: tr("Atualizar status (s)"),
+      exportStateEnabled: tr("Gravar uso em arquivo JSON"),
+      exportStatePath: tr("Caminho do arquivo (vazio = padrão)"),
+      exportHelp: tr("JSON com seu uso atual (cota restante, fonte), atualizado sempre — pra um agente/script ler e, por ex., parar quando a cota ficar baixa."),
     },
-    srcTitle: vscode.l10n.t("Fonte de dados"),
-    srcActive: vscode.l10n.t("Fonte ativa"),
-    cmdsTitle: vscode.l10n.t("Comandos"),
+    srcTitle: tr("Fonte de dados"),
+    srcActive: tr("Fonte ativa"),
+    cmdsTitle: tr("Comandos"),
     cmd: {
-      refresh: vscode.l10n.t("↻ Atualizar"),
-      state: vscode.l10n.t("Arquivo de estado"),
-      cycle: vscode.l10n.t("Alternar estilo"),
-      toggle: vscode.l10n.t("Liga/desliga alerta"),
+      refresh: tr("↻ Atualizar"),
+      state: tr("Arquivo de estado"),
+      cycle: tr("Alternar estilo"),
+      toggle: tr("Liga/desliga alerta"),
     },
-    openSettings: vscode.l10n.t("Abrir settings.json (claudeUsageBar) →"),
-    pickFile: vscode.l10n.t("Escolher arquivo…"),
-    alertLabel: vscode.l10n.t("Alerta de burn rate"),
-    alertOn: vscode.l10n.t("🔔 Ligado"),
-    alertOff: vscode.l10n.t("🔕 Desligado"),
-    on: vscode.l10n.t("Ligado"),
-    off: vscode.l10n.t("Desligado"),
+    openSettings: tr("Abrir settings.json (claudeUsageBar) →"),
+    pickFile: tr("Escolher arquivo…"),
+    alertLabel: tr("Alerta de burn rate"),
+    alertOn: tr("🔔 Ligado"),
+    alertOff: tr("🔕 Desligado"),
+    on: tr("Ligado"),
+    off: tr("Desligado"),
     st: {
-      disabled: vscode.l10n.t("Verificação de status desligada ou indisponível."),
-      openPage: vscode.l10n.t("Abrir status.claude.com →"),
-      incidents: vscode.l10n.t("Incidentes ativos"),
-      components: vscode.l10n.t("Componentes"),
-      recent: vscode.l10n.t("Resolvidos recentemente"),
+      disabled: tr("Verificação de status desligada ou indisponível."),
+      openPage: tr("Abrir status.claude.com →"),
+      incidents: tr("Incidentes ativos"),
+      components: tr("Componentes"),
+      recent: tr("Resolvidos recentemente"),
     },
     comp: {
-      operational: vscode.l10n.t("operacional"),
-      degraded_performance: vscode.l10n.t("degradado"),
-      partial_outage: vscode.l10n.t("instável"),
-      major_outage: vscode.l10n.t("fora do ar"),
-      under_maintenance: vscode.l10n.t("manutenção"),
+      operational: tr("operacional"),
+      degraded_performance: tr("degradado"),
+      partial_outage: tr("instável"),
+      major_outage: tr("fora do ar"),
+      under_maintenance: tr("manutenção"),
     },
     indicator: {
-      none: vscode.l10n.t("Todos os sistemas operacionais"),
-      minor: vscode.l10n.t("Interrupção menor"),
-      major: vscode.l10n.t("Interrupção significativa"),
-      critical: vscode.l10n.t("Interrupção crítica"),
-      maintenance: vscode.l10n.t("Em manutenção"),
+      none: tr("Todos os sistemas operacionais"),
+      minor: tr("Interrupção menor"),
+      major: tr("Interrupção significativa"),
+      critical: tr("Interrupção crítica"),
+      maintenance: tr("Em manutenção"),
     },
     impact: {
-      none: vscode.l10n.t("sem impacto"),
-      minor: vscode.l10n.t("impacto menor"),
-      major: vscode.l10n.t("impacto alto"),
-      critical: vscode.l10n.t("crítico"),
-      maintenance: vscode.l10n.t("manutenção"),
+      none: tr("sem impacto"),
+      minor: tr("impacto menor"),
+      major: tr("impacto alto"),
+      critical: tr("crítico"),
+      maintenance: tr("manutenção"),
     },
     incStatus: {
-      investigating: vscode.l10n.t("investigando"),
-      identified: vscode.l10n.t("identificado"),
-      monitoring: vscode.l10n.t("monitorando"),
-      resolved: vscode.l10n.t("resolvido"),
-      scheduled: vscode.l10n.t("agendado"),
-      in_progress: vscode.l10n.t("em andamento"),
-      verifying: vscode.l10n.t("verificando"),
-      completed: vscode.l10n.t("concluído"),
+      investigating: tr("investigando"),
+      identified: tr("identificado"),
+      monitoring: tr("monitorando"),
+      resolved: tr("resolvido"),
+      scheduled: tr("agendado"),
+      in_progress: tr("em andamento"),
+      verifying: tr("verificando"),
+      completed: tr("concluído"),
     },
   };
 }
@@ -311,7 +318,17 @@ function panelHtml(): string {
     background: var(--ok); opacity: .55; min-height: 2px;
   }
   .spark-bar.today { opacity: 1; }
+  .spark-bar:hover { opacity: 1; outline: 1px solid var(--vscode-focusBorder); }
   .spark-labels { display: flex; justify-content: space-between; font-size: 9.5px; color: var(--vscode-descriptionForeground); margin-top: 3px; }
+  /* Tooltip flutuante das barras (o title nativo não renderiza neste webview). */
+  .spark-tip {
+    position: fixed; z-index: 1000; pointer-events: none; display: none;
+    background: var(--vscode-editorHoverWidget-background, #252526);
+    color: var(--vscode-editorHoverWidget-foreground, #cccccc);
+    border: 1px solid var(--vscode-editorHoverWidget-border, #454545);
+    border-radius: 4px; padding: 3px 7px; font-size: 11px;
+    white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.35);
+  }
   .style-btns { display: flex; gap: 6px; flex-wrap: wrap; }
   .sbtn {
     font-family: var(--vscode-font-family); font-size: 12px;
@@ -395,6 +412,11 @@ function panelHtml(): string {
   .cfg-summary::before { content: '▸'; display: inline-block; width: 12px; margin-right: 2px; font-size: 10px; opacity: .65; transition: transform .15s; }
   details.cfg-sec[open] > .cfg-summary::before { transform: rotate(90deg); }
   .cfg-summary:hover { color: var(--vscode-foreground); }
+  /* Cards de conteúdo colapsáveis (mesmo padrão <details>). */
+  details.cardc { display: block; }
+  details.cardc > summary { margin-bottom: 6px; }
+  details.cardc:not([open]) > summary { margin-bottom: 0; }
+  details.cardc[open] > .cfg-summary::before { transform: rotate(90deg); }
   .cfg-help-line { font-size: 11px; color: var(--vscode-descriptionForeground); line-height: 1.45; margin: 0 0 8px; }
   .cfg-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 7px 0; }
   .cfg-label { font-size: 12px; color: var(--vscode-foreground); flex: 1 1 auto; }
@@ -444,6 +466,7 @@ function panelHtml(): string {
   const L = ${JSON.stringify(loc)};
   const colorVar = { ok: 'var(--ok)', warn: 'var(--warn)', err: 'var(--err)' };
   let curStyle = 'ring';
+  let curLang = 'auto'; // idioma ativo (p/ marcar a bandeira) — vem do globalState
   let updatedAtMs = null; // última atualização efetiva (epoch ms)
   let lastData = null;    // último PanelData recebido (p/ re-render ao trocar de aba)
   // Aba ativa persistida entre recriações da view.
@@ -452,9 +475,11 @@ function panelHtml(): string {
   // A aba "Histórico" foi removida (o conteúdo foi pra "Custos"). Migra quem
   // tinha ela ativa pra não cair numa aba inexistente.
   if (activeTab === 'historico') activeTab = 'custos';
-  // Estado recolhido dos cards da Config (id da seção → true = recolhido).
+  // Estado recolhido das seções da Config (id da seção → true = recolhido).
   let collapsed = persisted.collapsed || {};
-  function saveState(){ if (vscode.setState) vscode.setState({ activeTab: activeTab, collapsed: collapsed }); }
+  // Estado recolhido dos cards de conteúdo (id do card → true = recolhido).
+  let cardCollapsed = persisted.cardc || {};
+  function saveState(){ if (vscode.setState) vscode.setState({ activeTab: activeTab, collapsed: collapsed, cardc: cardCollapsed }); }
 
   // Schema dos settings para a aba Config (key, label, tipo, opções).
   const SETTINGS_SCHEMA = [
@@ -511,6 +536,7 @@ function panelHtml(): string {
       { key: 'exportStateEnabled', label: L.cfg.exportStateEnabled, type: 'bool' },
       { key: 'exportStatePath', label: L.cfg.exportStatePath, type: 'string', pick: 'save' },
     ]},
+    { id: 'language', section: L.sec.language, extra: 'lang', items: [] },
   ];
 
   // Substitui {0} numa string-template (mesmo formato do vscode.l10n.t).
@@ -565,6 +591,15 @@ function panelHtml(): string {
         return '<button class="sbtn' + (o[0]===curStyle?' active':'') + '" data-style="' + o[0] + '">' + o[1] + '</button>';
       }).join('') + '</div></div>';
   }
+  // Bandeiras de idioma: troca o idioma de TODO o plugin (globalState).
+  function langButtons() {
+    const cur = curLang || 'auto';
+    const opts = [['auto','🌐'],['pt','🇧🇷'],['en','🇺🇸'],['es','🇪🇸'],['fr','🇫🇷'],['de','🇩🇪']];
+    return '<div class="styles"><div class="cfg-help-line">' + esc(L.cfg.langHelp) + '</div><div class="style-btns lang-row">' +
+      opts.map(function(o){
+        return '<button class="sbtn lang-btn' + (o[0]===cur?' active':'') + '" data-lang="' + o[0] + '" title="' + o[0] + '">' + o[1] + '</button>';
+      }).join('') + '</div></div>';
+  }
   // Formata tokens curto pro tooltip da barra (ex: 12.3M, 84k).
   function fmtTok(n) {
     if (!n || n <= 0) return '0';
@@ -590,7 +625,7 @@ function panelHtml(): string {
       const h = Math.max(2, Math.round((v / max) * 100));
       const today = i === days.length - 1 ? ' today' : '';
       const tip = (d.date || '') + ' · ' + fmtVal(v);
-      return '<div class="spark-bar' + today + '" style="height:' + h + '%" title="' + esc(tip) + '"></div>';
+      return '<div class="spark-bar' + today + '" style="height:' + h + '%" data-tip="' + esc(tip) + '"></div>';
     }).join('');
     // rótulos só nas pontas (primeiro e último dia), pra não poluir.
     const first = days[0].date || '';
@@ -600,17 +635,18 @@ function panelHtml(): string {
     return '<div class="spark"><div class="styles-title">' + esc(title) + '</div>' +
       '<div class="spark-bars">' + bars + '</div>' + labels + '</div>';
   }
-  // Sparkline de tokens/dia (aba Custos).
+  // Sparkline de tokens/dia (aba Custos). Tooltip mostra o valor ABSOLUTO (nº cheio).
   function sparkline(daily) {
     return sparkBars(daily, function(d){ return d.tokens; },
-      function(v){ return fmt(L.tokens, fmtTok(v)); }, L.cost.perDayTokens);
+      function(v){ return fmt(L.tokens, Math.round(v).toLocaleString()); }, L.cost.perDayTokens);
   }
   // Sparkline de custo/dia (aba Custos) — só renderiza se houver algum custo.
+  // Tooltip mostra o custo absoluto do dia com centavos.
   function costSparkline(daily) {
     const any = (daily || []).some(function(d){ return d && d.costUSD > 0; });
     if (!any) return '';
     return sparkBars(daily, function(d){ return d.costUSD; },
-      function(v){ return fmtUsd(v); }, L.cost.perDay);
+      function(v){ return '$' + (v || 0).toFixed(2); }, L.cost.perDay);
   }
   // Rótulo curto da janela ativa das quebras ("5h"/"Hoje"/"7d"/"30d").
   function winLabel(win) {
@@ -627,6 +663,13 @@ function panelHtml(): string {
   }
   const card = (inner, cls) =>
     '<div class="card' + (cls ? ' ' + cls : '') + '">' + inner + '</div>';
+  // Card colapsável: o TÍTULO vira summary (clica p/ recolher/expandir) e o
+  // estado é lembrado pelo id. Mesmo padrão das seções da Config.
+  function collapsibleCard(id, title, body, cls) {
+    const openAttr = cardCollapsed[id] ? '' : ' open';
+    return '<details class="card cardc' + (cls ? ' ' + cls : '') + '" data-card="' + id + '"' + openAttr + '>' +
+      '<summary class="styles-title cfg-summary">' + esc(title) + '</summary>' + body + '</details>';
+  }
   function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
   // Barra de uso (track + fill) com a regra de tema/semáforo.
@@ -664,8 +707,8 @@ function panelHtml(): string {
         (cost.overBudget ? ' ⚠' : '') + '</span></div>' + bar(pct, null) + '</div>';
     }
     const note = sub ? L.cost.subNote : L.cost.approxNote;
-    return card('<div class="styles-title">' + esc(L.cost.title) + '</div>' + rows +
-      '<div class="cfg-help-line">' + esc(note) + '</div>');
+    return collapsibleCard('costsum', L.cost.title,
+      rows + '<div class="cfg-help-line">' + esc(note) + '</div>');
   }
 
   // Card "Por modelo": tokens + custo ≈ por modelo no bloco de 5h (tabela local).
@@ -684,8 +727,8 @@ function panelHtml(): string {
         '</span><span class="row-val">' + esc(val) + '</span></div>' + bar(pct, null) + '</div>';
     }).join('');
     const ver = cost.tableVersion ? ' · ' + fmt(L.cost.tableV, cost.tableVersion) : '';
-    return card('<div class="styles-title">' + esc(L.cost.byModel + ' (' + winLabel(cost.window) + ')') + '</div>' + rows +
-      '<div class="cfg-help-line">' + esc(L.cost.approxNote + ver) + '</div>');
+    return collapsibleCard('bymodel', L.cost.byModel + ' (' + winLabel(cost.window) + ')',
+      rows + '<div class="cfg-help-line">' + esc(L.cost.approxNote + ver) + '</div>');
   }
 
   // Card "Por projeto" (custo ≈): supera o antigo projectsCard (que era só tokens).
@@ -700,7 +743,7 @@ function panelHtml(): string {
       return '<div class="row"><div class="row-head"><span class="row-label">' + esc(p.project) +
         '</span><span class="row-val">' + esc(val) + '</span></div>' + bar(pct, null) + '</div>';
     }).join('');
-    return card('<div class="styles-title">' + esc(L.cost.byProject + ' (' + winLabel(cost.window) + ')') + '</div>' + rows);
+    return collapsibleCard('byproject', L.cost.byProject + ' (' + winLabel(cost.window) + ')', rows);
   }
 
   // Barra dos buckets de contexto: tinge de warn os turnos com contexto grande.
@@ -718,12 +761,16 @@ function panelHtml(): string {
     const rows = list.map(function(b){
       const big = (b.bucket === '150–200k' || b.bucket === '>200k');
       const pct = (b.costUSD / max) * 100;
-      const val = fmt(L.cost.turns, b.turns) + ' · ' + (sub ? '~' : '') + fmtUsd(b.costUSD);
+      const perTurn = b.turns > 0 ? b.costUSD / b.turns : 0;
+      // Custo total do bloco + custo médio POR TURNO (a métrica que mostra que
+      // turnos com mais contexto custam mais por resposta).
+      const val = fmt(L.cost.turns, b.turns) + ' · ' + (sub ? '~' : '') + fmtUsd(b.costUSD) +
+        ' · ' + fmt(L.cost.perTurn, (sub ? '~' : '') + fmtUsd(perTurn));
       return '<div class="row"><div class="row-head"><span class="row-label">' + esc(b.bucket) +
         (big ? ' ⚠' : '') + '</span><span class="row-val">' + esc(val) + '</span></div>' + bucketBar(pct, big) + '</div>';
     }).join('');
-    return card('<div class="styles-title">' + esc(L.cost.byContext + ' (' + winLabel(cost.window) + ')') + '</div>' + rows +
-      '<div class="cfg-help-line">' + esc(L.cost.byContextHelp) + '</div>');
+    return collapsibleCard('buckets', L.cost.byContext + ' (' + winLabel(cost.window) + ')',
+      rows + '<div class="cfg-help-line">' + esc(L.cost.byContextHelp) + '</div>');
   }
 
   // Card "MCP e subagentes": CONTAGEM de chamadas (sem custo — não dá pra atribuir).
@@ -737,11 +784,11 @@ function panelHtml(): string {
           '<span class="st-comp-status">' + esc(fmt(L.cost.calls, x.calls)) + '</span></div>';
       }).join('');
     }
-    var html = '<div class="styles-title">' + esc(L.cost.counts + ' (' + winLabel(cost.window) + ')') + '</div>';
+    var html = '';
     if (mcp.length) html += '<div class="st-recent"><b>' + esc(L.cost.mcp) + '</b></div>' + listRows(mcp);
     if (sub.length) html += '<div class="st-recent"><b>' + esc(L.cost.subagents) + '</b></div>' + listRows(sub);
     html += '<div class="cfg-help-line">' + esc(L.cost.countsHelp) + '</div>';
-    return card(html);
+    return collapsibleCard('counts', L.cost.counts + ' (' + winLabel(cost.window) + ')', html);
   }
 
   // Monta o texto localizado de uma dica a partir do id + values.
@@ -768,7 +815,7 @@ function panelHtml(): string {
           return '<div class="st-recent">' + icon + ' ' + esc(tipText(tp)) + '</div>';
         }).join('')
       : '<div class="st-recent">' + esc(L.cost.tips.none) + '</div>';
-    return card('<div class="styles-title">' + esc(L.cost.tips.title) + '</div>' + rows);
+    return collapsibleCard('tips', L.cost.tips.title, rows);
   }
 
   // Card "Fonte de dados": mostra a fonte ativa (oauth/statusline/ccusage) e,
@@ -776,8 +823,7 @@ function panelHtml(): string {
   function sourceCard(src) {
     if (!src) return '';
     const cls = (src.kind === 'ccusage' || src.kind === 'none') ? 'stc-warn' : 'stc-ok';
-    return card(
-      '<div class="styles-title">' + esc(L.srcTitle) + '</div>' +
+    return collapsibleCard('source', L.srcTitle,
       '<div class="st-recent"><b>' + esc(L.srcActive) + ':</b> <span class="' + cls + '">' + esc(src.activeLabel) + '</span></div>' +
       '<div class="st-recent">' + esc(src.oauthLine) + '</div>' +
       '<div class="st-recent">' + esc(src.statuslineLine) + '</div>'
@@ -795,6 +841,8 @@ function panelHtml(): string {
       if (sec.help) body += '<div class="cfg-help-line">' + esc(sec.help) + '</div>';
       // Aparência: os botões visuais de estilo entram aqui (em vez de dropdown).
       if (sec.extra === 'style') body += styleButtons();
+      // Idioma: bandeiras que trocam o idioma de todo o plugin.
+      if (sec.extra === 'lang') body += langButtons();
       sec.items.forEach(function(it){
         const val = settings[it.key];
         var ctrl = '';
@@ -885,7 +933,7 @@ function panelHtml(): string {
         return '<div class="st-inc' + cls + '"><div class="st-inc-name">' + esc(i.name) + '</div>' +
           '<div class="st-inc-meta">' + esc(impactLabel(i.impact)) + ' · ' + esc(incStatusLabel(i.status)) + '</div>' + upd + '</div>';
       }).join('');
-      html += card('<div class="styles-title">' + esc(L.st.incidents) + '</div>' + inc);
+      html += collapsibleCard('st-incidents', L.st.incidents, inc);
     }
     // Componentes
     if (s.components && s.components.length) {
@@ -894,7 +942,7 @@ function panelHtml(): string {
         return '<div class="st-comp"><span>' + esc(c.name) + '</span>' +
           '<span class="st-comp-status stc-' + col + '">' + esc(stLabel(c.status)) + '</span></div>';
       }).join('');
-      html += card('<div class="styles-title">' + esc(L.st.components) + '</div>' + comps);
+      html += collapsibleCard('st-components', L.st.components, comps);
     }
     // Histórico recente (resolvidos)
     if (s.recent && s.recent.length) {
@@ -902,7 +950,7 @@ function panelHtml(): string {
         const d = r.resolvedAt ? r.resolvedAt.slice(0,10) : '';
         return '<div class="st-recent">✓ ' + esc(r.name) + (d ? ' · ' + d : '') + '</div>';
       }).join('');
-      html += card('<div class="styles-title">' + esc(L.st.recent) + '</div>' + rec);
+      html += collapsibleCard('st-recent', L.st.recent, rec);
     }
     html += card('<button class="link-btn" id="openStatusPage">' + esc(L.st.openPage) + '</button>', 'controls');
     return html;
@@ -932,6 +980,7 @@ function panelHtml(): string {
       return;
     }
     if (d.barStyle) curStyle = d.barStyle;
+    if (d.lang) curLang = d.lang;
     if (d.updatedAtMs) updatedAtMs = d.updatedAtMs;
     const ringOverride = d.ringColorOverride || null;
 
@@ -967,7 +1016,7 @@ function panelHtml(): string {
       const hasStats = !!(c && (c.byModel.length || c.byProject.length ||
         c.byContextBucket.length || c.byMcpServer.length || c.bySubagent.length));
       const sparks = costSparkline(d.daily) + sparkline(d.daily);
-      body = costCard(c) + (sparks ? card(sparks) : '') +
+      body = costCard(c) + (sparks ? collapsibleCard('daily', L.cost.daily, sparks) : '') +
         (hasStats
           ? windowSelector(c.window) + byModelCard(c) + projectsCostCard(c) +
             bucketsCard(c) + countsCard(c) + tipsCard(c)
@@ -1016,12 +1065,23 @@ function panelHtml(): string {
         b.classList.add('active');
       });
     });
-    // Seletor de janela das quebras (aba Custos): grava costWindow e re-renderiza
-    // (o host recomputa as stats na nova janela e devolve os dados).
+    // Seletor de janela das quebras (aba Custos): via comando dedicado (não o
+    // setConfig genérico) — o host atualiza o valor de runtime na hora, recomputa
+    // as stats na nova janela e devolve os dados (que re-renderizam os títulos).
     document.querySelectorAll('.sbtn[data-costwin]').forEach(function(b){
       b.addEventListener('click', function(){
-        vscode.postMessage({ type: 'setConfig', key: 'costWindow', value: b.getAttribute('data-costwin') });
+        vscode.postMessage({ type: 'setCostWindow', value: b.getAttribute('data-costwin') });
         document.querySelectorAll('.sbtn[data-costwin]').forEach(function(x){ x.classList.remove('active'); });
+        b.classList.add('active');
+      });
+    });
+    // Bandeiras de idioma: gravam o setting language (o host troca o idioma de
+    // TODO o plugin e remonta o painel).
+    document.querySelectorAll('.sbtn[data-lang]').forEach(function(b){
+      b.addEventListener('click', function(){
+        curLang = b.getAttribute('data-lang');
+        vscode.postMessage({ type: 'setLanguage', value: curLang });
+        document.querySelectorAll('.sbtn[data-lang]').forEach(function(x){ x.classList.remove('active'); });
         b.classList.add('active');
       });
     });
@@ -1058,6 +1118,13 @@ function panelHtml(): string {
         saveState();
       });
     });
+    // Cards de conteúdo colapsáveis: lembra o estado recolhido/expandido.
+    document.querySelectorAll('details.cardc[data-card]').forEach(function(d){
+      d.addEventListener('toggle', function(){
+        cardCollapsed[d.getAttribute('data-card')] = !d.open;
+        saveState();
+      });
+    });
     // controles de config
     document.querySelectorAll('[data-key]').forEach(function(el){
       const ev = (el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'color') ? 'change' : 'change';
@@ -1088,6 +1155,36 @@ function panelHtml(): string {
       render(m.data);
     }
   });
+  // Tooltip flutuante das barras do sparkline: o title nativo não renderiza de
+  // forma confiável neste webview, então mostramos um <div> próprio seguindo o
+  // cursor. Delegação no document (montada UMA vez; sobrevive aos re-renders).
+  (function(){
+    var tip = document.createElement('div');
+    tip.className = 'spark-tip';
+    document.body.appendChild(tip);
+    function hide(){ tip.style.display = 'none'; }
+    function place(bar, x, y){
+      var txt = bar.getAttribute('data-tip');
+      if (!txt) { hide(); return; }
+      tip.textContent = txt;
+      tip.style.display = 'block';
+      var pad = 12;
+      var w = tip.offsetWidth, h = tip.offsetHeight;
+      var left = x + pad, top = y - h - pad;
+      if (left + w > window.innerWidth - 4) left = x - w - pad;
+      if (left < 4) left = 4;
+      if (top < 4) top = y + pad;
+      tip.style.left = left + 'px';
+      tip.style.top = top + 'px';
+    }
+    document.addEventListener('mousemove', function(e){
+      var t = e.target;
+      var bar = t && t.closest ? t.closest('.spark-bar') : null;
+      if (bar) place(bar, e.clientX, e.clientY); else hide();
+    });
+    document.addEventListener('mouseleave', hide);
+    window.addEventListener('blur', hide);
+  })();
   // pede um render inicial assim que a view monta
   vscode.postMessage({ type: 'ready' });
 </script>
@@ -1114,6 +1211,12 @@ function wireMessages(
       vscode.commands.executeCommand("claudeUsageBar.toggleAlert");
     } else if (msg?.type === "runCommand" && ALLOWED_CMDS.has(msg.command)) {
       vscode.commands.executeCommand(msg.command);
+    } else if (msg?.type === "setLanguage" && typeof msg.value === "string") {
+      // Idioma do plugin: vai pro globalState via comando (sempre gravável).
+      vscode.commands.executeCommand("claudeUsageBar.setLanguage", msg.value);
+    } else if (msg?.type === "setCostWindow" && typeof msg.value === "string") {
+      // Janela das quebras: comando dedicado (valor de runtime + persiste).
+      vscode.commands.executeCommand("claudeUsageBar.setCostWindow", msg.value);
     } else if (msg?.type === "setConfig" && typeof msg.key === "string") {
       // Grava o setting alterado pela aba Config.
       vscode.workspace
@@ -1143,7 +1246,7 @@ function wireMessages(
             canSelectFolders: false,
             canSelectMany: false,
             defaultUri,
-            openLabel: vscode.l10n.t("Usar este arquivo"),
+            openLabel: tr("Usar este arquivo"),
           })
           .then((uris) => apply(uris && uris[0]));
       } else {
@@ -1151,7 +1254,7 @@ function wireMessages(
         vscode.window
           .showSaveDialog({
             defaultUri,
-            saveLabel: vscode.l10n.t("Usar este caminho"),
+            saveLabel: tr("Usar este caminho"),
             filters: { JSON: ["json"] },
           })
           .then(apply);
@@ -1224,6 +1327,17 @@ export class UsageViewProvider implements vscode.WebviewViewProvider {
   update(data: PanelData, barStyle: string) {
     this.last = { data, barStyle };
     this.view?.webview.postMessage({ type: "data", data, barStyle });
+  }
+
+  /**
+   * Reconstrói o HTML do webview — usado ao trocar o idioma, já que o dicionário
+   * `L` (traduzido) é injetado no HTML. O webview remonta, pede {type:'ready'} e
+   * o handler existente responde com o último estado (agora no novo idioma).
+   */
+  rebuild() {
+    if (this.view) {
+      this.view.webview.html = panelHtml();
+    }
   }
 
   /** Revela a view na sidebar (usado pelo comando/clique). */

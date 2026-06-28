@@ -68,5 +68,6 @@
   "config.tipsCacheReadPct.desc": "Cache tip: warn when **context re-reads (cache-read)** exceed this % of input tokens. Default 70.",
   "config.tipsOpusPct.desc": "Model tip: warn when **Opus** drives ≥ this % of cost (suggests Sonnet/Haiku for light tasks). Default 70.",
   "config.tipsMcpCalls.desc": "MCP tip: warn when an MCP server is called **more than** this many times in the window. Default 40.",
-  "config.tipsSubagentPct.desc": "Subagents tip: warn when **subagents** account for ≥ this % of cost. Default 40."
+  "config.tipsSubagentPct.desc": "Subagents tip: warn when **subagents** account for ≥ this % of cost. Default 40.",
+  "config.language.desc": "Plugin language (panel, status bar, alerts). `auto` (default) follows the VS Code language; or force `pt`/`en`/`es`/`fr`/`de`. Switch via the flags in **Config → Idioma**. Note: the labels on this Settings screen follow the VS Code language."
 }

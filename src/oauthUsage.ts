@@ -24,9 +24,16 @@ export interface OAuthUsage {
     currency: string;
   } | null;
 }
+// Motivo da indisponibilidade em forma ESTRUTURADA (não pré-traduzida): quem
+// exibe localiza com o tr() do idioma ATUAL, em vez de congelar a string no
+// idioma em que a falha aconteceu (senão, ao trocar de idioma, sobra um trecho
+// no idioma antigo — ex.: alemão na "Fonte de dados" depois de voltar pro pt).
+export type OAuthUnavailableReason =
+  | { kind: "noToken" }
+  | { kind: "httpError"; detail: string };
 export interface OAuthUsageUnavailable {
   available: false;
-  reason: string;
+  reason: OAuthUnavailableReason;
 }
 export type OAuthUsageResult = OAuthUsage | OAuthUsageUnavailable;
 
@@ -161,11 +168,7 @@ export async function fetchOAuthUsage(
 ): Promise<OAuthUsageResult> {
   const token = await resolveToken();
   if (!token) {
-    return {
-      available: false,
-      reason:
-        "token OAuth não encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)",
-    };
+    return { available: false, reason: { kind: "noToken" } };
   }
   try {
     const raw = await httpGetUsage(token, timeoutMs);
@@ -193,6 +196,6 @@ export async function fetchOAuthUsage(
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { available: false, reason: `falha ao consultar oauth/usage (${msg})` };
+    return { available: false, reason: { kind: "httpError", detail: msg } };
   }
 }

@@ -140,9 +140,12 @@
   "Ritmo alto: {0}/h (limite {1}/h)": "Rythme élevé : {0}/h (limite {1}/h)",
   "Sessão 5h projeta atingir 100% antes do reset": "La session 5h projette d'atteindre 100% avant la réinitialisation",
   "Limite semanal projeta atingir 100% antes do reset": "La limite hebdomadaire projette d'atteindre 100% avant la réinitialisation",
+  "💡 Pra não estourar: pause ~{0} ou reduza o ritmo ~{1}%": "💡 Pour ne pas dépasser : pause ~{0} ou réduisez le rythme ~{1}%",
   "Fonte de dados": "Source des données",
   "Fonte ativa": "Source active",
   "desativado nas configurações": "désactivé dans les paramètres",
+  "token OAuth não encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)": "jeton OAuth introuvable (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)",
+  "falha ao consultar oauth/usage ({0})": "échec de la requête oauth/usage ({0})",
   "≈ tempo · reseta {0}": "≈ temps · réinit. {0}",
   "ccusage (≈ tempo)": "ccusage (≈ temps)",
   "oauth/usage — cota real": "oauth/usage — quota réel",
@@ -208,5 +211,9 @@
   "Dica: MCP (chamadas)": "Conseil : MCP (appels)",
   "Dica: subagentes (% custo)": "Conseil : sous-agents (% coût)",
   "Tokens por dia": "Tokens par jour",
-  "Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40.": "Quand chaque conseil se déclenche. Valeurs plus élevées = moins de conseils (plus conservateur). Défauts : 25/70/70/40/40."
+  "Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40.": "Quand chaque conseil se déclenche. Valeurs plus élevées = moins de conseils (plus conservateur). Défauts : 25/70/70/40/40.",
+  "{0}/turno": "{0}/tour",
+  "Idioma": "Langue",
+  "Idioma de todo o plugin (painel, status bar, alertas). 🌐 = segue o VS Code. Os rótulos na tela de Settings do VS Code seguem o idioma do VS Code.": "Langue de tout le plugin (panneau, barre d’état, alertes). 🌐 = suit VS Code. Les libellés de l’écran Settings de VS Code suivent la langue de VS Code.",
+  "Por dia": "Par jour"
 }

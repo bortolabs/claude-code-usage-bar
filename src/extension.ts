@@ -12,7 +12,12 @@ import {
 } from "./ccusage";
 import { evaluateAlerts, AlertResult } from "./alerts";
 import { readCurrentTurn, prettyModel } from "./transcript";
-import { fetchOAuthUsage, OAuthUsageResult, OAuthUsage } from "./oauthUsage";
+import {
+  fetchOAuthUsage,
+  OAuthUsageResult,
+  OAuthUsage,
+  OAuthUnavailableReason,
+} from "./oauthUsage";
 import {
   readTranscriptStats,
   computeTips,
@@ -21,6 +26,7 @@ import {
   TipThresholds,
 } from "./transcriptStats";
 import { fetchStatus, StatusResult, StatusData, hasIssue } from "./status";
+import { initI18n, setLang, tr } from "./i18n";
 
 /** Forma do JSON gravado por statusline-command.sh (bridge). */
 interface RateWindow {
@@ -118,7 +124,7 @@ function fmtResetsAt(epochSeconds: number | null | undefined): string {
   if (!epochSeconds) {
     return "—";
   }
-  return vscode.l10n.t("em {0}", fmtDuration(epochSeconds * 1000 - Date.now()));
+  return tr("em {0}", fmtDuration(epochSeconds * 1000 - Date.now()));
 }
 
 /** Duração curta a partir de ms: "40m", "2h13", "3d". */
@@ -145,6 +151,43 @@ function fmtDuration(deltaMs: number): string {
     return `${h}h${String(m).padStart(2, "0")}`;
   }
   return `${m}m`;
+}
+
+// Janela das QUEBRAS de custo (aba Custos). Valor de runtime autoritativo —
+// ver costWindowValue — pra não depender de config.update propagar.
+type CostWindow = "5h" | "today" | "7d" | "30d";
+
+// Motivo do oauth/usage estar indisponível, em forma ESTRUTURADA. Guardamos o
+// estado cru (não a string já traduzida) e só montamos o texto na hora de
+// exibir — assim ele acompanha o idioma ATUAL do plugin. Sem isto, a frase fica
+// congelada no idioma em que a falha ocorreu (ex.: voltar do alemão pro pt e
+// ainda ver "Wartezeit…" na Fonte de dados).
+type OAuthStatusReason =
+  | { kind: "disabled" }
+  | OAuthUnavailableReason
+  | { kind: "backoff"; inner: OAuthUnavailableReason; waitMs: number };
+
+/** Monta o texto do motivo no idioma atual (chamado no render). */
+function localizeOAuthReason(r: OAuthStatusReason | null): string | null {
+  if (!r) {
+    return null;
+  }
+  switch (r.kind) {
+    case "disabled":
+      return tr("desativado nas configurações");
+    case "noToken":
+      return tr(
+        "token OAuth não encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)"
+      );
+    case "httpError":
+      return tr("falha ao consultar oauth/usage ({0})", r.detail);
+    case "backoff":
+      return tr(
+        "{0} — recuando, nova tentativa em ~{1}",
+        localizeOAuthReason(r.inner) ?? "—",
+        fmtDuration(r.waitMs)
+      );
+  }
 }
 
 /**
@@ -228,11 +271,11 @@ function sessionTimePct(
 function impactPt(imp: string): string {
   return (
     {
-      none: vscode.l10n.t("sem impacto"),
-      minor: vscode.l10n.t("impacto menor"),
-      major: vscode.l10n.t("impacto alto"),
-      critical: vscode.l10n.t("crítico"),
-      maintenance: vscode.l10n.t("manutenção"),
+      none: tr("sem impacto"),
+      minor: tr("impacto menor"),
+      major: tr("impacto alto"),
+      critical: tr("crítico"),
+      maintenance: tr("manutenção"),
     } as Record<string, string>
   )[imp] || imp;
 }
@@ -243,18 +286,25 @@ function fmtAgo(ts: number | undefined): string {
   }
   const sec = Math.max(0, Math.round(Date.now() / 1000 - ts));
   if (sec < 60) {
-    return vscode.l10n.t("há {0}s", sec);
+    return tr("há {0}s", sec);
   }
   const min = Math.round(sec / 60);
   if (min < 60) {
-    return vscode.l10n.t("há {0}min", min);
+    return tr("há {0}min", min);
   }
   const h = Math.round(min / 60);
-  return vscode.l10n.t("há {0}h", h);
+  return tr("há {0}h", h);
 }
 
 export function activate(context: vscode.ExtensionContext) {
   const cfg = () => vscode.workspace.getConfiguration("claudeUsageBar");
+
+  // i18n com override de idioma. Guardado no globalState (não num setting), pois
+  // settings só podem ser escritos quando JÁ registrados — logo após instalar a
+  // extensão por cima de uma janela aberta, `config.update` falha e a seleção das
+  // bandeiras não persistia. O globalState é sempre gravável (e é sincronizado).
+  initI18n(context.extensionPath);
+  setLang(context.globalState.get<string>("language"));
 
   // alignment/priority só podem ser definidos na CRIAÇÃO do item — o VS Code não
   // deixa mutar depois. Por isso guardamos os valores atuais e recriamos o item
@@ -276,12 +326,22 @@ export function activate(context: vscode.ExtensionContext) {
 
   let lastState: UsageState | null = null;
   let lastCcusage: CcusageResult | null = null;
+  // Janela das quebras de custo: valor de runtime AUTORITATIVO (não lemos
+  // cfg().get a cada uso). As bandeiras/botões gravam aqui via comando dedicado
+  // e SÓ então persistem no setting — assim a troca vale na hora, sem depender
+  // de config.update propagar/disparar o evento (que se mostrou não confiável,
+  // igual ao bug do idioma). Inicia do setting salvo (respeita o que o usuário
+  // já tinha) e é re-sincronizado se ele editar direto nas Settings.
+  let costWindowValue: CostWindow = ((): CostWindow => {
+    const w = cfg().get<string>("costWindow");
+    return w === "today" || w === "7d" || w === "30d" ? w : "5h";
+  })();
   // Uso REAL do plano (igual /usage), via endpoint OAuth — fonte primária.
   let lastOAuth: OAuthUsageResult | null = null;
   let lastOAuthOkMs = 0; // quando o oauth respondeu com sucesso pela última vez
   // Resultado da ÚLTIMA tentativa de oauth/usage (p/ mostrar a fonte e, quando
   // cai no fallback, explicar o motivo — em vez de cair no ccusage em silêncio).
-  let lastOAuthStatus: { ok: boolean; reason: string | null } = {
+  let lastOAuthStatus: { ok: boolean; reason: OAuthStatusReason | null } = {
     ok: false,
     reason: null,
   };
@@ -524,11 +584,7 @@ export function activate(context: vscode.ExtensionContext) {
   // "5h" = bloco atual (reset do oauth ou startMs do ccusage); "today" = meia-noite
   // local; "7d"/"30d" = janela móvel. O fim é sempre "agora".
   const costWindowStart = (): number => {
-    const w = (cfg().get<string>("costWindow") ?? "5h") as
-      | "5h"
-      | "today"
-      | "7d"
-      | "30d";
+    const w = costWindowValue;
     const now = Date.now();
     if (w === "today") {
       const d = new Date();
@@ -597,10 +653,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (!(cfg().get<boolean>("useOAuthUsage") ?? true)) {
       lastOAuth = null;
       lastOAuthOkMs = 0;
-      lastOAuthStatus = {
-        ok: false,
-        reason: vscode.l10n.t("desativado nas configurações"),
-      };
+      lastOAuthStatus = { ok: false, reason: { kind: "disabled" } };
       render();
       return;
     }
@@ -649,13 +702,11 @@ export function activate(context: vscode.ExtensionContext) {
       oauthFailStreak = Math.min(oauthFailStreak + 1, 8);
       const waitMs = Math.min(15 * 60_000, 10_000 * Math.pow(2, oauthFailStreak));
       oauthBackoffUntilMs = Date.now() + waitMs;
+      // Guarda o motivo CRU + o tempo de recuo; a frase é montada no render, no
+      // idioma atual (ver localizeOAuthReason). Não congelar a string aqui.
       lastOAuthStatus = {
         ok: false,
-        reason: vscode.l10n.t(
-          "{0} — recuando, nova tentativa em ~{1}",
-          res.reason,
-          fmtDuration(waitMs)
-        ),
+        reason: { kind: "backoff", inner: res.reason, waitMs },
       };
     }
     // Falha pontual: NÃO descarta o último resultado bom (evita o flicker
@@ -692,10 +743,10 @@ export function activate(context: vscode.ExtensionContext) {
         if (!notifiedIncidentIds.has(inc.id)) {
           notifiedIncidentIds.add(inc.id);
           const link = inc.shortlink || "https://status.claude.com";
-          const btnStatus = vscode.l10n.t("Ver status");
+          const btnStatus = tr("Ver status");
           vscode.window
             .showWarningMessage(
-              vscode.l10n.t(
+              tr(
                 "Anthropic — {0} ({1})",
                 inc.name,
                 impactPt(inc.impact)
@@ -878,7 +929,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (!hasRate && !block && !fresh && !usage) {
       item.text = "$(circle-outline) Claude —";
       const md = new vscode.MarkdownString(
-        vscode.l10n.t(
+        tr(
           "**Claude Code Usage**\n\nSem dados ainda. A extensão usa o **ccusage** (uso da sessão de 5h, calculado dos transcripts) e, quando você roda o Claude Code no terminal, os limites **5h/7d** da statusline.\n\n_Rode `npx ccusage blocks --active` no terminal para testar a fonte._"
         )
       );
@@ -897,7 +948,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (within && resetWarnedEndMs !== block.endMs) {
         resetWarnedEndMs = block.endMs; // só uma vez por janela
         vscode.window.showInformationMessage(
-          vscode.l10n.t(
+          tr(
             "Claude Usage — sua sessão de 5h reseta em ~{0}.",
             fmtDuration(block.remainingMinutes * 60000)
           )
@@ -944,22 +995,22 @@ export function activate(context: vscode.ExtensionContext) {
             const left = Math.max(0, Math.round(remaining));
             const inReset =
               resetMs && resetMs > Date.now()
-                ? vscode.l10n.t(" (reseta em {0})", fmtDuration(resetMs - Date.now()))
+                ? tr(" (reseta em {0})", fmtDuration(resetMs - Date.now()))
                 : "";
             const msg =
               win === "5h"
-                ? vscode.l10n.t(
+                ? tr(
                     "Claude Usage — sessão de 5h: resta {0}%{1}.",
                     left,
                     inReset
                   )
-                : vscode.l10n.t(
+                : tr(
                     "Claude Usage — semana (7d): resta {0}%{1}.",
                     left,
                     inReset
                   );
-            const btnOpen = vscode.l10n.t("Abrir painel");
-            const btnSnooze = vscode.l10n.t("Silenciar 1h");
+            const btnOpen = tr("Abrir painel");
+            const btnSnooze = tr("Silenciar 1h");
             vscode.window
               .showWarningMessage(msg, btnOpen, btnSnooze)
               .then((choice) => {
@@ -995,8 +1046,8 @@ export function activate(context: vscode.ExtensionContext) {
           return;
         }
         monthBudgetWarned.add(key);
-        const btnOpen = vscode.l10n.t("Abrir painel");
-        const btnSnooze = vscode.l10n.t("Silenciar 1h");
+        const btnOpen = tr("Abrir painel");
+        const btnSnooze = tr("Silenciar 1h");
         vscode.window
           .showWarningMessage(msg, btnOpen, btnSnooze)
           .then((choice) => {
@@ -1011,7 +1062,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (monthToDate >= monthlyBudget) {
         notifyBudget(
           "month-consumed",
-          vscode.l10n.t(
+          tr(
             "Claude Usage — orçamento mensal: já usou {0} de {1}.",
             fmtUsd(monthToDate),
             fmtUsd(monthlyBudget)
@@ -1025,7 +1076,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (monthToDate < monthlyBudget && monthProjected >= monthlyBudget) {
         notifyBudget(
           "month-projected",
-          vscode.l10n.t(
+          tr(
             "Claude Usage — no ritmo atual o mês deve fechar em ~{0} (orçamento {1}).",
             fmtUsd(monthProjected),
             fmtUsd(monthlyBudget)
@@ -1055,19 +1106,19 @@ export function activate(context: vscode.ExtensionContext) {
             const partes: string[] = [];
             if (curWindowPeakPct > 0) {
               partes.push(
-                vscode.l10n.t("{0}% da cota", Math.round(curWindowPeakPct))
+                tr("{0}% da cota", Math.round(curWindowPeakPct))
               );
             }
             if (curWindowPeakTokens > 0) {
               partes.push(
-                vscode.l10n.t("{0} tokens", fmtTokens(curWindowPeakTokens))
+                tr("{0} tokens", fmtTokens(curWindowPeakTokens))
               );
             }
             if (curWindowPeakCost > 0) {
-              partes.push(vscode.l10n.t("~{0} equiv.", fmtUsd(curWindowPeakCost)));
+              partes.push(tr("~{0} equiv.", fmtUsd(curWindowPeakCost)));
             }
             vscode.window.showInformationMessage(
-              vscode.l10n.t(
+              tr(
                 "Claude Usage — sessão de 5h encerrada: {0}. Janela nova começou.",
                 partes.join(" · ")
               )
@@ -1204,8 +1255,8 @@ export function activate(context: vscode.ExtensionContext) {
       suffix = resetShort ? ` · ${resetShort}` : "";
       centerLabel = primary;
       centerSub = resetShort
-        ? vscode.l10n.t("sessão 5h · reseta {0}", resetShort)
-        : vscode.l10n.t("sessão · 5h");
+        ? tr("sessão 5h · reseta {0}", resetShort)
+        : tr("sessão · 5h");
       effective = Math.max(fiveHour ?? 0, sevenDay ?? 0, projForColor);
     } else if (block) {
       // App/IDE: ccusage. SEM cota real — o herói é a % de TEMPO da sessão de 5h
@@ -1215,8 +1266,11 @@ export function activate(context: vscode.ExtensionContext) {
       const resetShort = fmtDuration(block.remainingMinutes * 60000);
       suffix = ` · ${resetShort}`;
       centerLabel = primary;
-      centerSub = vscode.l10n.t("≈ tempo · reseta {0}", resetShort);
-      effective = Math.max(block.timePct, costPctForColor, projForColor);
+      centerSub = tr("≈ tempo · reseta {0}", resetShort);
+      // A COR nunca vem do TEMPO decorrido: tempo acabando é BOM (vem reset).
+      // No ccusage (sem cota real) ela reflete só o custo (api) / projeção —
+      // o número/anel ainda mostra o % de tempo, mas sem alarmar por isso.
+      effective = Math.max(costPctForColor, projForColor);
     } else {
       // Só statusline fresca sem rate (raro).
       if (isSub) {
@@ -1225,14 +1279,14 @@ export function activate(context: vscode.ExtensionContext) {
         primary = ctxPct != null ? `${Math.round(ctxPct)}%` : "—";
         suffix = "";
         centerLabel = primary;
-        centerSub = vscode.l10n.t("contexto");
+        centerSub = tr("contexto");
         effective = ctxPct ?? 0;
       } else {
         ringPct = ctxPct;
         primary = fmtUsd(cost);
         suffix = "";
         centerLabel = fmtUsd(cost);
-        centerSub = vscode.l10n.t("custo da sessão");
+        centerSub = tr("custo da sessão");
         effective = Math.max(ctxPct ?? 0, costPctForColor);
       }
     }
@@ -1333,14 +1387,14 @@ export function activate(context: vscode.ExtensionContext) {
         // Incorpora a ETA na mensagem quando há previsão de estouro (#7).
         const etaSuffix =
           etaMin != null
-            ? vscode.l10n.t(" — estoura em ~{0}", fmtDuration(etaMin * 60000))
+            ? tr(" — estoura em ~{0}", fmtDuration(etaMin * 60000))
             : "";
-        const btnOpen = vscode.l10n.t("Abrir painel");
-        const btnSnooze = vscode.l10n.t("Silenciar 1h");
-        const btnOff = vscode.l10n.t("Desligar alertas");
+        const btnOpen = tr("Abrir painel");
+        const btnSnooze = tr("Silenciar 1h");
+        const btnOff = tr("Desligar alertas");
         vscode.window
           .showWarningMessage(
-            vscode.l10n.t("Claude Usage — {0}", `${alert.message}${etaSuffix}`),
+            tr("Claude Usage — {0}", `${alert.message}${etaSuffix}`),
             btnOpen,
             btnSnooze,
             btnOff
@@ -1400,11 +1454,7 @@ export function activate(context: vscode.ExtensionContext) {
       monthlyBudgetUsd: monthlyBudget,
       stats: lastStats,
       tips: lastStats ? computeTips(lastStats, tipThresholds()) : [],
-      costWindow: (cfg().get<string>("costWindow") ?? "5h") as
-        | "5h"
-        | "today"
-        | "7d"
-        | "30d",
+      costWindow: costWindowValue,
     };
     item.tooltip = buildTooltip(view);
     writeExport(view);
@@ -1471,14 +1521,14 @@ export function activate(context: vscode.ExtensionContext) {
           ? Math.floor(v.fiveHourResetMs / 1000)
           : v.state?.five_hour?.resets_at ?? null;
       const reset = resetSec
-        ? " · " + vscode.l10n.t("reseta {0}", fmtResetsAt(resetSec))
+        ? " · " + tr("reseta {0}", fmtResetsAt(resetSec))
         : "";
       lines.push(
-        vscode.l10n.t("**Sessão 5h:** {0}", `${pct}${bar(v.fiveHour)}${reset}`)
+        tr("**Sessão 5h:** {0}", `${pct}${bar(v.fiveHour)}${reset}`)
       );
       if (v.sevenDay != null) {
         lines.push(
-          vscode.l10n.t(
+          tr(
             "**Semana 7d:** {0}",
             `${Math.round(v.sevenDay)}%${bar(v.sevenDay)}`
           )
@@ -1487,7 +1537,7 @@ export function activate(context: vscode.ExtensionContext) {
     } else if (v.block) {
       const b = v.block;
       lines.push(
-        vscode.l10n.t(
+        tr(
           "**Sessão 5h:** {0}% do tempo{1} · reseta em {2}",
           Math.round(b.timePct),
           bar(b.timePct),
@@ -1495,14 +1545,14 @@ export function activate(context: vscode.ExtensionContext) {
         )
       );
     } else {
-      lines.push(vscode.l10n.t("Sem dados da sessão ainda."));
+      lines.push(tr("Sem dados da sessão ainda."));
     }
 
     // Alerta / projeção — só quando ativo (linha curta).
     if (v.alert.active) {
       const eta =
         v.etaMin != null
-          ? vscode.l10n.t(" · estoura em ~{0}", fmtDuration(v.etaMin * 60000))
+          ? tr(" · estoura em ~{0}", fmtDuration(v.etaMin * 60000))
           : "";
       lines.push(`$(warning) **${v.alert.message}**${eta}`);
     } else if (v.projPct != null && v.projPct >= 60) {
@@ -1511,13 +1561,13 @@ export function activate(context: vscode.ExtensionContext) {
           ? ` · ~${fmtDuration(v.etaMin * 60000)}`
           : "";
       lines.push(
-        vscode.l10n.t("↗ ritmo projeta ~{0}%{1}", Math.round(v.projPct), eta)
+        tr("↗ ritmo projeta ~{0}%{1}", Math.round(v.projPct), eta)
       );
     }
 
     // Link clicável para o painel completo.
     lines.push(
-      vscode.l10n.t(
+      tr(
         "[$(graph) Abrir painel](command:claudeUsageBar.openPanel) · _detalhes completos_"
       )
     );
@@ -1536,21 +1586,21 @@ export function activate(context: vscode.ExtensionContext) {
       // o reset da 5h já aparece no grifo).
       const reset7 = v.sevenDayResetMs
         ? " · " +
-          vscode.l10n.t(
+          tr(
             "reseta em {0}",
             fmtDuration(v.sevenDayResetMs - Date.now())
           )
         : s?.seven_day?.resets_at
-        ? " · " + vscode.l10n.t("reseta {0}", fmtResetsAt(s.seven_day.resets_at))
+        ? " · " + tr("reseta {0}", fmtResetsAt(s.seven_day.resets_at))
         : "";
       // Barra "de uso" = COTA real (mesmo % do anel/grifo). Mostra % + tokens.
       // O reset não vai aqui — já aparece no grifo acima.
       const usoPct = v.fiveHour != null ? `${Math.round(v.fiveHour)}%` : "—";
       const usoTok = v.block
-        ? " · " + vscode.l10n.t("{0} tokens", fmtTokens(v.block.totalTokens))
+        ? " · " + tr("{0} tokens", fmtTokens(v.block.totalTokens))
         : "";
       rows.push({
-        label: vscode.l10n.t("Uso de tokens da sessão"),
+        label: tr("Uso de tokens da sessão"),
         value: `${usoPct}${usoTok}`,
         pct: v.fiveHour, // barra colore pela cota
       });
@@ -1559,30 +1609,30 @@ export function activate(context: vscode.ExtensionContext) {
       const timePct = sessionTimePct(v.fiveHourResetMs, v.block);
       if (timePct != null) {
         rows.push({
-          label: vscode.l10n.t("Tempo da sessão 5h"),
-          value: vscode.l10n.t("{0}% do tempo", Math.round(timePct)),
+          label: tr("Tempo da sessão 5h"),
+          value: tr("{0}% do tempo", Math.round(timePct)),
           pct: timePct,
         });
       }
       rows.push({
-        label: `${vscode.l10n.t("Semana (7d)")}${reset7}`,
+        label: `${tr("Semana (7d)")}${reset7}`,
         value: v.sevenDay != null ? `${Math.round(v.sevenDay)}%` : "—",
         pct: v.sevenDay,
       });
     } else if (v.block) {
       const b = v.block;
       rows.push({
-        label: vscode.l10n.t(
+        label: tr(
           "Sessão 5h · reseta em {0}",
           fmtDuration(b.remainingMinutes * 60000)
         ),
-        value: vscode.l10n.t("{0}% do tempo", Math.round(b.timePct)),
+        value: tr("{0}% do tempo", Math.round(b.timePct)),
         pct: b.timePct,
       });
       if (v.isSub) {
         // Assinatura: $ é só referência; sem teto/barra/cor.
         rows.push({
-          label: vscode.l10n.t("Equivalente API (sua assinatura cobre)"),
+          label: tr("Equivalente API (sua assinatura cobre)"),
           value: `~${fmtUsd(b.costUSD)}`,
           pct: null,
         });
@@ -1592,14 +1642,14 @@ export function activate(context: vscode.ExtensionContext) {
         rows.push({
           label:
             v.costCap > 0
-              ? vscode.l10n.t("Custo / teto {0}", fmtUsd(v.costCap))
-              : vscode.l10n.t("Custo"),
+              ? tr("Custo / teto {0}", fmtUsd(v.costCap))
+              : tr("Custo"),
           value: fmtUsd(b.costUSD),
           pct: capPct,
         });
         if (b.burnCostPerHour != null) {
           rows.push({
-            label: vscode.l10n.t("Ritmo (projeção do bloco)"),
+            label: tr("Ritmo (projeção do bloco)"),
             value: `${fmtUsd(b.burnCostPerHour)}/h → ${fmtUsd(
               b.projectedCost ?? undefined
             )}`,
@@ -1608,7 +1658,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }
       rows.push({
-        label: vscode.l10n.t("Tokens no bloco"),
+        label: tr("Tokens no bloco"),
         value: fmtTokens(b.totalTokens),
         pct: null,
       });
@@ -1616,14 +1666,14 @@ export function activate(context: vscode.ExtensionContext) {
 
     if (v.ctxPct != null) {
       rows.push({
-        label: vscode.l10n.t("Contexto"),
+        label: tr("Contexto"),
         value: `${Math.round(v.ctxPct)}%`,
         pct: v.ctxPct,
       });
     }
     const model = prettyModel(v.modelName);
     if (model) {
-      rows.push({ label: vscode.l10n.t("Modelo"), value: model, pct: null });
+      rows.push({ label: tr("Modelo"), value: model, pct: null });
     }
 
     // Fonte ativa, em ordem de prioridade: oauth/usage (cota real) >
@@ -1639,15 +1689,15 @@ export function activate(context: vscode.ExtensionContext) {
       : "none";
     const src = {
       oauth: "oauth/usage",
-      statusline: vscode.l10n.t("statusline (plano)"),
-      ccusage: vscode.l10n.t("ccusage (≈ tempo)"),
+      statusline: tr("statusline (plano)"),
+      ccusage: tr("ccusage (≈ tempo)"),
       none: "—",
     }[sourceKind];
     const sourceActiveLabel = {
-      oauth: vscode.l10n.t("oauth/usage — cota real"),
-      statusline: vscode.l10n.t("statusline (plano) — cota real"),
-      ccusage: vscode.l10n.t("ccusage — aproximado (% de tempo, sem cota real)"),
-      none: vscode.l10n.t("sem dados"),
+      oauth: tr("oauth/usage — cota real"),
+      statusline: tr("statusline (plano) — cota real"),
+      ccusage: tr("ccusage — aproximado (% de tempo, sem cota real)"),
+      none: tr("sem dados"),
     }[sourceKind];
     // Enquanto o oauth em cache ainda é a fonte EXIBIDA (usageNow != null), o
     // diagnóstico mostra "ok ✓" — um 429 transitório de revalidação em segundo
@@ -1655,14 +1705,14 @@ export function activate(context: vscode.ExtensionContext) {
     // Só mostra o motivo quando o oauth realmente deixou de ser a fonte ativa.
     const sourceOAuthLine =
       lastOAuthStatus.ok || usageNow != null
-        ? vscode.l10n.t("oauth/usage: ok ✓ (cota real)")
-        : vscode.l10n.t(
+        ? tr("oauth/usage: ok ✓ (cota real)")
+        : tr(
             "oauth/usage: indisponível — {0}",
-            lastOAuthStatus.reason ?? "—"
+            localizeOAuthReason(lastOAuthStatus.reason) ?? "—"
           );
     const sourceStatuslineLine = slRate
-      ? vscode.l10n.t("statusline: dados frescos ✓")
-      : vscode.l10n.t("statusline: sem dados frescos");
+      ? tr("statusline: dados frescos ✓")
+      : tr("statusline: sem dados frescos");
     // Últimos ~7 dias pro sparkline: só o que o gráfico precisa (data + tokens).
     const daily = v.daily.slice(-7).map((d) => ({
       date: d.date,
@@ -1738,6 +1788,8 @@ export function activate(context: vscode.ExtensionContext) {
         window: v.costWindow,
       },
       settings: collectSettings(),
+      // Idioma atual (globalState) — p/ marcar a bandeira ativa no card de Idioma.
+      lang: context.globalState.get<string>("language") || "auto",
       // Caminho/comando efetivo p/ exibir como placeholder quando o campo está
       // vazio — deixa claro o que será usado por padrão (vazio = "auto").
       placeholders: {
@@ -1774,9 +1826,9 @@ export function activate(context: vscode.ExtensionContext) {
       })(),
       updatedAtMs: lastUpdateMs || null,
       footer:
-        vscode.l10n.t("fonte: {0}", src) +
+        tr("fonte: {0}", src) +
         (v.state?.ts
-          ? " · " + vscode.l10n.t("statusline {0}", fmtAgo(v.state.ts))
+          ? " · " + tr("statusline {0}", fmtAgo(v.state.ts))
           : ""),
     };
   };
@@ -1791,7 +1843,7 @@ export function activate(context: vscode.ExtensionContext) {
     useOAuthUsage: true, oauthRefreshSeconds: 60, ccusageRefreshSeconds: 60,
     staleAfterSeconds: 900, accountType: "auto", mode: "auto", costCapUsd: 5,
     monthlyBudgetUsd: 0, monthlyBudgetAlertEnabled: true, insightsEnabled: true,
-    costWindow: "5h", tipsContextBigPct: 25, tipsCacheReadPct: 70,
+    language: "auto", costWindow: "5h", tipsContextBigPct: 25, tipsCacheReadPct: 70,
     tipsOpusPct: 70, tipsMcpCalls: 40, tipsSubagentPct: 40, sessionTokenCap: 0,
     intenseTokensPerMin: 50000, burnRateAlertEnabled: true, burnRateMaxPerHour: 20,
     alertCooldownMinutes: 15, colorByProjection: true, resetWarningMinutes: 10,
@@ -1820,7 +1872,10 @@ export function activate(context: vscode.ExtensionContext) {
     const c = cfg();
     const out: Record<string, unknown> = {};
     for (const k of keys) {
-      out[k] = c.get(k);
+      const v = c.get(k);
+      // Setting ainda não registrado (logo após instalar) → cai no default de
+      // boas práticas em vez de exibir vazio na aba Config.
+      out[k] = v === undefined || v === null ? SETTING_DEFAULTS[k] : v;
     }
     return out;
   };
@@ -1865,8 +1920,8 @@ export function activate(context: vscode.ExtensionContext) {
       // Feedback claro e visível (não só a mensagem fugaz da status bar).
       vscode.window.showInformationMessage(
         next
-          ? vscode.l10n.t("Claude Usage: alerta de burn rate LIGADO 🔔.")
-          : vscode.l10n.t("Claude Usage: alerta de burn rate DESLIGADO 🔕.")
+          ? tr("Claude Usage: alerta de burn rate LIGADO 🔔.")
+          : tr("Claude Usage: alerta de burn rate DESLIGADO 🔕.")
       );
     }),
     vscode.commands.registerCommand("claudeUsageBar.openState", async () => {
@@ -1877,7 +1932,7 @@ export function activate(context: vscode.ExtensionContext) {
         await vscode.window.showTextDocument(doc);
       } catch {
         vscode.window.showInformationMessage(
-          vscode.l10n.t(
+          tr(
             "Arquivo de estado da statusline ainda não existe (só é gravado ao usar o Claude Code no terminal)."
           )
         );
@@ -1901,11 +1956,47 @@ export function activate(context: vscode.ExtensionContext) {
         render();
       }
     }),
+    // Janela das quebras de custo (botões da aba Custos). Atualiza o valor de
+    // runtime AUTORITATIVO na hora (recalcula + renderiza) e SÓ então persiste no
+    // setting — assim a troca vale mesmo se config.update falhar/atrasar (foi o
+    // que quebrou o idioma). Sem isto, as quebras ficavam presas em "5h".
+    vscode.commands.registerCommand(
+      "claudeUsageBar.setCostWindow",
+      async (win?: string) => {
+        const valid: CostWindow[] = ["5h", "today", "7d", "30d"];
+        const v = (valid as string[]).includes(win as string)
+          ? (win as CostWindow)
+          : "5h";
+        costWindowValue = v;
+        refreshStats(); // re-walk na nova janela + render (não espera o setting)
+        // Persiste pra refletir nas Settings e sobreviver ao reload (best-effort).
+        try {
+          await cfg().update("costWindow", v, vscode.ConfigurationTarget.Global);
+        } catch {
+          // setting pode não estar registrado (vsix instalado sobre janela viva);
+          // o valor de runtime já garante o comportamento nesta sessão.
+        }
+      }
+    ),
     vscode.commands.registerCommand("claudeUsageBar.openPanel", () => {
       viewProvider.reveal();
       render();
       refreshAll();
-    })
+    }),
+    // Troca o idioma do plugin (acionado pelas bandeiras no painel). Persiste no
+    // globalState (sempre gravável), re-renderiza e remonta o webview (o
+    // dicionário traduzido `L` é injetado no HTML).
+    vscode.commands.registerCommand(
+      "claudeUsageBar.setLanguage",
+      async (lang?: string) => {
+        const valid = ["auto", "pt", "en", "es", "fr", "de"];
+        const v = valid.includes(lang as string) ? (lang as string) : "auto";
+        await context.globalState.update("language", v);
+        setLang(v);
+        render();
+        viewProvider.rebuild();
+      }
+    )
   );
 
   context.subscriptions.push(
@@ -1924,6 +2015,13 @@ export function activate(context: vscode.ExtensionContext) {
         // Mudou a janela das quebras ou o gate de insights → recalcula as stats
         // (re-walk com a nova janela). Os limiares das dicas são reaplicados no
         // próximo render (computeTips lê os settings), então readState basta.
+        // Editar o setting direto nas Settings também vale: re-sincroniza o valor
+        // de runtime autoritativo a partir do setting antes de recalcular.
+        if (e.affectsConfiguration("claudeUsageBar.costWindow")) {
+          const w = cfg().get<string>("costWindow");
+          costWindowValue =
+            w === "today" || w === "7d" || w === "30d" ? w : "5h";
+        }
         if (
           e.affectsConfiguration("claudeUsageBar.costWindow") ||
           e.affectsConfiguration("claudeUsageBar.insightsEnabled")

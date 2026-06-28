@@ -140,9 +140,12 @@
   "Ritmo alto: {0}/h (limite {1}/h)": "Ritmo alto: {0}/h (límite {1}/h)",
   "Sessão 5h projeta atingir 100% antes do reset": "La sesión 5h proyecta alcanzar el 100% antes del reinicio",
   "Limite semanal projeta atingir 100% antes do reset": "El límite semanal proyecta alcanzar el 100% antes del reinicio",
+  "💡 Pra não estourar: pause ~{0} ou reduza o ritmo ~{1}%": "💡 Para no pasarte: pausa ~{0} o reduce el ritmo ~{1}%",
   "Fonte de dados": "Fuente de datos",
   "Fonte ativa": "Fuente activa",
   "desativado nas configurações": "desactivado en los ajustes",
+  "token OAuth não encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)": "token OAuth no encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)",
+  "falha ao consultar oauth/usage ({0})": "fallo al consultar oauth/usage ({0})",
   "≈ tempo · reseta {0}": "≈ tiempo · reinicia {0}",
   "ccusage (≈ tempo)": "ccusage (≈ tiempo)",
   "oauth/usage — cota real": "oauth/usage — cuota real",
@@ -208,5 +211,9 @@
   "Dica: MCP (chamadas)": "Consejo: MCP (llamadas)",
   "Dica: subagentes (% custo)": "Consejo: subagentes (% costo)",
   "Tokens por dia": "Tokens por día",
-  "Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40.": "Cuándo dispara cada consejo. Valores mayores = menos consejos (más conservador). Predeterminados: 25/70/70/40/40."
+  "Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40.": "Cuándo dispara cada consejo. Valores mayores = menos consejos (más conservador). Predeterminados: 25/70/70/40/40.",
+  "{0}/turno": "{0}/turno",
+  "Idioma": "Idioma",
+  "Idioma de todo o plugin (painel, status bar, alertas). 🌐 = segue o VS Code. Os rótulos na tela de Settings do VS Code seguem o idioma do VS Code.": "Idioma de todo el plugin (panel, barra de estado, alertas). 🌐 = sigue VS Code. Las etiquetas en la pantalla de Settings de VS Code siguen el idioma de VS Code.",
+  "Por dia": "Por día"
 }
