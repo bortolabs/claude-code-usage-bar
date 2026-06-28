@@ -1,7 +1,10 @@
 # Claude Code Usage & Status
 
 [![Open VSX](https://img.shields.io/open-vsx/v/bortolabs/claude-code-usage-bar?label=Open%20VSX&color=a60ee5)](https://open-vsx.org/extension/bortolabs/claude-code-usage-bar)
+[![Downloads](https://img.shields.io/open-vsx/dt/bortolabs/claude-code-usage-bar?label=downloads&color=2f81f7)](https://open-vsx.org/extension/bortolabs/claude-code-usage-bar)
 [![Release](https://img.shields.io/github/v/release/bortolabs/claude-code-usage-bar?label=release&color=4caf78)](https://github.com/bortolabs/claude-code-usage-bar/releases/latest)
+
+> 🎉 **1.300+ downloads** no Open VSX — obrigado a quem usa! 🙏
 
 > ⚠️ **Extensão da comunidade — não oficial.** Sem afiliação, endosso ou patrocínio da **Anthropic**.
 > "Claude" e "Claude Code" são marcas da Anthropic, usadas aqui apenas para referência/interoperabilidade.
