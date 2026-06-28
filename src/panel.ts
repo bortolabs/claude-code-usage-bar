@@ -65,6 +65,8 @@ export interface PanelData {
   };
   /** Valores atuais dos settings (key → valor) para a aba Config. */
   settings: Record<string, unknown>;
+  /** Idioma ativo do plugin (globalState): auto/pt/en/es/fr/de. */
+  lang?: string;
   /** Placeholders (caminho/comando efetivo) p/ campos vazios na Config. */
   placeholders?: Record<string, string>;
   /** Créditos discretos no rodapé da aba Sessão (versão + repo). */
@@ -122,6 +124,7 @@ function panelStrings() {
     noHistory: tr("Sem histórico ainda."),
     cost: {
       title: tr("Custos"),
+      daily: tr("Por dia"),
       perDay: tr("Custo por dia"),
       perDayTokens: tr("Tokens por dia"),
       window: tr("Janela das quebras"),
@@ -453,6 +456,7 @@ function panelHtml(): string {
   const L = ${JSON.stringify(loc)};
   const colorVar = { ok: 'var(--ok)', warn: 'var(--warn)', err: 'var(--err)' };
   let curStyle = 'ring';
+  let curLang = 'auto'; // idioma ativo (p/ marcar a bandeira) — vem do globalState
   let updatedAtMs = null; // última atualização efetiva (epoch ms)
   let lastData = null;    // último PanelData recebido (p/ re-render ao trocar de aba)
   // Aba ativa persistida entre recriações da view.
@@ -469,7 +473,6 @@ function panelHtml(): string {
 
   // Schema dos settings para a aba Config (key, label, tipo, opções).
   const SETTINGS_SCHEMA = [
-    { id: 'language', section: L.sec.language, extra: 'lang', items: [] },
     { id: 'appearance', section: L.sec.appearance, extra: 'style', items: [
       { key: 'ringTheme', label: L.cfg.ringTheme, type: 'enum', options: ['semaforo','claude','mono','custom'] },
       { key: 'ringColor', label: L.cfg.ringColor, type: 'color' },
@@ -523,6 +526,7 @@ function panelHtml(): string {
       { key: 'exportStateEnabled', label: L.cfg.exportStateEnabled, type: 'bool' },
       { key: 'exportStatePath', label: L.cfg.exportStatePath, type: 'string', pick: 'save' },
     ]},
+    { id: 'language', section: L.sec.language, extra: 'lang', items: [] },
   ];
 
   // Substitui {0} numa string-template (mesmo formato do vscode.l10n.t).
@@ -577,9 +581,9 @@ function panelHtml(): string {
         return '<button class="sbtn' + (o[0]===curStyle?' active':'') + '" data-style="' + o[0] + '">' + o[1] + '</button>';
       }).join('') + '</div></div>';
   }
-  // Bandeiras de idioma: troca o idioma de TODO o plugin (setting language).
-  function langButtons(cur) {
-    cur = cur || 'auto';
+  // Bandeiras de idioma: troca o idioma de TODO o plugin (globalState).
+  function langButtons() {
+    const cur = curLang || 'auto';
     const opts = [['auto','🌐'],['pt','🇧🇷'],['en','🇬🇧'],['es','🇪🇸'],['fr','🇫🇷'],['de','🇩🇪']];
     return '<div class="styles"><div class="cfg-help-line">' + esc(L.cfg.langHelp) + '</div><div class="style-btns lang-row">' +
       opts.map(function(o){
@@ -621,17 +625,18 @@ function panelHtml(): string {
     return '<div class="spark"><div class="styles-title">' + esc(title) + '</div>' +
       '<div class="spark-bars">' + bars + '</div>' + labels + '</div>';
   }
-  // Sparkline de tokens/dia (aba Custos).
+  // Sparkline de tokens/dia (aba Custos). Tooltip mostra o valor ABSOLUTO (nº cheio).
   function sparkline(daily) {
     return sparkBars(daily, function(d){ return d.tokens; },
-      function(v){ return fmt(L.tokens, fmtTok(v)); }, L.cost.perDayTokens);
+      function(v){ return fmt(L.tokens, Math.round(v).toLocaleString()); }, L.cost.perDayTokens);
   }
   // Sparkline de custo/dia (aba Custos) — só renderiza se houver algum custo.
+  // Tooltip mostra o custo absoluto do dia com centavos.
   function costSparkline(daily) {
     const any = (daily || []).some(function(d){ return d && d.costUSD > 0; });
     if (!any) return '';
     return sparkBars(daily, function(d){ return d.costUSD; },
-      function(v){ return fmtUsd(v); }, L.cost.perDay);
+      function(v){ return '$' + (v || 0).toFixed(2); }, L.cost.perDay);
   }
   // Rótulo curto da janela ativa das quebras ("5h"/"Hoje"/"7d"/"30d").
   function winLabel(win) {
@@ -827,7 +832,7 @@ function panelHtml(): string {
       // Aparência: os botões visuais de estilo entram aqui (em vez de dropdown).
       if (sec.extra === 'style') body += styleButtons();
       // Idioma: bandeiras que trocam o idioma de todo o plugin.
-      if (sec.extra === 'lang') body += langButtons(settings.language);
+      if (sec.extra === 'lang') body += langButtons();
       sec.items.forEach(function(it){
         const val = settings[it.key];
         var ctrl = '';
@@ -965,6 +970,7 @@ function panelHtml(): string {
       return;
     }
     if (d.barStyle) curStyle = d.barStyle;
+    if (d.lang) curLang = d.lang;
     if (d.updatedAtMs) updatedAtMs = d.updatedAtMs;
     const ringOverride = d.ringColorOverride || null;
 
@@ -1000,7 +1006,7 @@ function panelHtml(): string {
       const hasStats = !!(c && (c.byModel.length || c.byProject.length ||
         c.byContextBucket.length || c.byMcpServer.length || c.bySubagent.length));
       const sparks = costSparkline(d.daily) + sparkline(d.daily);
-      body = costCard(c) + (sparks ? card(sparks) : '') +
+      body = costCard(c) + (sparks ? collapsibleCard('daily', L.cost.daily, sparks) : '') +
         (hasStats
           ? windowSelector(c.window) + byModelCard(c) + projectsCostCard(c) +
             bucketsCard(c) + countsCard(c) + tipsCard(c)
@@ -1062,7 +1068,8 @@ function panelHtml(): string {
     // TODO o plugin e remonta o painel).
     document.querySelectorAll('.sbtn[data-lang]').forEach(function(b){
       b.addEventListener('click', function(){
-        vscode.postMessage({ type: 'setConfig', key: 'language', value: b.getAttribute('data-lang') });
+        curLang = b.getAttribute('data-lang');
+        vscode.postMessage({ type: 'setLanguage', value: curLang });
         document.querySelectorAll('.sbtn[data-lang]').forEach(function(x){ x.classList.remove('active'); });
         b.classList.add('active');
       });
@@ -1163,6 +1170,9 @@ function wireMessages(
       vscode.commands.executeCommand("claudeUsageBar.toggleAlert");
     } else if (msg?.type === "runCommand" && ALLOWED_CMDS.has(msg.command)) {
       vscode.commands.executeCommand(msg.command);
+    } else if (msg?.type === "setLanguage" && typeof msg.value === "string") {
+      // Idioma do plugin: vai pro globalState via comando (sempre gravável).
+      vscode.commands.executeCommand("claudeUsageBar.setLanguage", msg.value);
     } else if (msg?.type === "setConfig" && typeof msg.key === "string") {
       // Grava o setting alterado pela aba Config.
       vscode.workspace

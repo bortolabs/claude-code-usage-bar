@@ -257,10 +257,12 @@ function fmtAgo(ts: number | undefined): string {
 export function activate(context: vscode.ExtensionContext) {
   const cfg = () => vscode.workspace.getConfiguration("claudeUsageBar");
 
-  // i18n com override de idioma (setting `language`). Inicializa antes de
-  // qualquer tr()/render para o idioma escolhido já valer no 1º desenho.
+  // i18n com override de idioma. Guardado no globalState (não num setting), pois
+  // settings só podem ser escritos quando JÁ registrados — logo após instalar a
+  // extensão por cima de uma janela aberta, `config.update` falha e a seleção das
+  // bandeiras não persistia. O globalState é sempre gravável (e é sincronizado).
   initI18n(context.extensionPath);
-  setLang(cfg().get<string>("language"));
+  setLang(context.globalState.get<string>("language"));
 
   // alignment/priority só podem ser definidos na CRIAÇÃO do item — o VS Code não
   // deixa mutar depois. Por isso guardamos os valores atuais e recriamos o item
@@ -1747,6 +1749,8 @@ export function activate(context: vscode.ExtensionContext) {
         window: v.costWindow,
       },
       settings: collectSettings(),
+      // Idioma atual (globalState) — p/ marcar a bandeira ativa no card de Idioma.
+      lang: context.globalState.get<string>("language") || "auto",
       // Caminho/comando efetivo p/ exibir como placeholder quando o campo está
       // vazio — deixa claro o que será usado por padrão (vazio = "auto").
       placeholders: {
@@ -1812,7 +1816,6 @@ export function activate(context: vscode.ExtensionContext) {
   // Coleta os valores atuais dos settings p/ preencher a aba Config.
   const collectSettings = (): Record<string, unknown> => {
     const keys = [
-      "language",
       "ringTheme", "ringColor", "barStyle", "statusBarValue", "alignment",
       "priority", "useOAuthUsage", "oauthRefreshSeconds", "ccusageCommand",
       "ccusageRefreshSeconds", "stateFilePath", "staleAfterSeconds",
@@ -1918,7 +1921,21 @@ export function activate(context: vscode.ExtensionContext) {
       viewProvider.reveal();
       render();
       refreshAll();
-    })
+    }),
+    // Troca o idioma do plugin (acionado pelas bandeiras no painel). Persiste no
+    // globalState (sempre gravável), re-renderiza e remonta o webview (o
+    // dicionário traduzido `L` é injetado no HTML).
+    vscode.commands.registerCommand(
+      "claudeUsageBar.setLanguage",
+      async (lang?: string) => {
+        const valid = ["auto", "pt", "en", "es", "fr", "de"];
+        const v = valid.includes(lang as string) ? (lang as string) : "auto";
+        await context.globalState.update("language", v);
+        setLang(v);
+        render();
+        viewProvider.rebuild();
+      }
+    )
   );
 
   context.subscriptions.push(
@@ -1934,12 +1951,6 @@ export function activate(context: vscode.ExtensionContext) {
           item = makeStatusItem();
         }
         startWatch();
-        // Trocou o idioma → atualiza a camada de i18n e reconstrói o webview
-        // (o dicionário `L` é injetado no HTML, então precisa remontar).
-        if (e.affectsConfiguration("claudeUsageBar.language")) {
-          setLang(cfg().get<string>("language"));
-          viewProvider.rebuild();
-        }
         // Mudou a janela das quebras ou o gate de insights → recalcula as stats
         // (re-walk com a nova janela). Os limiares das dicas são reaplicados no
         // próximo render (computeTips lê os settings), então readState basta.

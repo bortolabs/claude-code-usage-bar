@@ -211,5 +211,6 @@
   "Quando cada dica dispara. Valores maiores = menos dicas (mais conservador). Padrões: 25/70/70/40/40.": "Quand chaque conseil se déclenche. Valeurs plus élevées = moins de conseils (plus conservateur). Défauts : 25/70/70/40/40.",
   "{0}/turno": "{0}/tour",
   "Idioma": "Langue",
-  "Idioma de todo o plugin (painel, status bar, alertas). 🌐 = segue o VS Code. Os rótulos na tela de Settings do VS Code seguem o idioma do VS Code.": "Langue de tout le plugin (panneau, barre d’état, alertes). 🌐 = suit VS Code. Les libellés de l’écran Settings de VS Code suivent la langue de VS Code."
+  "Idioma de todo o plugin (painel, status bar, alertas). 🌐 = segue o VS Code. Os rótulos na tela de Settings do VS Code seguem o idioma do VS Code.": "Langue de tout le plugin (panneau, barre d’état, alertes). 🌐 = suit VS Code. Les libellés de l’écran Settings de VS Code suivent la langue de VS Code.",
+  "Por dia": "Par jour"
 }

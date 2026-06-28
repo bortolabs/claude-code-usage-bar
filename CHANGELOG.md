@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.29.1
+
+- **Corrige a seleção de idioma que não persistia.** A escolha das bandeiras agora é gravada no
+  **globalState** da extensão (sempre gravável e sincronizado), em vez de num setting — settings
+  só podem ser escritos depois de registrados, então logo após instalar a extensão a gravação
+  falhava e a bandeira voltava pro 🌐. Agora gruda na hora, sem precisar recarregar a janela.
+- **Card de Idioma movido pro fim da Config** (logo após "Exportar uso").
+- **Card "Por dia" (custo/tokens) agora é colapsável** como os demais.
+- **Tooltip dos gráficos mostra o valor absoluto** ao passar o mouse: o **número cheio** de
+  tokens (ex.: `12.345.678 tokens`) e o **custo exato** do dia (ex.: `$29.10`).
+
 ## 0.29.0
 
 - **Seletor de idioma com bandeiras 🇧🇷🇬🇧🇪🇸🇫🇷🇩🇪.** Novo card **"Idioma"** na aba **Config**:
