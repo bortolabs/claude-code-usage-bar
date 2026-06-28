@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.32.0
+
+- **⚙️ AI advice configurável na aba Config.** Nova seção **"AI advice"** no painel (não precisa
+  mais ir no Settings nativo): campos de **estilo da API**, **endpoint**, **modelo** e a amostra de
+  prompts (janela/máximo), botões **Definir chave** e **Gerar AI advice**, e **presets** que
+  **autopreenchem** style/endpoint/modelo num clique — **Ollama** e **LM Studio** (local, grátis),
+  **Gemini**, **Groq** (free tier) e **Anthropic** (pago). A chave continua no SecretStorage.
+- i18n nos 5 idiomas em paridade.
+
 ## 0.31.2
 
 - **README: guia completo de qual key usar no AI advice.** A seção "AI advice — qual key usar"

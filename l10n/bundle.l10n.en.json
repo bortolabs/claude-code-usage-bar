@@ -266,5 +266,15 @@
   "{0}% do seu custo veio de turnos com contexto >150k. Use /compact no meio da tarefa e /clear ao trocar de assunto.": "{0}% of your cost came from turns with >150k context. Use /compact mid-task and /clear when switching topics.",
   "Ótimo aproveitamento de cache: {0}% de cache hit. Releitura barata em vez de reprocessar contexto.": "Great cache usage: {0}% cache hit. Cheap re-reads instead of reprocessing context.",
   "≈ aproximado · local, sem chamada externa · tabela v{0}": "≈ approximate · local, no external call · table v{0}",
-  "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting.": "Paid provider API key (Anthropic sk-ant-… or OpenAI-compatible) — separate from your Claude Code subscription. Stored in the secure store (SecretStorage), never in a setting."
+  "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting.": "Paid provider API key (Anthropic sk-ant-… or OpenAI-compatible) — separate from your Claude Code subscription. Stored in the secure store (SecretStorage), never in a setting.",
+  "AI advice (coaching por IA)": "AI advice (AI coaching)",
+  "Amostra de prompts: janela (dias)": "Prompt sample: window (days)",
+  "Amostra de prompts: máximo": "Prompt sample: maximum",
+  "Definir chave": "Set key",
+  "Endpoint (vazio = Anthropic)": "Endpoint (empty = Anthropic)",
+  "Estilo da API (anthropic/openai)": "API style (anthropic/openai)",
+  "Gerar AI advice": "Generate AI advice",
+  "Modelo (vazio = claude-opus-4-8)": "Model (empty = claude-opus-4-8)",
+  "Presets": "Presets",
+  "Relatório de coaching por IA (opt-in, BYO key). Use um preset abaixo, defina a chave e gere. A chave fica no cofre seguro (SecretStorage), separada da assinatura.": "AI coaching report (opt-in, BYO key). Pick a preset below, set the key and generate. The key is stored in the secure store (SecretStorage), separate from your subscription."
 }

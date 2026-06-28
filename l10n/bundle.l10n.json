@@ -266,5 +266,15 @@
   "{0}% do seu custo veio de turnos com contexto >150k. Use /compact no meio da tarefa e /clear ao trocar de assunto.": "{0}% do seu custo veio de turnos com contexto >150k. Use /compact no meio da tarefa e /clear ao trocar de assunto.",
   "Ótimo aproveitamento de cache: {0}% de cache hit. Releitura barata em vez de reprocessar contexto.": "Ótimo aproveitamento de cache: {0}% de cache hit. Releitura barata em vez de reprocessar contexto.",
   "≈ aproximado · local, sem chamada externa · tabela v{0}": "≈ aproximado · local, sem chamada externa · tabela v{0}",
-  "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting.": "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting."
+  "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting.": "API key paga do provedor (Anthropic sk-ant-… ou OpenAI-compatível) — separada da sua assinatura do Claude Code. Fica no cofre seguro (SecretStorage), nunca num setting.",
+  "AI advice (coaching por IA)": "AI advice (coaching por IA)",
+  "Amostra de prompts: janela (dias)": "Amostra de prompts: janela (dias)",
+  "Amostra de prompts: máximo": "Amostra de prompts: máximo",
+  "Definir chave": "Definir chave",
+  "Endpoint (vazio = Anthropic)": "Endpoint (vazio = Anthropic)",
+  "Estilo da API (anthropic/openai)": "Estilo da API (anthropic/openai)",
+  "Gerar AI advice": "Gerar AI advice",
+  "Modelo (vazio = claude-opus-4-8)": "Modelo (vazio = claude-opus-4-8)",
+  "Presets": "Presets",
+  "Relatório de coaching por IA (opt-in, BYO key). Use um preset abaixo, defina a chave e gere. A chave fica no cofre seguro (SecretStorage), separada da assinatura.": "Relatório de coaching por IA (opt-in, BYO key). Use um preset abaixo, defina a chave e gere. A chave fica no cofre seguro (SecretStorage), separada da assinatura."
 }

@@ -171,6 +171,7 @@ function panelStrings() {
       tips: tr("Dicas de custo"),
       status: tr("Status da Anthropic"),
       export: tr("Exportar uso (p/ agentes/scripts)"),
+      aiAdvice: tr("AI advice (coaching por IA)"),
     },
     cfg: {
       ringTheme: tr("Tema do anel"),
@@ -216,6 +217,12 @@ function panelStrings() {
       exportStateEnabled: tr("Gravar uso em arquivo JSON"),
       exportStatePath: tr("Caminho do arquivo (vazio = padrão)"),
       exportHelp: tr("JSON com seu uso atual (cota restante, fonte), atualizado sempre — pra um agente/script ler e, por ex., parar quando a cota ficar baixa."),
+      aiAdviceHelp: tr("Relatório de coaching por IA (opt-in, BYO key). Use um preset abaixo, defina a chave e gere. A chave fica no cofre seguro (SecretStorage), separada da assinatura."),
+      aiAdviceApiStyle: tr("Estilo da API (anthropic/openai)"),
+      aiAdviceEndpoint: tr("Endpoint (vazio = Anthropic)"),
+      aiAdviceModel: tr("Modelo (vazio = claude-opus-4-8)"),
+      aiAdvicePromptWindowDays: tr("Amostra de prompts: janela (dias)"),
+      aiAdviceMaxPrompts: tr("Amostra de prompts: máximo"),
     },
     srcTitle: tr("Fonte de dados"),
     srcActive: tr("Fonte ativa"),
@@ -225,6 +232,11 @@ function panelStrings() {
       state: tr("Arquivo de estado"),
       cycle: tr("Alternar estilo"),
       toggle: tr("Liga/desliga alerta"),
+    },
+    aiAdvice: {
+      presetsTitle: tr("Presets"),
+      setKey: tr("Definir chave"),
+      run: tr("Gerar AI advice"),
     },
     openSettings: tr("Abrir settings.json (claudeUsageBar) →"),
     pickFile: tr("Escolher arquivo…"),
@@ -610,6 +622,13 @@ function panelHtml(opts?: {
       { key: 'exportStateEnabled', label: L.cfg.exportStateEnabled, type: 'bool' },
       { key: 'exportStatePath', label: L.cfg.exportStatePath, type: 'string', pick: 'save' },
     ]},
+    { id: 'aiAdvice', section: L.sec.aiAdvice, help: L.cfg.aiAdviceHelp, extra: 'aiadvice', items: [
+      { key: 'aiAdviceApiStyle', label: L.cfg.aiAdviceApiStyle, type: 'enum', options: ['anthropic','openai'] },
+      { key: 'aiAdviceEndpoint', label: L.cfg.aiAdviceEndpoint, type: 'string' },
+      { key: 'aiAdviceModel', label: L.cfg.aiAdviceModel, type: 'string' },
+      { key: 'aiAdvicePromptWindowDays', label: L.cfg.aiAdvicePromptWindowDays, type: 'number' },
+      { key: 'aiAdviceMaxPrompts', label: L.cfg.aiAdviceMaxPrompts, type: 'number' },
+    ]},
     { id: 'language', section: L.sec.language, extra: 'lang', items: [] },
   ];
 
@@ -679,6 +698,27 @@ function panelHtml(opts?: {
       opts.map(function(o){
         return '<button class="sbtn lang-btn' + (o[0]===cur?' active':'') + '" data-lang="' + o[0] + '" title="' + o[0] + '">' + o[1] + '</button>';
       }).join('') + '</div></div>';
+  }
+  // Presets do AI advice: autopreenchem style/endpoint/modelo num clique.
+  var AI_PRESETS = {
+    ollama: { style: 'openai', endpoint: 'http://localhost:11434/v1/chat/completions', model: 'llama3.1' },
+    lmstudio: { style: 'openai', endpoint: 'http://localhost:1234/v1/chat/completions', model: '' },
+    gemini: { style: 'openai', endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-2.0-flash' },
+    groq: { style: 'openai', endpoint: 'https://api.groq.com/openai/v1/chat/completions', model: 'llama-3.3-70b-versatile' },
+    anthropic: { style: 'anthropic', endpoint: '', model: 'claude-opus-4-8' },
+  };
+  function aiAdvicePresets() {
+    var opts = [['ollama','Ollama'],['lmstudio','LM Studio'],['gemini','Gemini'],['groq','Groq'],['anthropic','Anthropic']];
+    return '<div class="styles-title">' + esc(L.aiAdvice.presetsTitle) + '</div><div class="style-btns">' +
+      opts.map(function(o){
+        return '<button class="sbtn" data-aipreset="' + o[0] + '">' + esc(o[1]) + '</button>';
+      }).join('') + '</div>';
+  }
+  function aiAdviceActions() {
+    return '<div class="cmd-btns" style="margin-top:8px">' +
+      '<button class="sbtn" data-cmd="claudeUsageBar.setAiAdviceKey">' + esc(L.aiAdvice.setKey) + '</button>' +
+      '<button class="sbtn" data-cmd="claudeUsageBar.aiAdvice">' + esc(L.aiAdvice.run) + '</button>' +
+      '</div>';
   }
   // Formata tokens curto pro tooltip da barra (ex: 12.3M, 84k).
   function fmtTok(n) {
@@ -923,6 +963,8 @@ function panelHtml(opts?: {
       if (sec.extra === 'style') body += styleButtons();
       // Idioma: bandeiras que trocam o idioma de todo o plugin.
       if (sec.extra === 'lang') body += langButtons();
+      // AI advice: presets que autopreenchem style/endpoint/modelo (antes dos campos).
+      if (sec.extra === 'aiadvice') body += aiAdvicePresets();
       sec.items.forEach(function(it){
         const val = settings[it.key];
         var ctrl = '';
@@ -951,6 +993,8 @@ function panelHtml(opts?: {
         }
         body += '<div class="cfg-row"><span class="cfg-label">' + it.label + '</span><span class="cfg-ctrl">' + ctrl + '</span></div>';
       });
+      // AI advice: botões de ação (Definir chave / Gerar) depois dos campos.
+      if (sec.extra === 'aiadvice') body += aiAdviceActions();
       // Um card por seção, colapsável (<details>), lembrando o estado.
       var openAttr = collapsed[sec.id] ? '' : ' open';
       html += '<details class="card controls cfg-sec" data-sec="' + sec.id + '"' + openAttr + '>' +
@@ -1202,6 +1246,21 @@ function panelHtml(opts?: {
         vscode.postMessage({ type: 'runCommand', command: b.getAttribute('data-cmd') });
       });
     });
+    // Presets do AI advice: preenche os 3 campos (DOM + persiste via setConfig).
+    document.querySelectorAll('.sbtn[data-aipreset]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var p = AI_PRESETS[b.getAttribute('data-aipreset')];
+        if (!p) return;
+        var set = function(key, value){
+          var el = document.querySelector('[data-key="' + key + '"]');
+          if (el) el.value = value;
+          vscode.postMessage({ type: 'setConfig', key: key, value: value });
+        };
+        set('aiAdviceApiStyle', p.style);
+        set('aiAdviceEndpoint', p.endpoint);
+        set('aiAdviceModel', p.model);
+      });
+    });
     const os = document.getElementById('openSettings');
     if (os) os.addEventListener('click', function(){ vscode.postMessage({ type: 'openSettings' }); });
     const sp = document.getElementById('openStatusPage');
@@ -1319,6 +1378,8 @@ function wireMessages(
     "claudeUsageBar.openState",
     "claudeUsageBar.cycleStyle",
     "claudeUsageBar.toggleAlert",
+    "claudeUsageBar.setAiAdviceKey",
+    "claudeUsageBar.aiAdvice",
   ]);
   return webview.onDidReceiveMessage((msg) => {
     if (msg?.type === "setStyle" && typeof msg.style === "string") {
