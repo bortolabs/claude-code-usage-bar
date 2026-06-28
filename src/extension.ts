@@ -1883,6 +1883,7 @@ export function activate(context: vscode.ExtensionContext) {
         tips: v.tips,
         tableVersion: v.stats ? v.stats.tableVersion : null,
         window: v.costWindow,
+        insightsEnabled: cfg().get<boolean>("insightsEnabled") ?? true,
       },
       settings: collectSettings(),
       // Idioma atual (globalState) — p/ marcar a bandeira ativa no card de Idioma.

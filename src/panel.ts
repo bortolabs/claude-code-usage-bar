@@ -62,6 +62,8 @@ export interface PanelData {
     tableVersion: string | null;
     /** Janela ativa das quebras (p/ destacar o seletor e rotular os cards). */
     window: "5h" | "today" | "7d" | "30d";
+    /** Se a análise de transcripts (custos) está ligada na Config. */
+    insightsEnabled: boolean;
   };
   /** Valores atuais dos settings (key → valor) para a aba Config. */
   settings: Record<string, unknown>;
@@ -148,6 +150,8 @@ function panelStrings() {
       perTurn: tr("{0}/turno"),
       countsHelp: tr("Contagem de chamadas — não dá pra atribuir tokens a um tool isolado do turno."),
       empty: tr("Sem dados de custo ainda."),
+      emptyWindow: tr("Sem dados nesta janela. Tente 7d ou 30d acima."),
+      offHint: tr("Ative \"Analisar transcripts (custos)\" na Config pra ver as quebras."),
       equiv: tr("equiv."),
       approxNote: tr("≈ aproximado · local, sem chamada externa"),
       subNote: tr("sua assinatura cobre — equivalente de API (≈ aproximado)"),
@@ -1157,12 +1161,19 @@ function panelHtml(opts?: {
         const c = d.cost;
         const hasStats = !!(c && (c.byModel.length || c.byProject.length ||
           c.byContextBucket.length || c.byMcpServer.length || c.bySubagent.length));
+        const insightsOn = !!(c && c.insightsEnabled);
         const sparks = costSparkline(d.daily) + sparkline(d.daily);
-        var cb = costCard(c) + (sparks ? collapsibleCard('daily', L.cost.daily, sparks) : '') +
-          (hasStats
-            ? windowSelector(c.window) + byModelCard(c) + projectsCostCard(c) +
-              bucketsCard(c) + countsCard(c) + tipsCard(c)
-            : '');
+        // O seletor de janela fica visível sempre que a análise está ligada —
+        // mesmo com a janela ativa vazia — pra dar como trocar pra 7d/30d.
+        var breakdowns = '';
+        if (insightsOn) {
+          breakdowns = windowSelector(c.window) + (hasStats
+            ? byModelCard(c) + projectsCostCard(c) + bucketsCard(c) + countsCard(c) + tipsCard(c)
+            : '<div class="empty">' + esc(L.cost.emptyWindow) + '</div>');
+        } else if (c) {
+          breakdowns = '<div class="empty">' + esc(L.cost.offHint) + '</div>';
+        }
+        var cb = costCard(c) + (sparks ? collapsibleCard('daily', L.cost.daily, sparks) : '') + breakdowns;
         return cb || ('<div class="empty">' + esc(L.cost.empty) + '</div>');
       }
       if (tab === 'status') return statusTab(d.status);

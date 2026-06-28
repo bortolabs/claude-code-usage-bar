@@ -191,6 +191,8 @@
   "{0} turnos": "{0} tours",
   "Contagem de chamadas — não dá pra atribuir tokens a um tool isolado do turno.": "Nombre d’appels — impossible d’attribuer des tokens à un outil isolé du tour.",
   "Sem dados de custo ainda.": "Pas encore de données de coût.",
+  "Sem dados nesta janela. Tente 7d ou 30d acima.": "Aucune donnée dans cette fenêtre. Essayez 7j ou 30j ci-dessus.",
+  "Ative \"Analisar transcripts (custos)\" na Config pra ver as quebras.": "Activez « Analyser les transcriptions (coûts) » dans Config pour voir les répartitions.",
   "Dicas": "Conseils",
   "Sem dicas agora — uso equilibrado. 👍": "Aucun conseil pour l’instant — usage équilibré. 👍",
   "Contexto grande (>150k) puxa ~{0}% do custo. Use /compact ou abra sessões novas pra tarefas separadas.": "Le grand contexte (>150k) représente ~{0}% du coût. Utilisez /compact ou ouvrez de nouvelles sessions pour des tâches distinctes.",
