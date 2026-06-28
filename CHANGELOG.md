@@ -2,12 +2,26 @@
 
 ## 0.29.3
 
-- **Dica de ritmo no alerta de burn rate.** Quando a sessão 5h (ou o teto de custo) projeta
-  atingir 100% antes do reset, o banner agora sugere **quanto pausar** (esperar X min sem gastar
-  tokens) **ou quanto reduzir o ritmo** pra não estourar — ex.: *"💡 Pra não estourar: pause ~3
-  min ou reduza o ritmo ~15%"*. É o mesmo modelo do alerta (enquanto **uso% ≤ tempo%**, não há
-  estouro previsto): pausar deixa o tempo correr até empatar com o consumo. Tudo local, sem rede.
-- **Bandeira do inglês = 🇺🇸** (no card de Idioma e no README), como combinado.
+Release consolidada (0.28.2 → 0.29.3). Destaques desde a v0.28.1:
+
+- **🌍 Idioma com bandeiras 🇧🇷🇺🇸🇪🇸🇫🇷🇩🇪.** Card **"Idioma"** na Config: clicar numa bandeira
+  troca o idioma de **todo o plugin** (painel, status bar, tooltips, alertas) na hora,
+  independente do VS Code. `🌐` = seguir o VS Code. A escolha **persiste** (globalState) e até o
+  motivo de "fonte indisponível" é traduzido no idioma atual (sem mais texto vazado de outro
+  idioma).
+- **💡 Dica de ritmo no alerta de burn rate.** Quando a sessão 5h (ou o teto de custo) projeta
+  bater 100% antes do reset, o banner sugere **quanto pausar** ou **quanto reduzir o ritmo** pra
+  não estourar — ex.: *"pause ~3 min ou reduza o ritmo ~15%"*. Enquanto **uso% ≤ tempo%**, não há
+  estouro previsto; pausar deixa o tempo empatar com o consumo. Local, sem rede.
+- **🪟 Janela das quebras que pega de fato.** Trocar **5h · Hoje · 7d · 30d** agora reflete na
+  hora em *Por modelo / Por projeto / Por tamanho de contexto* (antes ficavam presos em "5h").
+- **📊 Tooltips dos gráficos.** Passar o mouse nas barras mostra o valor absoluto do dia (número
+  cheio de tokens / custo exato) — via tooltip próprio (o nativo não renderizava no webview).
+- **🎨 Aba Custos mais enxuta.** Todos os cards **colapsáveis** (e lembram o estado), **custo por
+  turno** em cada faixa de contexto, e a **cor da status bar reflete o uso de tokens, nunca o
+  tempo decorrido** (tempo acabando é bom: vem reset).
+
+Histórico detalhado por versão abaixo.
 
 ## 0.29.2
 
