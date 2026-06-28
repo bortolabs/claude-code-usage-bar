@@ -66,13 +66,25 @@ Aba **Status** (saúde da Anthropic ao vivo) e aba **Config** (seções colapsá
 
 ### AI advice — qual key usar (incl. opções grátis)
 
-O **AI advice** usa **sua própria API key** (BYO), gravada no **SecretStorage** (comando _Claude Usage: Definir chave do AI advice_). **Não** usa a sua assinatura do Claude Code — é uma chamada de API à parte. Opções:
+O **AI advice** usa **sua própria API key** (BYO). **Não** usa a sua assinatura do Claude Code — é uma chamada de API à parte. A key fica no **SecretStorage**.
 
-- **Local, grátis e privado (recomendado — os dados não saem da máquina):** [Ollama](https://ollama.com) ou LM Studio. Use `aiAdviceApiStyle: openai`, `aiAdviceEndpoint: http://localhost:11434/v1/chat/completions` (Ollama) ou `http://localhost:1234/v1/chat/completions` (LM Studio), `aiAdviceModel` com um modelo que você baixou (ex.: `llama3.1`, `qwen2.5`, `gpt-oss`) e a key pode ser qualquer texto (ex.: `ollama`).
-- **Free tier na nuvem** (OpenAI-compatível): **Google Gemini** (`https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`, ex.: `gemini-2.0-flash`), **Groq** (`https://api.groq.com/openai/v1/chat/completions`) ou **OpenRouter** (modelos com sufixo `:free`). Use `aiAdviceApiStyle: openai` e a key do provedor.
-- **Anthropic** (padrão, **pago**): `aiAdviceApiStyle: anthropic` + uma API key `sk-ant-…` (não há free tier de API).
+**Passo-a-passo:**
 
-> Modelos pequenos/locais dão conselhos mais simples; pra um relatório mais afiado, um modelo maior ajuda. De toda forma, o resto do plugin é 100% local — só o AI advice (opt-in) faz a chamada que você configurar.
+1. Escolha um provedor abaixo e **obtenha a key** (ou instale o LLM local).
+2. Rode **_Claude Usage: Definir chave do AI advice_** e cole a key.
+3. Ajuste os settings `claudeUsageBar.aiAdviceApiStyle`, `aiAdviceEndpoint` e `aiAdviceModel` conforme a tabela.
+4. No dashboard, clique **✦ AI advice** (ou rode _Claude Usage: AI advice_).
+
+| Provedor | Onde pegar a key | `aiAdviceApiStyle` | `aiAdviceEndpoint` | `aiAdviceModel` (ex.) |
+| --- | --- | --- | --- | --- |
+| **Ollama** (local, grátis, privado) | sem key — instale em [ollama.com](https://ollama.com) e `ollama pull llama3.1` (key = qualquer texto) | `openai` | `http://localhost:11434/v1/chat/completions` | `llama3.1` |
+| **LM Studio** (local, grátis) | sem key — baixe um modelo no app | `openai` | `http://localhost:1234/v1/chat/completions` | (o modelo carregado) |
+| **Google Gemini** (free tier) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `openai` | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` | `gemini-2.0-flash` |
+| **Groq** (free tier) | [console.groq.com/keys](https://console.groq.com/keys) | `openai` | `https://api.groq.com/openai/v1/chat/completions` | `llama-3.3-70b-versatile` |
+| **OpenRouter** (modelos `:free`) | [openrouter.ai/keys](https://openrouter.ai/keys) | `openai` | `https://openrouter.ai/api/v1/chat/completions` | `meta-llama/llama-3.3-70b-instruct:free` |
+| **Anthropic** (padrão, **pago**) | [console.anthropic.com](https://console.anthropic.com) | `anthropic` | (vazio = `/v1/messages`) | `claude-opus-4-8` |
+
+> Modelos pequenos/locais dão conselhos mais simples; pra um relatório mais afiado, um modelo maior ajuda. **Local (Ollama/LM Studio) é o mais privado — os dados não saem da máquina.** De toda forma, o resto do plugin é 100% local; só o AI advice (opt-in) faz a chamada que você configurar.
 
 Mostra a **cota real da sessão** — o mesmo número do `/usage` — em **qualquer ambiente**
 (app, IDE ou terminal). O anel é o uso da sessão de 5h; a barra de tempo mostra quanto da

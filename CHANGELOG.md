@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.31.2
+
+- **README: guia completo de qual key usar no AI advice.** A seção "AI advice — qual key usar"
+  virou uma **tabela com passo-a-passo** e **links de onde obter cada key grátis**: Ollama/LM
+  Studio (local, sem key), Google Gemini, Groq e OpenRouter (free tier), além da Anthropic (pago) —
+  cada um com o `aiAdviceApiStyle`/`aiAdviceEndpoint`/`aiAdviceModel` certo. (Apenas docs.)
+
 ## 0.31.1
 
 - **AI advice agora aceita endpoints locais (http).** A chamada escolhe `http`/`https` pelo
