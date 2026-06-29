@@ -2,8 +2,11 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.33.0",
+  "version": "0.34.0",
   "publisher": "bortolabs",
+  "sponsor": {
+    "url": "https://ko-fi.com/bortolabs"
+  },
   "license": "MIT",
   "icon": "icon.png",
   "engines": {
