@@ -128,6 +128,7 @@ function panelStrings() {
     tokens: tr("{0} tokens"),
     projectsTitle: tr("Projetos nesta sessão (5h)"),
     noHistory: tr("Sem histórico ainda."),
+    support: tr("☕ apoiar"),
     cost: {
       title: tr("Custos"),
       daily: tr("Por dia"),
@@ -1204,7 +1205,8 @@ function panelHtml(opts?: {
     var creditsHtml = '';
     if ((DASHBOARD || activeTab === 'sessao') && d.credits && d.credits.version) {
       creditsHtml = '<div class="credits">v' + esc(d.credits.version) +
-        ' · <a href="#" id="openRepo">bortolabs/claude-code-usage-bar</a></div>';
+        ' · <a href="#" id="openRepo">bortolabs/claude-code-usage-bar</a>' +
+        ' · <a href="#" id="openSupport">' + esc(L.support) + '</a></div>';
     }
     document.getElementById('app').innerHTML =
       header + alertHtml + (DASHBOARD ? '' : tabsBar(statusIssue)) + body +
@@ -1278,6 +1280,8 @@ function panelHtml(opts?: {
     if (sp) sp.addEventListener('click', function(){ vscode.postMessage({ type: 'openStatusPage' }); });
     const rp = document.getElementById('openRepo');
     if (rp) rp.addEventListener('click', function(e){ e.preventDefault(); vscode.postMessage({ type: 'openRepo' }); });
+    const su = document.getElementById('openSupport');
+    if (su) su.addEventListener('click', function(e){ e.preventDefault(); vscode.postMessage({ type: 'openSupport' }); });
     // Botões de seletor de arquivo nativo (campos de caminho).
     document.querySelectorAll('.pick-btn[data-pick]').forEach(function(b){
       b.addEventListener('click', function(){
@@ -1460,6 +1464,8 @@ function wireMessages(
       vscode.env.openExternal(
         vscode.Uri.parse("https://github.com/bortolabs/claude-code-usage-bar")
       );
+    } else if (msg?.type === "openSupport") {
+      vscode.env.openExternal(vscode.Uri.parse("https://ko-fi.com/bortolabs"));
     } else if (msg?.type === "openDashboard") {
       vscode.commands.executeCommand("claudeUsageBar.openDashboard");
     } else if (msg?.type === "exportDashboardHtml") {

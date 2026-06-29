@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.34.0
+
+- **☕ Apoio voluntário ao projeto.** A extensão é gratuita e open source; quem quiser retribuir agora
+  tem como — **totalmente opcional, nada fica atrás de paywall**. Adicionados: botão **Sponsor**
+  nativo (VS Code/Marketplace) via `package.json`, **`.github/FUNDING.yml`** (Ko-fi + Buy Me a
+  Coffee; GitHub Sponsors entra depois), uma subseção **"Apoiar"** no README (badges + Pix) e um link
+  discreto **"☕ apoiar"** no rodapé do painel.
+- i18n nos 5 idiomas em paridade.
+
 ## 0.33.0
 
 - **🪟 Card de hover rico na status bar.** Passar o mouse no item da status bar agora abre um cartão
