@@ -15,6 +15,17 @@ Um indicador na **status bar do VSCode** que dá feedback visual constante do us
 do [Claude Code](https://claude.com/claude-code) — um anel de progresso + número, sem você
 precisar parar pra rodar `/usage`.
 
+## Apoiar o projeto
+
+Esta extensão é **gratuita e open source**, mantida nas horas vagas. Se ela te poupa tempo (ou
+dinheiro de API 😄) e você quiser retribuir, qualquer café ajuda — **totalmente opcional, e nada
+fica atrás de paywall**.
+
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-apoiar-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/bortolabs)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-apoiar-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/bortolabs)
+
+**Pix (Brasil):** `3a992bba-354b-406a-9d5a-40f9e18dab6f` (chave aleatória)
+
 **Instale:**
 - **Open VSX** (VSCodium, Cursor, Windsurf e também VS Code): procure por **"Claude Code Usage & Status"** ou veja a [página no Open VSX](https://open-vsx.org/extension/bortolabs/claude-code-usage-bar).
 - **`.vsix` (qualquer VS Code):** baixe o arquivo da [última release no GitHub](https://github.com/bortolabs/claude-code-usage-bar/releases/latest) e instale com `code --install-extension <arquivo>.vsix` (ou *Extensions → ⋯ → Install from VSIX…*).
@@ -124,17 +135,6 @@ A extensão usa, em ordem de prioridade, a melhor fonte disponível:
 > O **anel** mostra a cota real (oauth); a **barra de tempo** vem do ccusage (janela real
 > ancorada no reset do oauth). Em **assinatura**, o custo em `$` é só "equivalente API"
 > (referência), não cobrança — veja a seção de custo abaixo.
-
-## Apoiar o projeto
-
-Esta extensão é **gratuita e open source**, mantida nas horas vagas. Se ela te poupa tempo (ou
-dinheiro de API 😄) e você quiser retribuir, qualquer café ajuda — **totalmente opcional, e nada
-fica atrás de paywall**.
-
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-apoiar-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/bortolabs)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-apoiar-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/bortolabs)
-
-**Pix (Brasil):** `3a992bba-354b-406a-9d5a-40f9e18dab6f` (chave aleatória)
 
 ## Instalação
 
