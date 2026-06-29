@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.33.0
+
+- **🪟 Card de hover rico na status bar.** Passar o mouse no item da status bar agora abre um cartão
+  completo (igual aos melhores do gênero): **Rate Limits** (5h + 7d com barra e reset), **Uso da
+  janela ativa** (custo · mensagens · tokens) + os oficiais **Hoje/Mês** do ccusage, **quebra de
+  tokens** (Input/Output/Cache leitura/escrita com % e barra) + **cache hit %**, e **por modelo**
+  (top 3 com custo, msgs e barra de participação) — tudo a partir dos dados já calculados, sem
+  leitura nova.
+- **⚙️ Novo setting `tooltipDetail`** (`full` por padrão · `compact`): quem prefere o tooltip enxuto
+  de antes (só rate limits + link) escolhe `compact`.
+- Degradação graciosa: com a análise local desligada, mostra só rate limits + custo e uma dica pra
+  ativar. i18n nos 5 idiomas em paridade.
+
 ## 0.32.1
 
 - **🪟 Seletor de janela sempre visível na aba Custos.** Antes, quando a janela ativa (padrão 5h)
