@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.32.1",
+  "version": "0.33.0",
   "publisher": "bortolabs",
   "license": "MIT",
   "icon": "icon.png",
@@ -165,6 +165,19 @@
           ],
           "default": "5h",
           "markdownDescription": "%config.costWindow.desc%"
+        },
+        "claudeUsageBar.tooltipDetail": {
+          "type": "string",
+          "enum": [
+            "compact",
+            "full"
+          ],
+          "enumDescriptions": [
+            "%config.tooltipDetail.enum.compact%",
+            "%config.tooltipDetail.enum.full%"
+          ],
+          "default": "full",
+          "markdownDescription": "%config.tooltipDetail.desc%"
         },
         "claudeUsageBar.tipsContextBigPct": {
           "type": "number",

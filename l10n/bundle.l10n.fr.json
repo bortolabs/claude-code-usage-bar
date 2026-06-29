@@ -278,5 +278,12 @@
   "Gerar AI advice": "Générer AI advice",
   "Modelo (vazio = claude-opus-4-8)": "Modèle (vide = claude-opus-4-8)",
   "Presets": "Préréglages",
-  "Relatório de coaching por IA (opt-in, BYO key). Use um preset abaixo, defina a chave e gere. A chave fica no cofre seguro (SecretStorage), separada da assinatura.": "Rapport de coaching par IA (opt-in, BYO key). Choisissez un préréglage ci-dessous, définissez la clé et générez. La clé est conservée dans le coffre sécurisé (SecretStorage), distincte de l'abonnement."
+  "Relatório de coaching por IA (opt-in, BYO key). Use um preset abaixo, defina a chave e gere. A chave fica no cofre seguro (SecretStorage), separada da assinatura.": "Rapport de coaching par IA (opt-in, BYO key). Choisissez un préréglage ci-dessous, définissez la clé et générez. La clé est conservée dans le coffre sécurisé (SecretStorage), distincte de l'abonnement.",
+  "Uso": "Utilisation",
+  "Tipo": "Type",
+  "Cache (leitura)": "Cache (lecture)",
+  "Cache (escrita)": "Cache (écriture)",
+  "Modelos": "Modèles",
+  "+{0} mais": "+{0} de plus",
+  "Ative a análise local p/ ver tokens e modelos": "Activez l’analyse locale pour voir tokens et modèles"
 }

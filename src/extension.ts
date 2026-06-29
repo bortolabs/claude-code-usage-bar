@@ -162,6 +162,36 @@ function fmtDuration(deltaMs: number): string {
   return `${m}m`;
 }
 
+/**
+ * Quebra de tokens por tipo (p/ o card de hover): % de cada tipo sobre o total
+ * e o "cache hit %". Recebe os totais já agregados da janela
+ * (TranscriptStats.tokenTotals) — não somar byModel, que é fatiado em `limit`.
+ */
+function tokenBreakdown(t: {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}): {
+  total: number;
+  rows: { label: string; count: number; pct: number }[];
+  cacheHitPct: number;
+} {
+  const total = t.input + t.output + t.cacheRead + t.cacheWrite;
+  const pct = (n: number) => (total > 0 ? (n / total) * 100 : 0);
+  const rows = [
+    { label: tr("Input"), count: t.input, pct: pct(t.input) },
+    { label: tr("Output"), count: t.output, pct: pct(t.output) },
+    { label: tr("Cache (leitura)"), count: t.cacheRead, pct: pct(t.cacheRead) },
+    { label: tr("Cache (escrita)"), count: t.cacheWrite, pct: pct(t.cacheWrite) },
+  ];
+  // "hit" = releitura sobre o total de cache (leitura+escrita). Proposital:
+  // difere da fórmula da DICA (extension.ts ~649), que usa input+leitura+escrita.
+  const cacheDenom = t.cacheRead + t.cacheWrite;
+  const cacheHitPct = cacheDenom > 0 ? (t.cacheRead / cacheDenom) * 100 : 0;
+  return { total, rows, cacheHitPct };
+}
+
 // Janela das QUEBRAS de custo (aba Custos). Valor de runtime autoritativo —
 // ver costWindowValue — pra não depender de config.update propagar.
 type CostWindow = "5h" | "today" | "7d" | "30d";
@@ -1595,7 +1625,8 @@ export function activate(context: vscode.ExtensionContext) {
     costWindow: "5h" | "today" | "7d" | "30d";
   };
 
-  // Tooltip RESUMIDO do hover: só o essencial + link p/ o painel completo.
+  // Card de hover: rate limits + uso/tokens/modelos da janela ativa + link.
+  // Setting tooltipDetail="compact" volta ao tooltip enxuto (só rate limits).
   const buildTooltip = (v: View): vscode.MarkdownString => {
     const bar = (x: number | null) => {
       if (x == null) {
@@ -1605,9 +1636,17 @@ export function activate(context: vscode.ExtensionContext) {
       return " `" + "█".repeat(filled) + "░".repeat(10 - filled) + "`";
     };
 
+    // Modo compacto (setting): volta ao tooltip enxuto (só rate limits + link).
+    const compact =
+      (cfg().get<string>("tooltipDetail") ?? "full") === "compact";
+    // Rótulo da janela ativa (espelha panel.ts windowSelector): today→"Hoje",
+    // senão o token cru (5h/7d/30d).
+    const winLabel = (w: View["costWindow"]) =>
+      w === "today" ? tr("Hoje") : w;
+
     const lines: string[] = [];
 
-    // Linha principal: sessão de 5h + reset (o que mais importa).
+    // ── A. Rate limits (sempre) ───────────────────────────────────────────
     if (v.mode === "plan") {
       const pct = v.fiveHour != null ? `${Math.round(v.fiveHour)}%` : "—";
       // Reset: prefere o oauth (MESMA fonte do anel) e só cai pra statusline se
@@ -1624,10 +1663,14 @@ export function activate(context: vscode.ExtensionContext) {
         tr("**Sessão 5h:** {0}", `${pct}${bar(v.fiveHour)}${reset}`)
       );
       if (v.sevenDay != null) {
+        const reset7 = v.sevenDayResetMs
+          ? " · " +
+            tr("reseta em {0}", fmtDuration(v.sevenDayResetMs - Date.now()))
+          : "";
         lines.push(
           tr(
             "**Semana 7d:** {0}",
-            `${Math.round(v.sevenDay)}%${bar(v.sevenDay)}`
+            `${Math.round(v.sevenDay)}%${bar(v.sevenDay)}${reset7}`
           )
         );
       }
@@ -1662,7 +1705,71 @@ export function activate(context: vscode.ExtensionContext) {
       );
     }
 
-    // Link clicável para o painel completo.
+    if (!compact) {
+      const s = v.stats;
+
+      // ── B. Uso (janela ativa) ───────────────────────────────────────────
+      lines.push("**" + tr("Uso") + " (" + winLabel(v.costWindow) + ")**");
+      const usoLines: string[] = [];
+      if (s) {
+        usoLines.push(
+          tr("Custo") + ": " + fmtUsd(s.totalCostUSD) +
+            " · " + tr("Mensagens") + ": " + s.turns +
+            " · " + tr("Tokens") + ": " + fmtTokens(s.totalTokens)
+        );
+      }
+      usoLines.push(
+        tr("Hoje") + ": " + fmtUsd(v.today) +
+          " · " + tr("Mês") + ": " + fmtUsd(v.monthToDate)
+      );
+      lines.push(usoLines.join("\n\n"));
+
+      // ── C. Quebra de tokens (tabela GFM) ────────────────────────────────
+      if (s && s.totalTokens > 0) {
+        const tb = tokenBreakdown(s.tokenTotals);
+        const head =
+          "| " + tr("Tipo") + " | " + tr("Tokens") + " | % |  |\n" +
+          "|:--|--:|--:|:--|";
+        const rows = tb.rows
+          .map(
+            (r) =>
+              "| " + r.label + " | " + fmtTokens(r.count) + " | " +
+              Math.round(r.pct) + "% |" + bar(r.pct) + " |"
+          )
+          .join("\n");
+        lines.push("**" + tr("Tokens") + "**\n\n" + head + "\n" + rows);
+        lines.push(tr("Cache hit") + ": " + Math.round(tb.cacheHitPct) + "%");
+      }
+
+      // ── D. Por modelo (top 3) ───────────────────────────────────────────
+      if (s && s.byModel.length) {
+        const top = s.byModel.slice(0, 3);
+        const head =
+          "| " + tr("Modelos") + " | " + tr("Custo") + " | Msgs |  |\n" +
+          "|:--|--:|--:|:--|";
+        const rows = top
+          .map((m) => {
+            const share =
+              s.totalCostUSD > 0 ? (m.costUSD / s.totalCostUSD) * 100 : 0;
+            return (
+              "| " + m.model + " | " + fmtUsd(m.costUSD) + " | " +
+              m.messages + " |" + bar(share) + " |"
+            );
+          })
+          .join("\n");
+        lines.push(head + "\n" + rows);
+        if (s.byModel.length > 3) {
+          lines.push(tr("+{0} mais", s.byModel.length - 3));
+        }
+      }
+
+      // Insights off: sem stats locais — dica pra ativar.
+      if (!s) {
+        lines.push(tr("Ative a análise local p/ ver tokens e modelos"));
+      }
+    }
+
+    // Footer — link clicável para o painel completo.
     lines.push(
       tr(
         "[$(graph) Abrir painel](command:claudeUsageBar.openPanel) · _detalhes completos_"
@@ -1948,6 +2055,7 @@ export function activate(context: vscode.ExtensionContext) {
     blockSummaryEnabled: true, warnThreshold: 60, errorThreshold: 85,
     lowQuotaThreshold: 15, statusCheckEnabled: true, statusBadgeEnabled: true,
     statusNotifyEnabled: true, statusRefreshSeconds: 300, exportStateEnabled: true,
+    tooltipDetail: "full",
   };
 
   // Coleta os valores atuais dos settings p/ preencher a aba Config.
