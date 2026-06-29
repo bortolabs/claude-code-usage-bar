@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.34.3
+
+- **GitHub Sponsors** adicionado às opções de apoio (botão Sponsor do VS Code/Marketplace + botão no
+  repo + badge no README), junto com Ko-fi e Buy Me a Coffee. Tudo opcional, nada atrás de paywall.
+
 ## 0.34.0
 
 - **☕ Apoio voluntário ao projeto.** A extensão é gratuita e open source; quem quiser retribuir agora

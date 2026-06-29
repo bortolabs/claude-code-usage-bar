@@ -21,6 +21,7 @@ Esta extensão é **gratuita e open source**, mantida nas horas vagas. Se ela te
 dinheiro de API 😄) e você quiser retribuir, qualquer café ajuda — **totalmente opcional, e nada
 fica atrás de paywall**.
 
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-apoiar-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/bortolabs)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-apoiar-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/bortolabs)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-apoiar-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/bortolabs)
 
