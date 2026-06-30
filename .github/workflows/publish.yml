@@ -27,6 +27,13 @@ on:
       - "v*.*.*"
   workflow_dispatch: {}
 
+# Serializa os publishes: nunca dois runs ao mesmo tempo (publishes concorrentes
+# contra o VS Marketplace estouram o limite "VSID Concurrency" e bloqueiam a conta).
+# cancel-in-progress: false -> não mata um publish no meio; o próximo enfileira.
+concurrency:
+  group: marketplace-publish
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -120,21 +127,12 @@ jobs:
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
 
-      # VS Marketplace — enquanto a conta estiver bloqueada, falha sem derrubar o
-      # release/Open VSX. Volta a publicar sozinho quando for reativada.
+      # VS Marketplace — UMA tentativa só (sem retry). Retentar contra uma conta
+      # bloqueada só soma carga no "VSID Concurrency" e piora o bloqueio; basta uma
+      # tentativa por release. continue-on-error mantém o release/Open VSX de pé, e
+      # assim que a conta for reativada esta tentativa única volta a publicar sozinha.
       - name: Publish to Visual Studio Marketplace
         continue-on-error: true
-        run: |
-          n=0; max=3
-          until npx --yes @vscode/vsce publish --packagePath "${{ steps.ver.outputs.vsix }}" -p "$VSCE_PAT"; do
-            n=$((n + 1))
-            if [ "$n" -ge "$max" ]; then
-              echo "::warning::vsce publish falhou após $max tentativas (conta bloqueada? rate-limit?). Seguindo sem falhar o release."
-              exit 1
-            fi
-            wait=$((30 * n))
-            echo "::warning::VS Marketplace falhou (tentativa $n/$max). Aguardando ${wait}s…"
-            sleep "$wait"
-          done
+        run: npx --yes @vscode/vsce publish --packagePath "${{ steps.ver.outputs.vsix }}" -p "$VSCE_PAT"
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
