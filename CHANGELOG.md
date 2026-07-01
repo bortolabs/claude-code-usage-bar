@@ -1,5 +1,75 @@
 # Changelog
 
+## 0.35.0
+
+### 🔐 Consentimento explícito para o token OAuth
+
+- **Nada é lido sem permissão.** A extensão agora pede **consentimento explícito** (diálogo modal)
+  **antes de QUALQUER leitura** do token de login do Claude Code CLI — seja de
+  `~/.claude/.credentials.json`, do Keychain do sistema ou da variável `CLAUDE_CODE_OAUTH_TOKEN`.
+  O diálogo explica exatamente o que é lido, de onde, e para quê: **somente** consultar o endpoint
+  oficial da Anthropic (`api.anthropic.com/api/oauth/usage`, via HTTPS) e exibir a cota do próprio
+  usuário. O token **nunca** é registrado em logs, armazenado em outro lugar nem enviado a
+  terceiros; a extensão **não tem telemetria**.
+- **Sem consentimento, zero acesso**: a função que resolve o token nem é chamada; a extensão segue
+  funcionando com as fontes locais (statusline/ccusage) e o card "Fonte de dados" mostra
+  "aguardando seu consentimento".
+- **Decisão persistida e reversível**: vale para todos (inclusive quem já usava a extensão — sem
+  grandfathering), é perguntada no máximo **uma vez** automaticamente e pode ser mudada a qualquer
+  momento na aba **Config** (estado + botão Conceder/Revogar) ou pelo comando
+  **"Claude Usage: Acesso ao token (consentimento)"**.
+
+### Cotas por modelo e dados que faltavam
+
+- **📊 Cotas 7d por modelo (Sonnet/Opus).** O endpoint oauth/usage já retornava as janelas semanais
+  dedicadas por modelo — agora elas aparecem: rows com barra na aba **Sessão** (com reset próprio),
+  linhas no **hover card** da status bar e campos `sevenDaySonnet`/`sevenDayOpus` no **export JSON**
+  (`~/.claude/usage-bar.json`, aditivo). Contas sem a janela (ex.: Opus no Pro) simplesmente não
+  mostram a row.
+- **💳 Card "Créditos extras".** Quando a conta tem extra usage habilitado, a aba Sessão ganha um
+  card com barra de utilização e usado/limite do mês.
+- **🕒 Incidentes com tempo relativo.** A aba Status mostra "ativo há 2h · atualizado há 20min" em
+  cada incidente, e o formato relativo ganhou dias ("há 3d").
+- **⬇ Export CSV das quebras** (ROADMAP #18). Comando **"Claude Usage: Exportar CSV"** e botão no
+  dashboard: escolhe a dimensão (modelo / projeto / dia / sessão / contexto) e salva um CSV da
+  janela ativa. Dados 100% locais.
+
+### Histórico persistente, heatmap e comparativos
+
+- **🗓️ Histórico local persistente** (`historyEnabled`, ligado por padrão): agregados por dia/hora
+  gravados no storage da extensão — **sobrevivem à limpeza de transcripts do Claude Code**.
+  Retenção configurável (`historyRetentionDays`, default 365).
+- **🔥 Heatmap semana × hora** no dashboard (ROADMAP #15): quando você mais consome tokens, com
+  tooltip por célula e pico destacado. Aparece com ~7 dias de dados.
+- **📈 Comparativos** (ROADMAP #14): "Hoje vs média 7d" e "Semana vs anterior" (tokens e custo, Δ%
+  colorido) no dashboard.
+- **🔔 Resumo semanal opt-in** (ROADMAP #17, `weeklySummaryEnabled`): notificação às segundas com a
+  semana vs a anterior.
+
+### Copiloto de cota (local, sem LLM)
+
+- **🧭 Card "Copiloto"** na aba Sessão (`advisorEnabled`): sugestão **Opus→Sonnet** quando a janela
+  semanal do Opus aperta e a do Sonnet tem folga; estimativa de **o que ainda cabe até o reset** no
+  ritmo atual; dica de **melhor janela** ("recém-resetada + semana folgada"), enriquecida pelo
+  heatmap. Conselhos dispensáveis (×), com histerese anti-flapping. Notificação nativa só para a
+  troca de modelo, **opt-in** (`advisorNotifyEnabled`, cooldown de 6h).
+- **🎯 Metas de token** (ROADMAP #16): `tokenGoalFiveHour`/`tokenGoalDaily` (0 = off) — barra de
+  progresso na Sessão + aviso do copiloto ao estourar.
+- Complementa o **AI advice** (que é sob demanda e usa LLM): o copiloto é contínuo, local e gratuito.
+
+### Base técnica
+
+- **✅ Testes (vitest)**: 70 testes cobrindo projeção/ETA, alertas, pricing, insights, agregação de
+  transcripts e o histórico/copiloto novos. **CI em push/PR** (`ci.yml`: typecheck + testes +
+  bundle) e gate de typecheck+testes no publish.
+- **📦 Bundle com esbuild** no publish (arquivo único minificado — VSIX menor, ativação mais rápida).
+  Dev flow (F5/watch com tsc) inalterado.
+- **🔁 Backoff do oauth persistido** no globalState: recarregar a janela não zera mais o recuo — o
+  burst de startup não bate num endpoint ainda em 429.
+- Projeção unificada em `core/projection.ts`: a variante do alerts.ts projetava com apenas 60s de
+  janela decorridos (alarmista); agora vale a regra dos 25% em todo lugar.
+- i18n nos 5 idiomas em paridade.
+
 ## 0.34.3
 
 - **GitHub Sponsors** adicionado às opções de apoio (botão Sponsor do VS Code/Marketplace + botão no

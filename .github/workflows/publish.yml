@@ -56,6 +56,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Gate de qualidade antes de empacotar: typecheck + testes.
+      - name: Typecheck + testes
+        run: npm run typecheck && npm test
+
       # Fonte da verdade da versão: o package.json.
       - name: Resolve versão
         id: ver
@@ -127,11 +131,14 @@ jobs:
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
 
-      # VS Marketplace — UMA tentativa só (sem retry). Retentar contra uma conta
-      # bloqueada só soma carga no "VSID Concurrency" e piora o bloqueio; basta uma
-      # tentativa por release. continue-on-error mantém o release/Open VSX de pé, e
-      # assim que a conta for reativada esta tentativa única volta a publicar sozinha.
+      # VS Marketplace — DESATIVADO enquanto a conta do publisher estiver
+      # bloqueada pela Microsoft: nem UMA tentativa (cada publish contra conta
+      # bloqueada soma carga no "VSID Concurrency" e piora o bloqueio).
+      # Para reativar quando a conta voltar: Settings > Secrets and variables >
+      # Actions > Variables → crie a variable PUBLISH_VSCE = true (sem mudança
+      # de código). Enquanto isso, o canal vivo é Open VSX + .vsix do Release.
       - name: Publish to Visual Studio Marketplace
+        if: vars.PUBLISH_VSCE == 'true'
         continue-on-error: true
         run: npx --yes @vscode/vsce publish --packagePath "${{ steps.ver.outputs.vsix }}" -p "$VSCE_PAT"
         env:

@@ -75,12 +75,22 @@
   "config.language.desc": "Idioma del plugin (panel, barra de estado, alertas). `auto` (predeterminado) sigue el idioma de VS Code; o fuerza `pt`/`en`/`es`/`fr`/`de`. Cámbialo con las banderas en **Config → Idioma**. Nota: las etiquetas de esta pantalla de Settings siguen el idioma de VS Code.",
   "cmd.openDashboard.title": "Claude Usage: Abrir dashboard",
   "cmd.exportDashboardHtml.title": "Claude Usage: Exportar panel (HTML)",
+  "cmd.exportCsv.title": "Claude Usage: Exportar CSV (desgloses de uso)",
   "cmd.aiAdvice.title": "Claude Usage: AI advice (informe de coaching)",
   "cmd.setAiAdviceKey.title": "Claude Usage: Definir clave del AI advice",
+  "cmd.oauthConsent.title": "Claude Usage: Acceso al token (consentimiento)",
   "config.dashboardWindow.desc": "Ventana del panel de analítica (Hoy/Semana/Mes/Todo).",
   "config.aiAdviceEndpoint.desc": "Endpoint del AI advice (vacío = Anthropic /v1/messages).",
   "config.aiAdviceModel.desc": "Modelo del AI advice (vacío = claude-opus-4-8).",
   "config.aiAdviceApiStyle.desc": "Estilo de API del AI advice: anthropic (/v1/messages) u openai (compatible).",
   "config.aiAdvicePromptWindowDays.desc": "AI advice: ventana (días) para muestrear tus prompts.",
-  "config.aiAdviceMaxPrompts.desc": "AI advice: número máximo de prompts muestreados."
+  "config.aiAdviceMaxPrompts.desc": "AI advice: número máximo de prompts muestreados.",
+  "config.historyEnabled.desc": "Guarda un historial local de uso (por día/hora) que sobrevive a la limpieza de transcripts de Claude Code — alimenta el heatmap y los comparativos del dashboard.",
+  "config.historyRetentionDays.desc": "Días de historial local a conservar (mínimo 7).",
+  "config.weeklySummaryEnabled.desc": "Notificación semanal (lunes) con el costo/tokens de la semana vs la anterior.",
+  "config.advisorEnabled.desc": "Copiloto de cuota: consejos locales en la pestaña Sesión (cambio Opus→Sonnet, qué cabe hasta el reset, mejor ventana). Sin LLM, sin red.",
+  "config.advisorNotifyEnabled.desc": "Notificación nativa del copiloto (solo la sugerencia de cambio de modelo). Desactivada por defecto.",
+  "config.advisorCooldownHours.desc": "Intervalo mínimo (horas) entre notificaciones del copiloto.",
+  "config.tokenGoalFiveHour.desc": "Meta personal de tokens por ventana de 5h (0 = desactivado). Muestra barra de progreso y aviso del copiloto al superarla.",
+  "config.tokenGoalDaily.desc": "Meta personal de tokens por día (0 = desactivado). Muestra barra de progreso y aviso del copiloto al superarla."
 }

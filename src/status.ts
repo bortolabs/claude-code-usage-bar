@@ -12,6 +12,7 @@ export interface StatusIncident {
   name: string;
   impact: string; // none | minor | major | critical
   status: string; // investigating | identified | monitoring | resolved
+  createdAt: string | null; // início do incidente ("ativo há X")
   updatedAt: string | null;
   shortlink: string | null;
   lastUpdate: string | null; // corpo da última atualização
@@ -89,6 +90,7 @@ export async function fetchStatus(timeoutMs = 10000): Promise<StatusResult> {
         name: i.name,
         impact: i.impact ?? "none",
         status: i.status ?? "",
+        createdAt: i.started_at ?? i.created_at ?? null,
         updatedAt: i.updated_at ?? null,
         shortlink: i.shortlink ?? null,
         lastUpdate:

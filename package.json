@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.34.3",
+  "version": "0.35.0",
   "publisher": "bortolabs",
   "sponsor": {
     "url": "https://github.com/sponsors/bortolabs"
@@ -72,12 +72,20 @@
         "title": "%cmd.exportDashboardHtml.title%"
       },
       {
+        "command": "claudeUsageBar.exportCsv",
+        "title": "%cmd.exportCsv.title%"
+      },
+      {
         "command": "claudeUsageBar.aiAdvice",
         "title": "%cmd.aiAdvice.title%"
       },
       {
         "command": "claudeUsageBar.setAiAdviceKey",
         "title": "%cmd.setAiAdviceKey.title%"
+      },
+      {
+        "command": "claudeUsageBar.oauthConsent",
+        "title": "%cmd.oauthConsent.title%"
       },
       {
         "command": "claudeUsageBar.cycleStyle",
@@ -447,19 +455,68 @@
           "type": "number",
           "default": 40,
           "markdownDescription": "%config.aiAdviceMaxPrompts.desc%"
+        },
+        "claudeUsageBar.historyEnabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.historyEnabled.desc%"
+        },
+        "claudeUsageBar.historyRetentionDays": {
+          "type": "number",
+          "default": 365,
+          "minimum": 7,
+          "markdownDescription": "%config.historyRetentionDays.desc%"
+        },
+        "claudeUsageBar.weeklySummaryEnabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.weeklySummaryEnabled.desc%"
+        },
+        "claudeUsageBar.advisorEnabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.advisorEnabled.desc%"
+        },
+        "claudeUsageBar.advisorNotifyEnabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.advisorNotifyEnabled.desc%"
+        },
+        "claudeUsageBar.advisorCooldownHours": {
+          "type": "number",
+          "default": 6,
+          "minimum": 1,
+          "markdownDescription": "%config.advisorCooldownHours.desc%"
+        },
+        "claudeUsageBar.tokenGoalFiveHour": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "markdownDescription": "%config.tokenGoalFiveHour.desc%"
+        },
+        "claudeUsageBar.tokenGoalDaily": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "markdownDescription": "%config.tokenGoalDaily.desc%"
         }
       }
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run typecheck && rm -rf out && npm run bundle -- --minify",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "typecheck": "tsc --noEmit -p ./",
+    "bundle": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --target=node18 --sourcemap",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.84.0",
-    "typescript": "^5.4.0"
+    "esbuild": "^0.28.1",
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.9"
   },
   "l10n": "./l10n"
 }

@@ -30,7 +30,9 @@ export interface OAuthUsage {
 // no idioma antigo — ex.: alemão na "Fonte de dados" depois de voltar pro pt).
 export type OAuthUnavailableReason =
   | { kind: "noToken" }
-  | { kind: "httpError"; detail: string };
+  | { kind: "httpError"; detail: string }
+  // Usuário ainda não concedeu (ou revogou) o consentimento para ler o token.
+  | { kind: "consent" };
 export interface OAuthUsageUnavailable {
   available: false;
   reason: OAuthUnavailableReason;
@@ -162,6 +164,14 @@ function httpGetUsage(token: string, timeoutMs: number): Promise<string> {
  * Cross-platform: lê o token de CLAUDE_CODE_OAUTH_TOKEN, do arquivo
  * ~/.claude/.credentials.json (Linux/Windows/macOS) ou do Keychain (macOS),
  * e chama GET api/oauth/usage. Mesma fonte que o /usage do Claude Code usa.
+ *
+ * CONSENTIMENTO: esta é a ÚNICA função que toca nas credenciais, e o seu ÚNICO
+ * chamador (refreshOAuth em extension.ts) só a invoca depois que o usuário
+ * concedeu consentimento explícito (globalState "oauthConsent" === "granted",
+ * via diálogo modal). Sem consentimento, NENHUMA leitura de arquivo/Keychain/
+ * env acontece. O token é usado exclusivamente no header desta chamada HTTPS
+ * ao endpoint oficial da Anthropic — nunca é logado, persistido em outro lugar
+ * nem enviado a terceiros; a extensão não tem telemetria.
  */
 export async function fetchOAuthUsage(
   timeoutMs = 12000

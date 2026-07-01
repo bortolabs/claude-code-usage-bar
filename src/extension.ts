@@ -36,6 +36,19 @@ import { computeInsightTexts } from "./insights";
 import { runAiAdvice, setAiAdviceKey } from "./aiAdvice";
 import { fetchStatus, StatusResult, StatusData, hasIssue } from "./status";
 import { initI18n, setLang, tr } from "./i18n";
+import { evaluateAdvice, Advice } from "./advisor";
+import { HistoryStore } from "./history/store";
+import {
+  snapshotsFromStats,
+  hourlyHeatmap,
+  heatmapPeak,
+  compareWindows,
+} from "./history/aggregate";
+import {
+  projectLimitPct,
+  etaToLimitMin,
+  sessionTimePct,
+} from "./core/projection";
 
 /** Forma do JSON gravado por statusline-command.sh (bridge). */
 interface RateWindow {
@@ -214,6 +227,10 @@ function localizeOAuthReason(r: OAuthStatusReason | null): string | null {
   switch (r.kind) {
     case "disabled":
       return tr("desativado nas configurações");
+    case "consent":
+      return tr(
+        "aguardando seu consentimento — conceda o acesso ao token na aba Config"
+      );
     case "noToken":
       return tr(
         "token OAuth não encontrado (.credentials.json / Keychain / CLAUDE_CODE_OAUTH_TOKEN)"
@@ -227,83 +244,6 @@ function localizeOAuthReason(r: OAuthStatusReason | null): string | null {
         fmtDuration(r.waitMs)
       );
   }
-}
-
-/**
- * Projeta a % de um limite (5h/7d) no momento do reset, assumindo ritmo linear
- * desde o início da janela. Retorna null se cedo demais pra estimar.
- */
-function projectLimitPct(
-  usedPct: number | null,
-  resetsAtSec: number | null,
-  windowSeconds: number
-): number | null {
-  if (usedPct == null || !resetsAtSec) {
-    return null;
-  }
-  const remainingMs = resetsAtSec * 1000 - Date.now();
-  if (remainingMs <= 0) {
-    return usedPct;
-  }
-  const remainingSec = remainingMs / 1000;
-  const elapsedSec = windowSeconds - remainingSec;
-  // Exige >= 25% da janela decorrida: cedo demais, o ritmo é ruidoso e a
-  // projeção linear vira alarmista (ex: 20% em 1h projetaria 100%).
-  if (elapsedSec < windowSeconds * 0.25) {
-    return null;
-  }
-  return usedPct + (usedPct / elapsedSec) * remainingSec;
-}
-
-/**
- * ETA (em minutos) até um limite percentual atingir 100%, no ritmo atual.
- * Retorna null se não dá pra estimar ou se NÃO estoura antes do reset.
- */
-function etaToLimitMin(
-  usedPct: number | null,
-  resetsAtSec: number | null,
-  windowSeconds: number
-): number | null {
-  if (usedPct == null || !resetsAtSec || usedPct >= 100) {
-    return usedPct != null && usedPct >= 100 ? 0 : null;
-  }
-  const remainingMs = resetsAtSec * 1000 - Date.now();
-  if (remainingMs <= 0) {
-    return null;
-  }
-  const remainingSec = remainingMs / 1000;
-  const elapsedSec = windowSeconds - remainingSec;
-  if (elapsedSec < windowSeconds * 0.25) {
-    return null; // cedo demais p/ taxa confiável
-  }
-  const ratePerSec = usedPct / elapsedSec; // %/s
-  if (ratePerSec <= 0) {
-    return null;
-  }
-  const secsToFull = (100 - usedPct) / ratePerSec;
-  // Só interessa se estoura ANTES do reset.
-  if (secsToFull >= remainingSec) {
-    return null;
-  }
-  return Math.max(0, Math.round(secsToFull / 60));
-}
-
-/**
- * % de tempo decorrido da janela de 5h. Usa o reset REAL (oauth) como âncora:
- * decorrido = 5h - tempo_restante. Cai no timePct do ccusage só se não houver
- * reset do oauth. Evita a divergência logo após o reset (bloco fixo do ccusage).
- */
-function sessionTimePct(
-  fiveHourResetMs: number | null,
-  block: CcusageData | null
-): number | null {
-  const WINDOW_MS = 5 * 3600 * 1000;
-  if (fiveHourResetMs) {
-    const remaining = fiveHourResetMs - Date.now();
-    const elapsed = WINDOW_MS - remaining;
-    return Math.max(0, Math.min(100, (elapsed / WINDOW_MS) * 100));
-  }
-  return block ? block.timePct : null;
 }
 
 /** Traduz o impacto de incidente (vindo em inglês da API) para o idioma ativo. */
@@ -393,8 +333,27 @@ export function activate(context: vscode.ExtensionContext) {
   // de 60s + os disparos por foco/visibilidade, dá pra levar 429 mesmo SEM a
   // cota ter estourado. Em falha (sobretudo 429) recuamos exponencialmente —
   // qualquer gatilho (intervalo, foco, view) respeita esse "até quando".
-  let oauthBackoffUntilMs = 0; // epoch ms: não chamar a API antes disso
-  let oauthFailStreak = 0; // nº de falhas consecutivas (dobra o recuo)
+  // Persistido no globalState: recarregar a janela zerava o backoff em memória
+  // e o burst de startup batia de novo num endpoint ainda em 429.
+  const savedBackoff = context.globalState.get<{
+    untilMs: number;
+    streak: number;
+  }>("oauthBackoff");
+  let oauthBackoffUntilMs =
+    savedBackoff && savedBackoff.untilMs > Date.now()
+      ? savedBackoff.untilMs
+      : 0; // epoch ms: não chamar a API antes disso
+  let oauthFailStreak =
+    oauthBackoffUntilMs > 0 ? savedBackoff?.streak ?? 0 : 0; // nº de falhas consecutivas (dobra o recuo)
+  const persistBackoff = () => {
+    // best-effort; não bloqueia o fluxo do refresh
+    void context.globalState.update(
+      "oauthBackoff",
+      oauthBackoffUntilMs > 0
+        ? { untilMs: oauthBackoffUntilMs, streak: oauthFailStreak }
+        : undefined
+    );
+  };
   // No startup (reabrir o VS Code) vários gatilhos chamam refreshOAuth quase
   // juntos (activate + onReady da view + foco da janela). Sem este guard eles
   // viram um BURST de requests ao MESMO endpoint e o próprio burst (somado ao
@@ -411,6 +370,14 @@ export function activate(context: vscode.ExtensionContext) {
   // Estatísticas locais dos transcripts (custo por modelo etc.) do bloco de 5h.
   // Só calculado quando `insightsEnabled` (gate da leitura de disco).
   let lastStats: TranscriptStats | null = null;
+  // Histórico persistente (sobrevive à retenção de transcripts do Claude Code).
+  const history = new HistoryStore(context.globalStorageUri.fsPath);
+  let historyTick: NodeJS.Timeout | undefined;
+  // Cache das agregações de histórico do dashboard (recalcula a cada 5 min).
+  let dashHistoryCache: {
+    atMs: number;
+    value: DashboardData["history"];
+  } | null = null;
   // Status da Anthropic (status.claude.com) + dedupe da notificação.
   let lastStatus: StatusResult | null = null;
   let notifiedIncidentIds = new Set<string>();
@@ -424,6 +391,11 @@ export function activate(context: vscode.ExtensionContext) {
   // Alerta: controle de cooldown da notificação.
   let lastAlertKey = "";
   let lastAlertAtMs = 0;
+  // Copiloto de cota: histerese (keys ativas no render anterior) + cooldown
+  // próprio da notificação (bem mais folgado que o do alerta — 6h default).
+  let activeAdviceKeys = new Set<string>();
+  let lastAdviceKey = "";
+  let lastAdviceNotifyAtMs = 0;
   // "Silenciar 1h": epoch ms até quando NENHUM alerta deve notificar (independe
   // do tipo de alerta — senão uma mudança de chave fura o silêncio).
   let snoozeUntilMs = 0;
@@ -549,6 +521,13 @@ export function activate(context: vscode.ExtensionContext) {
       sevenDay: v
         ? win(v.sevenDay, v.sevenDayResetMs, v.state?.seven_day?.resets_at)
         : null,
+      // Janelas 7d dedicadas por modelo (oauth) — null quando o plano não tem.
+      sevenDaySonnet: v?.sevenDaySonnet
+        ? win(v.sevenDaySonnet.utilization, v.sevenDaySonnet.resetsAt, null)
+        : null,
+      sevenDayOpus: v?.sevenDayOpus
+        ? win(v.sevenDayOpus.utilization, v.sevenDayOpus.resetsAt, null)
+        : null,
       contextPct: v?.ctxPct != null ? Math.round(v.ctxPct) : null,
       cost: v ? Number((v.cost ?? 0).toFixed(2)) : null,
       etaMinutes: v?.etaMin ?? null,
@@ -668,6 +647,120 @@ export function activate(context: vscode.ExtensionContext) {
     return 0; // "all" = tudo (epoch 0)
   };
 
+  /** Meia-noite LOCAL de hoje (epoch ms). */
+  const startOfLocalDay = (): number => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+  const todayKey = (): string => {
+    const d = new Date();
+    const p2 = (n: number) => (n < 10 ? "0" + n : String(n));
+    return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
+  };
+
+  /**
+   * Grava o histórico persistente a partir dos transcripts. `windowDays` curto
+   * (2) no tick de 15min — o byHour do transcriptStats só cobre ~72h, então o
+   * dia corrente/anterior sempre têm o split por hora. `backfill` (ativação):
+   * janela longa só pra preencher DIAS AINDA AUSENTES no store (sem horas), sem
+   * sobrescrever dias já gravados com horas boas.
+   */
+  const recordHistory = (windowDays: number, backfill = false) => {
+    if (!(cfg().get<boolean>("historyEnabled") ?? true)) {
+      return;
+    }
+    try {
+      const start = startOfLocalDay() - windowDays * 86_400_000;
+      const s = readTranscriptStats(start);
+      let snaps = snapshotsFromStats(s.byDay, s.byHour);
+      if (backfill) {
+        const existing = new Set(history.readAll().map((d) => d.date));
+        snaps = snaps.filter((d) => !existing.has(d.date));
+      }
+      if (snaps.length) {
+        history.upsert(
+          snaps,
+          cfg().get<number>("historyRetentionDays") ?? 365
+        );
+        dashHistoryCache = null; // invalida as agregações
+      }
+    } catch {
+      // best-effort: histórico nunca derruba o resto
+    }
+  };
+
+  /** Agregações do histórico p/ o dashboard (cache de 5 min). */
+  const buildDashHistory = (): DashboardData["history"] => {
+    if (!(cfg().get<boolean>("historyEnabled") ?? true)) {
+      return null;
+    }
+    if (dashHistoryCache && Date.now() - dashHistoryCache.atMs < 5 * 60_000) {
+      return dashHistoryCache.value;
+    }
+    let value: DashboardData["history"] = null;
+    try {
+      const days = history.readRange(90);
+      if (days.length) {
+        const withHours = days.filter((d) => d.hours.some((h) => h > 0));
+        const heat = hourlyHeatmap(withHours);
+        value = {
+          heatmap: heat,
+          peak: heatmapPeak(heat),
+          daysTracked: withHours.length,
+          comparisons: compareWindows(days, todayKey()),
+        };
+      }
+    } catch {
+      value = null;
+    }
+    dashHistoryCache = { atMs: Date.now(), value };
+    return value;
+  };
+
+  /**
+   * Resumo semanal opt-in (ROADMAP #17): 1x por semana (na 2ª feira, no 1º
+   * render do dia), custo/tokens da semana vs a anterior + link do dashboard.
+   */
+  const maybeWeeklySummary = () => {
+    if (!(cfg().get<boolean>("weeklySummaryEnabled") ?? false)) {
+      return;
+    }
+    const now = new Date();
+    if (now.getDay() !== 1) {
+      return; // só segunda
+    }
+    const weekKey = todayKey(); // a data da própria segunda identifica a semana
+    if (context.globalState.get<string>("lastWeeklySummaryKey") === weekKey) {
+      return;
+    }
+    const cmp = compareWindows(history.readAll(), weekKey).weekVsPrev;
+    if (!cmp) {
+      return; // ainda sem base de comparação — tenta na próxima semana
+    }
+    void context.globalState.update("lastWeeklySummaryKey", weekKey);
+    const delta =
+      cmp.costPct != null
+        ? ` (${cmp.costPct >= 0 ? "+" : ""}${Math.round(cmp.costPct)}%)`
+        : "";
+    const btnDash = tr("Abrir dashboard");
+    vscode.window
+      .showInformationMessage(
+        tr(
+          "Claude Usage — sua semana: {0} tokens, ~{1}{2} vs a anterior.",
+          fmtTokens(cmp.current.tokens),
+          fmtUsd(cmp.current.costUSD),
+          delta
+        ),
+        btnDash
+      )
+      .then((c) => {
+        if (c === btnDash) {
+          vscode.commands.executeCommand("claudeUsageBar.openDashboard");
+        }
+      });
+  };
+
   // Monta o payload do dashboard de analytics para a janela ativa.
   const buildDashboardData = (): DashboardData => {
     const w = dashboardWindowValue;
@@ -728,6 +821,7 @@ export function activate(context: vscode.ExtensionContext) {
       bySubagent: s.bySubagent,
       isSub: resolveAccountType() === "subscription",
       tableVersion: s.tableVersion,
+      history: buildDashHistory(),
     };
   };
 
@@ -773,11 +867,65 @@ export function activate(context: vscode.ExtensionContext) {
     refreshStats();
   };
 
+  // ── Consentimento para leitura do token OAuth ──────────────────────────
+  // O token de login do Claude Code CLI só é lido com opt-in EXPLÍCITO do
+  // usuário (diálogo modal), persistido no globalState. Vale pra todo mundo,
+  // inclusive quem já usava a extensão antes (sem grandfathering).
+  const OAUTH_CONSENT_KEY = "oauthConsent";
+  const oauthConsent = (): "granted" | "denied" | undefined =>
+    context.globalState.get<"granted" | "denied">(OAUTH_CONSENT_KEY);
+
+  const requestOauthConsent = async (fromCommand: boolean): Promise<void> => {
+    const btnAllow = tr("Permitir");
+    const btnNotNow = tr("Agora não");
+    const choice = await vscode.window.showInformationMessage(
+      tr("Ler o token do Claude Code para mostrar sua cota?"),
+      {
+        modal: true,
+        detail: tr(
+          "A extensão lê o token de login LOCAL do Claude Code CLI — de ~/.claude/.credentials.json, do Keychain do sistema ou da variável CLAUDE_CODE_OAUTH_TOKEN — e o usa somente para chamar o endpoint oficial da Anthropic (api.anthropic.com/api/oauth/usage, via HTTPS) e exibir a cota do seu próprio plano (5h/7d), igual ao /usage.\n\nO token nunca é registrado em logs, nunca é armazenado em outro lugar e nunca é enviado a terceiros. A extensão não tem telemetria.\n\nSem permissão, a extensão continua funcionando com as fontes locais (statusline/ccusage). Você pode mudar essa decisão a qualquer momento na aba Config."
+        ),
+      },
+      btnAllow,
+      btnNotNow
+    );
+    if (choice === btnAllow) {
+      await context.globalState.update(OAUTH_CONSENT_KEY, "granted");
+      refreshOAuth();
+    } else if (choice === btnNotNow) {
+      await context.globalState.update(OAUTH_CONSENT_KEY, "denied");
+      lastOAuth = null;
+      lastOAuthOkMs = 0;
+      lastOAuthStatus = { ok: false, reason: { kind: "consent" } };
+      render();
+    } else if (!fromCommand) {
+      // Esc no fluxo AUTOMÁTICO: registra "denied" pra não re-perguntar a
+      // cada boot (máx. 1 pergunta automática). Reabre pela Config/comando.
+      await context.globalState.update(OAUTH_CONSENT_KEY, "denied");
+      render();
+    }
+    // Via comando, Esc não muda a decisão existente. Em todos os casos o
+    // rebuild remonta o webview — a aba Config tem guard anti-re-render e só
+    // assim o estado novo aparece na hora.
+    viewProvider.rebuild();
+  };
+
   const refreshOAuth = async () => {
     if (!(cfg().get<boolean>("useOAuthUsage") ?? true)) {
       lastOAuth = null;
       lastOAuthOkMs = 0;
       lastOAuthStatus = { ok: false, reason: { kind: "disabled" } };
+      render();
+      return;
+    }
+    // CONSENTIMENTO: sem opt-in explícito do usuário, NUNCA tocamos nas
+    // credenciais — fetchOAuthUsage (única função que lê arquivo/Keychain/env)
+    // nem é chamada. O painel cai nos fallbacks locais (statusline/ccusage) e
+    // o card "Fonte de dados" explica o motivo.
+    if (oauthConsent() !== "granted") {
+      lastOAuth = null;
+      lastOAuthOkMs = 0;
+      lastOAuthStatus = { ok: false, reason: { kind: "consent" } };
       render();
       return;
     }
@@ -818,6 +966,7 @@ export function activate(context: vscode.ExtensionContext) {
       lastOAuthStatus = { ok: true, reason: null };
       oauthFailStreak = 0;
       oauthBackoffUntilMs = 0;
+      persistBackoff();
     } else {
       // Backoff exponencial GENTIL: 1ª falha recua ~20s (cura a colisão
       // transitória de startup, quando o nosso fetch e o poll do Claude Code se
@@ -826,6 +975,7 @@ export function activate(context: vscode.ExtensionContext) {
       oauthFailStreak = Math.min(oauthFailStreak + 1, 8);
       const waitMs = Math.min(15 * 60_000, 10_000 * Math.pow(2, oauthFailStreak));
       oauthBackoffUntilMs = Date.now() + waitMs;
+      persistBackoff();
       // Guarda o motivo CRU + o tempo de recuo; a frase é montada no render, no
       // idioma atual (ver localizeOAuthReason). Não congelar a string aqui.
       lastOAuthStatus = {
@@ -1543,6 +1693,96 @@ export function activate(context: vscode.ExtensionContext) {
       lastAlertKey = "";
     }
 
+    // Copiloto de cota: conselhos locais (advisor.ts) com histerese entre
+    // renders. A notificação (só a de troca de modelo) é OPT-IN e tem cooldown
+    // próprio, bem mais folgado que o dos alertas.
+    let advice: Advice[] = [];
+    if (cfg().get<boolean>("advisorEnabled") ?? true) {
+      const hist = buildDashHistory();
+      advice = evaluateAdvice(
+        {
+          fiveHourPct: fiveHour,
+          sevenDayPct: sevenDay,
+          sevenDaySonnet: usage?.sevenDaySonnet ?? null,
+          sevenDayOpus: usage?.sevenDayOpus ?? null,
+          blockTokens: block?.totalTokens ?? null,
+          tokensPerMinute: block?.tokensPerMinute ?? null,
+          remainingMinutes: block?.remainingMinutes ?? null,
+          peak: hist?.peak
+            ? { weekday: hist.peak.weekday, hour: hist.peak.hour }
+            : null,
+        },
+        activeAdviceKeys
+      );
+      // Metas de token (ROADMAP #16): opt-in (0 = desligado). Avaliadas aqui
+      // (fora do advisor.ts) porque dependem de fontes locais (bloco/daily).
+      const goal5h = cfg().get<number>("tokenGoalFiveHour") ?? 0;
+      if (goal5h > 0 && block && block.totalTokens > goal5h) {
+        advice.push({
+          key: "tokenGoal5h",
+          severity: "warn",
+          title: tr("Meta de tokens da sessão estourada"),
+          detail: tr(
+            "{0} de {1} na janela de 5h.",
+            fmtTokens(block.totalTokens),
+            fmtTokens(goal5h)
+          ),
+          notify: false,
+        });
+      }
+      const goalDaily = cfg().get<number>("tokenGoalDaily") ?? 0;
+      if (goalDaily > 0) {
+        const today = lastDaily.find((d) => d.date === todayKey());
+        if (today && today.totalTokens > goalDaily) {
+          advice.push({
+            key: "tokenGoalDaily",
+            severity: "warn",
+            title: tr("Meta diária de tokens estourada"),
+            detail: tr(
+              "{0} de {1} hoje.",
+              fmtTokens(today.totalTokens),
+              fmtTokens(goalDaily)
+            ),
+            notify: false,
+          });
+        }
+      }
+      activeAdviceKeys = new Set(advice.map((a) => a.key));
+      const notifiable = advice.find((a) => a.notify);
+      if (
+        notifiable &&
+        (cfg().get<boolean>("advisorNotifyEnabled") ?? false) &&
+        Date.now() >= snoozeUntilMs
+      ) {
+        const cooldownMs =
+          (cfg().get<number>("advisorCooldownHours") ?? 6) * 3_600_000;
+        if (
+          notifiable.key !== lastAdviceKey ||
+          Date.now() - lastAdviceNotifyAtMs > cooldownMs
+        ) {
+          lastAdviceKey = notifiable.key;
+          lastAdviceNotifyAtMs = Date.now();
+          const btnOpen = tr("Abrir painel");
+          const btnSnooze = tr("Silenciar hoje");
+          vscode.window
+            .showInformationMessage(
+              `${notifiable.title} — ${notifiable.detail}`,
+              btnOpen,
+              btnSnooze
+            )
+            .then((choice) => {
+              if (choice === btnOpen) {
+                vscode.commands.executeCommand("claudeUsageBar.openPanel");
+              } else if (choice === btnSnooze) {
+                snoozeUntilMs = Date.now() + 24 * 3_600_000;
+              }
+            });
+        }
+      }
+    } else {
+      activeAdviceKeys = new Set();
+    }
+
     // Modelo atual: statusline fresca > transcript > ccusage (último do bloco).
     const modelName =
       (fresh && s?.model) || currentModel || block?.model || null;
@@ -1557,6 +1797,9 @@ export function activate(context: vscode.ExtensionContext) {
       level,
       fiveHour,
       sevenDay,
+      sevenDaySonnet: usage?.sevenDaySonnet ?? null,
+      sevenDayOpus: usage?.sevenDayOpus ?? null,
+      extraUsage: usage?.extraUsage?.enabled ? usage.extraUsage : null,
       ctxPct,
       cost,
       costCap,
@@ -1565,6 +1808,7 @@ export function activate(context: vscode.ExtensionContext) {
       state: s,
       alert,
       alertEnabled: alertOn,
+      advice,
       projPct,
       etaMin,
       tokenCap,
@@ -1601,6 +1845,17 @@ export function activate(context: vscode.ExtensionContext) {
     level: "ok" | "warn" | "err";
     fiveHour: number | null;
     sevenDay: number | null;
+    /** Janelas 7d dedicadas por modelo (oauth) — null quando o plano não tem. */
+    sevenDaySonnet: { utilization: number; resetsAt: number | null } | null;
+    sevenDayOpus: { utilization: number; resetsAt: number | null } | null;
+    /** Créditos extras (oauth) — null quando desabilitado/ausente. */
+    extraUsage: {
+      enabled: boolean;
+      utilization: number;
+      usedCredits: number;
+      monthlyLimit: number;
+      currency: string;
+    } | null;
     ctxPct: number | null;
     cost: number;
     costCap: number;
@@ -1609,6 +1864,7 @@ export function activate(context: vscode.ExtensionContext) {
     state: UsageState | null;
     alert: AlertResult;
     alertEnabled: boolean;
+    advice: Advice[];
     projPct: number | null;
     etaMin: number | null;
     tokenCap: number;
@@ -1674,6 +1930,22 @@ export function activate(context: vscode.ExtensionContext) {
           )
         );
       }
+      // Janelas 7d dedicadas por modelo (oauth). Nome de modelo não traduz.
+      const modelWin = (label: string, w: View["sevenDaySonnet"]) => {
+        if (!w) {
+          return;
+        }
+        const reset = w.resetsAt
+          ? " · " + tr("reseta em {0}", fmtDuration(w.resetsAt - Date.now()))
+          : "";
+        lines.push(
+          `**${label} (7d):** ${Math.round(w.utilization)}%${bar(
+            w.utilization
+          )}${reset}`
+        );
+      };
+      modelWin("Sonnet", v.sevenDaySonnet);
+      modelWin("Opus", v.sevenDayOpus);
     } else if (v.block) {
       const b = v.block;
       lines.push(
@@ -1823,6 +2095,26 @@ export function activate(context: vscode.ExtensionContext) {
         value: v.sevenDay != null ? `${Math.round(v.sevenDay)}%` : "—",
         pct: v.sevenDay,
       });
+      // Cotas 7d dedicadas por modelo (oauth). Só aparecem quando o plano as
+      // tem (ex.: Opus é null no Pro). Nome de modelo não traduz.
+      const modelRow = (
+        label: string,
+        w: { utilization: number; resetsAt: number | null } | null
+      ) => {
+        if (!w) {
+          return;
+        }
+        const reset = w.resetsAt
+          ? " · " + tr("reseta em {0}", fmtDuration(w.resetsAt - Date.now()))
+          : "";
+        rows.push({
+          label: `${label} (7d)${reset}`,
+          value: `${Math.round(w.utilization)}%`,
+          pct: w.utilization,
+        });
+      };
+      modelRow("Sonnet", v.sevenDaySonnet);
+      modelRow("Opus", v.sevenDayOpus);
     } else if (v.block) {
       const b = v.block;
       rows.push({
@@ -1874,6 +2166,28 @@ export function activate(context: vscode.ExtensionContext) {
         value: `${Math.round(v.ctxPct)}%`,
         pct: v.ctxPct,
       });
+    }
+    // Metas de token (ROADMAP #16): barras de progresso opt-in (0 = sem meta).
+    const goalRow5h = cfg().get<number>("tokenGoalFiveHour") ?? 0;
+    if (goalRow5h > 0 && v.block) {
+      rows.push({
+        label: tr("Meta de tokens (5h)"),
+        value: `${fmtTokens(v.block.totalTokens)} / ${fmtTokens(goalRow5h)}`,
+        pct: Math.min(100, (v.block.totalTokens / goalRow5h) * 100),
+      });
+    }
+    const goalRowDaily = cfg().get<number>("tokenGoalDaily") ?? 0;
+    if (goalRowDaily > 0) {
+      const todayDaily = v.daily.find((d) => d.date === todayKey());
+      if (todayDaily) {
+        rows.push({
+          label: tr("Meta de tokens (hoje)"),
+          value: `${fmtTokens(todayDaily.totalTokens)} / ${fmtTokens(
+            goalRowDaily
+          )}`,
+          pct: Math.min(100, (todayDaily.totalTokens / goalRowDaily) * 100),
+        });
+      }
     }
     const model = prettyModel(v.modelName);
     if (model) {
@@ -1932,6 +2246,15 @@ export function activate(context: vscode.ExtensionContext) {
       // Cor do tema do anel/barras (claude/mono/custom); null = semáforo normal.
       ringColorOverride: resolveRingColorOverride(),
       rows,
+      // Créditos extras (oauth) — card na aba Sessão quando habilitado na conta.
+      extraUsage: v.extraUsage,
+      // Conselhos do copiloto (sem o flag notify — o webview só exibe).
+      advice: v.advice.map((a) => ({
+        key: a.key,
+        severity: a.severity,
+        title: a.title,
+        detail: a.detail,
+      })),
       alert: v.alert.active
         ? {
             message: v.alert.message,
@@ -1993,6 +2316,8 @@ export function activate(context: vscode.ExtensionContext) {
         insightsEnabled: cfg().get<boolean>("insightsEnabled") ?? true,
       },
       settings: collectSettings(),
+      // Estado do consentimento do token OAuth (globalState, não é setting).
+      oauthConsent: oauthConsent() ?? "unset",
       // Idioma atual (globalState) — p/ marcar a bandeira ativa no card de Idioma.
       lang: context.globalState.get<string>("language") || "auto",
       // Caminho/comando efetivo p/ exibir como placeholder quando o campo está
@@ -2023,6 +2348,8 @@ export function activate(context: vscode.ExtensionContext) {
             name: i.name,
             impact: i.impact,
             status: i.status,
+            createdAt: i.createdAt,
+            updatedAt: i.updatedAt,
             shortlink: i.shortlink,
             lastUpdate: i.lastUpdate,
           })),
@@ -2056,6 +2383,9 @@ export function activate(context: vscode.ExtensionContext) {
     lowQuotaThreshold: 15, statusCheckEnabled: true, statusBadgeEnabled: true,
     statusNotifyEnabled: true, statusRefreshSeconds: 300, exportStateEnabled: true,
     tooltipDetail: "full",
+    advisorEnabled: true, advisorNotifyEnabled: false, advisorCooldownHours: 6,
+    tokenGoalFiveHour: 0, tokenGoalDaily: 0,
+    historyEnabled: true, historyRetentionDays: 365, weeklySummaryEnabled: false,
   };
 
   // Coleta os valores atuais dos settings p/ preencher a aba Config.
@@ -2074,6 +2404,9 @@ export function activate(context: vscode.ExtensionContext) {
       "lowQuotaThreshold",
       "statusCheckEnabled", "statusBadgeEnabled", "statusNotifyEnabled",
       "statusRefreshSeconds", "exportStateEnabled", "exportStatePath",
+      "advisorEnabled", "advisorNotifyEnabled", "advisorCooldownHours",
+      "tokenGoalFiveHour", "tokenGoalDaily",
+      "historyEnabled", "historyRetentionDays", "weeklySummaryEnabled",
     ];
     const c = cfg();
     const out: Record<string, unknown> = {};
@@ -2241,12 +2574,128 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }
     ),
+    // Exporta um breakdown da janela do dashboard em CSV (dados locais, já
+    // agregados pelo transcriptStats — nenhuma chamada externa).
+    vscode.commands.registerCommand("claudeUsageBar.exportCsv", async () => {
+      const w = dashboardWindowValue;
+      const s = readTranscriptStats(dashWindowStart(w));
+      const usd = (n: number) => n.toFixed(4);
+      const cell = (v: string | number): string => {
+        const t = String(v);
+        return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+      };
+      const toCsv = (
+        header: string[],
+        rows: (string | number)[][]
+      ): string =>
+        [header, ...rows]
+          .map((r) => r.map(cell).join(","))
+          .join("\n") + "\n";
+      const dims: { label: string; id: string; csv: () => string }[] = [
+        {
+          id: "by-model",
+          label: tr("Por modelo"),
+          csv: () =>
+            toCsv(
+              ["model", "tokens", "input", "output", "cache_read",
+                "cache_write", "messages", "cost_usd_approx"],
+              s.byModel.map((m) => [m.model, m.tokens, m.input, m.output,
+                m.cacheRead, m.cacheWrite, m.messages, usd(m.costUSD)])
+            ),
+        },
+        {
+          id: "by-project",
+          label: tr("Por projeto"),
+          csv: () =>
+            toCsv(
+              ["project", "tokens", "cost_usd_approx"],
+              s.byProject.map((p) => [p.project, p.tokens, usd(p.costUSD)])
+            ),
+        },
+        {
+          id: "by-day",
+          label: tr("Por dia"),
+          csv: () =>
+            toCsv(
+              ["date", "tokens", "input", "output", "cache_read",
+                "cache_write", "messages", "cost_usd_approx"],
+              s.byDay.map((d) => [d.date, d.tokens, d.input, d.output,
+                d.cacheRead, d.cacheWrite, d.messages, usd(d.costUSD)])
+            ),
+        },
+        {
+          id: "by-session",
+          label: tr("Por sessão"),
+          csv: () =>
+            toCsv(
+              ["session", "project", "tokens", "messages",
+                "duration_minutes", "cost_usd_approx"],
+              s.bySession.map((x) => [x.session, x.project, x.tokens,
+                x.messages,
+                Math.max(0, Math.round((x.lastTs - x.firstTs) / 60000)),
+                usd(x.costUSD)])
+            ),
+        },
+        {
+          id: "by-context",
+          label: tr("Por tamanho de contexto"),
+          csv: () =>
+            toCsv(
+              ["bucket", "tokens", "turns", "cost_usd_approx"],
+              s.byContextBucket.map((b) => [b.bucket, b.tokens, b.turns,
+                usd(b.costUSD)])
+            ),
+        },
+      ];
+      if (s.totalTokens <= 0 && s.turns <= 0) {
+        vscode.window.showInformationMessage(tr("Sem dados de custo ainda."));
+        return;
+      }
+      const pick = await vscode.window.showQuickPick(
+        dims.map((d) => ({ label: d.label, id: d.id })),
+        { placeHolder: tr("O que exportar?") }
+      );
+      if (!pick) {
+        return;
+      }
+      const dim = dims.find((d) => d.id === (pick as { id: string }).id)!;
+      const defaultUri = vscode.Uri.file(
+        path.join(os.homedir(), `claude-usage-${dim.id}-${w}.csv`)
+      );
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri,
+        saveLabel: tr("Exportar CSV"),
+        filters: { CSV: ["csv"] },
+      });
+      if (!uri) {
+        return;
+      }
+      try {
+        fs.writeFileSync(uri.fsPath, dim.csv(), "utf8");
+      } catch (e) {
+        vscode.window.showErrorMessage(
+          tr("Falha ao exportar: {0}", String((e as Error)?.message ?? e))
+        );
+        return;
+      }
+      const open = await vscode.window.showInformationMessage(
+        tr("CSV exportado."),
+        tr("Abrir")
+      );
+      if (open) {
+        vscode.env.openExternal(uri);
+      }
+    }),
     // AI advice (LLM, BYO key) — relatório de coaching em Markdown.
     vscode.commands.registerCommand("claudeUsageBar.aiAdvice", () =>
       runAiAdvice(context, buildDashboardData())
     ),
     vscode.commands.registerCommand("claudeUsageBar.setAiAdviceKey", () =>
       setAiAdviceKey(context)
+    ),
+    // Reabre o diálogo de consentimento do token OAuth (conceder/revogar).
+    vscode.commands.registerCommand("claudeUsageBar.oauthConsent", () =>
+      requestOauthConsent(true)
     ),
     // Troca o idioma do plugin (acionado pelas bandeiras no painel). Persiste no
     // globalState (sempre gravável), re-renderiza e remonta o webview (o
@@ -2336,12 +2785,35 @@ export function activate(context: vscode.ExtensionContext) {
     dispose: () => statusTick && clearInterval(statusTick),
   });
 
+  // Histórico persistente: tick de 15 min (janela curta de 2 dias — barata) +
+  // backfill único ~15s após ativar (não compete com o burst de startup).
+  historyTick = setInterval(() => recordHistory(2), 15 * 60 * 1000);
+  context.subscriptions.push({
+    dispose: () => historyTick && clearInterval(historyTick),
+  });
+  const backfillTimer = setTimeout(() => {
+    recordHistory(90, true);
+    recordHistory(2);
+    maybeWeeklySummary();
+  }, 15_000);
+  context.subscriptions.push({ dispose: () => clearTimeout(backfillTimer) });
+
   startWatch();
   readState();
   refreshCcusage();
   refreshDaily();
   refreshOAuth();
   refreshStatus();
+
+  // Consentimento do token OAuth: pergunta UMA vez (decisão ainda não tomada
+  // e fonte oauth habilitada). Async — os refreshes acima já rodaram e o gate
+  // em refreshOAuth garante que nada foi lido sem permissão.
+  if (
+    (cfg().get<boolean>("useOAuthUsage") ?? true) &&
+    oauthConsent() === undefined
+  ) {
+    void requestOauthConsent(false);
+  }
 }
 
 export function deactivate() {

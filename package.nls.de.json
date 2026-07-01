@@ -75,12 +75,22 @@
   "config.language.desc": "Plugin-Sprache (Panel, Statusleiste, Warnungen). `auto` (Standard) folgt der VS-Code-Sprache; oder erzwinge `pt`/`en`/`es`/`fr`/`de`. Umschaltbar über die Flaggen in **Config → Idioma**. Hinweis: Die Beschriftungen auf diesem Settings-Bildschirm folgen der VS-Code-Sprache.",
   "cmd.openDashboard.title": "Claude Usage: Dashboard öffnen",
   "cmd.exportDashboardHtml.title": "Claude Usage: Dashboard exportieren (HTML)",
+  "cmd.exportCsv.title": "Claude Usage: CSV exportieren (Nutzungsaufschlüsselung)",
   "cmd.aiAdvice.title": "Claude Usage: AI advice (Coaching-Bericht)",
   "cmd.setAiAdviceKey.title": "Claude Usage: AI-advice-Schlüssel festlegen",
+  "cmd.oauthConsent.title": "Claude Usage: Token-Zugriff (Einwilligung)",
   "config.dashboardWindow.desc": "Fenster des Analyse-Dashboards (Heute/Woche/Monat/Alles).",
   "config.aiAdviceEndpoint.desc": "AI-advice-Endpunkt (leer = Anthropic /v1/messages).",
   "config.aiAdviceModel.desc": "AI-advice-Modell (leer = claude-opus-4-8).",
   "config.aiAdviceApiStyle.desc": "AI-advice-API-Stil: anthropic (/v1/messages) oder openai (kompatibel).",
   "config.aiAdvicePromptWindowDays.desc": "AI advice: Fenster (Tage) zum Stichproben deiner Prompts.",
-  "config.aiAdviceMaxPrompts.desc": "AI advice: maximale Anzahl der Stichproben-Prompts."
+  "config.aiAdviceMaxPrompts.desc": "AI advice: maximale Anzahl der Stichproben-Prompts.",
+  "config.historyEnabled.desc": "Speichert einen lokalen Nutzungsverlauf (pro Tag/Stunde), der die Transcript-Bereinigung von Claude Code überlebt — Grundlage für Heatmap und Vergleiche im Dashboard.",
+  "config.historyRetentionDays.desc": "Tage lokaler Verlauf, die behalten werden (mindestens 7).",
+  "config.weeklySummaryEnabled.desc": "Wöchentliche Benachrichtigung (montags) mit Kosten/Tokens der Woche vs. der Vorwoche.",
+  "config.advisorEnabled.desc": "Kontingent-Copilot: lokale Hinweise im Sitzungs-Tab (Opus→Sonnet-Wechsel, was bis zum Reset passt, bestes Zeitfenster). Ohne LLM, ohne Netzwerk.",
+  "config.advisorNotifyEnabled.desc": "Native Copilot-Benachrichtigung (nur der Modellwechsel-Vorschlag). Standardmäßig aus.",
+  "config.advisorCooldownHours.desc": "Mindestabstand (Stunden) zwischen Copilot-Benachrichtigungen.",
+  "config.tokenGoalFiveHour.desc": "Persönliches Token-Ziel pro 5h-Fenster (0 = aus). Zeigt Fortschrittsbalken und Copilot-Hinweis bei Überschreitung.",
+  "config.tokenGoalDaily.desc": "Persönliches Token-Ziel pro Tag (0 = aus). Zeigt Fortschrittsbalken und Copilot-Hinweis bei Überschreitung."
 }

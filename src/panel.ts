@@ -22,6 +22,21 @@ export interface PanelData {
    */
   ringColorOverride: string | null;
   rows: { label: string; value: string; pct: number | null }[];
+  /** Créditos extras (oauth) — card na aba Sessão. null = conta sem o recurso. */
+  extraUsage?: {
+    enabled: boolean;
+    utilization: number;
+    usedCredits: number;
+    monthlyLimit: number;
+    currency: string;
+  } | null;
+  /** Conselhos do copiloto de cota (advisor.ts) — card na aba Sessão. */
+  advice?: {
+    key: string;
+    severity: "info" | "warn";
+    title: string;
+    detail: string;
+  }[];
   /** Faixa de alerta de burn rate (null = sem alerta). */
   alert: {
     message: string;
@@ -67,6 +82,8 @@ export interface PanelData {
   };
   /** Valores atuais dos settings (key → valor) para a aba Config. */
   settings: Record<string, unknown>;
+  /** Consentimento p/ leitura do token OAuth (globalState, não é setting). */
+  oauthConsent?: "granted" | "denied" | "unset";
   /** Idioma ativo do plugin (globalState): auto/pt/en/es/fr/de. */
   lang?: string;
   /** Placeholders (caminho/comando efetivo) p/ campos vazios na Config. */
@@ -82,6 +99,8 @@ export interface PanelData {
       name: string;
       impact: string;
       status: string;
+      createdAt: string | null;
+      updatedAt: string | null;
       shortlink: string | null;
       lastUpdate: string | null;
     }[];
@@ -174,6 +193,7 @@ function panelStrings() {
       account: tr("Conta e limites"),
       alerts: tr("Alertas e cores"),
       tips: tr("Dicas de custo"),
+      copilot: tr("Copiloto e histórico"),
       status: tr("Status da Anthropic"),
       export: tr("Exportar uso (p/ agentes/scripts)"),
       aiAdvice: tr("AI advice (coaching por IA)"),
@@ -183,6 +203,14 @@ function panelStrings() {
       ringColor: tr("Cor do anel (mono/custom)"),
       barStyle: tr("Estilo na status bar"),
       statusBarValue: tr("Valor na status bar"),
+      advisorEnabled: tr("Copiloto de cota (conselhos locais)"),
+      advisorNotifyEnabled: tr("Notificação do copiloto (troca de modelo)"),
+      advisorCooldownHours: tr("Cooldown do copiloto (horas)"),
+      tokenGoalFiveHour: tr("Meta de tokens por 5h (0 = off)"),
+      tokenGoalDaily: tr("Meta de tokens por dia (0 = off)"),
+      historyEnabled: tr("Histórico local persistente"),
+      historyRetentionDays: tr("Retenção do histórico (dias)"),
+      weeklySummaryEnabled: tr("Resumo semanal (segundas)"),
       monthlyBudgetUsd: tr("Orçamento mensal (USD)"),
       monthlyBudgetAlertEnabled: tr("Alerta de orçamento mensal"),
       insightsEnabled: tr("Analisar transcripts (custos)"),
@@ -256,6 +284,26 @@ function panelStrings() {
       incidents: tr("Incidentes ativos"),
       components: tr("Componentes"),
       recent: tr("Resolvidos recentemente"),
+      activeSince: tr("ativo {0}"),
+      updatedSince: tr("atualizado {0}"),
+    },
+    agoD: tr("há {0}d"),
+    extra: {
+      title: tr("Créditos extras"),
+      used: tr("{0} de {1} no mês"),
+    },
+    advisor: {
+      title: tr("Copiloto"),
+      dismiss: tr("Dispensar"),
+    },
+    consent: {
+      label: tr("Acesso ao token do Claude Code"),
+      granted: tr("concedido ✓"),
+      denied: tr("negado"),
+      unset: tr("não decidido"),
+      grant: tr("Conceder acesso"),
+      revoke: tr("Revogar acesso"),
+      help: tr("O token local do Claude Code CLI só é lido com a sua permissão, e só para consultar a cota real (api.anthropic.com/api/oauth/usage)."),
     },
     comp: {
       operational: tr("operacional"),
@@ -428,6 +476,17 @@ function panelHtml(opts?: {
   .alert-title { font-size: 12.5px; font-weight: 600; color: var(--err); margin-bottom: 2px; }
   .alert.warn .alert-title { color: var(--warn); }
   .alert-reason { font-size: 11.5px; color: var(--vscode-foreground); opacity: .85; }
+  /* Copiloto de cota (conselhos locais). */
+  .adv { border-left: 3px solid var(--c, var(--warn)); border-radius: 0 6px 6px 0;
+    background: color-mix(in srgb, var(--c, var(--warn)) 10%, transparent);
+    padding: 7px 10px; margin: 6px 0; position: relative; }
+  .adv.warn { --c: var(--warn); }
+  .adv.info { --c: var(--ok); }
+  .adv-title { font-size: 12px; font-weight: 600; padding-right: 18px; }
+  .adv-detail { font-size: 11.5px; color: var(--vscode-descriptionForeground); margin-top: 2px; }
+  .adv-x { position: absolute; top: 4px; right: 6px; background: none; border: none;
+    color: var(--vscode-descriptionForeground); cursor: pointer; font-size: 13px; padding: 0 2px; }
+  .adv-x:hover { color: var(--vscode-foreground); }
   /* Cards de separação por seção. */
   .card {
     background: var(--vscode-editorWidget-background, rgba(255,255,255,0.03));
@@ -567,10 +626,12 @@ function panelHtml(opts?: {
   let collapsed = persisted.collapsed || {};
   // Estado recolhido dos cards de conteúdo (id do card → true = recolhido).
   let cardCollapsed = persisted.cardc || {};
+  // Conselhos do copiloto dispensados (key → true) — some até a key mudar.
+  let advDismissed = persisted.advd || {};
   // Dashboard: abre SEMPRE com todas as seções expandidas. Resetamos o estado
   // recolhido na 1ª render (o usuário ainda pode recolher durante a sessão).
   let dashInit = false;
-  function saveState(){ if (vscode.setState) vscode.setState({ activeTab: activeTab, collapsed: collapsed, cardc: cardCollapsed }); }
+  function saveState(){ if (vscode.setState) vscode.setState({ activeTab: activeTab, collapsed: collapsed, cardc: cardCollapsed, advd: advDismissed }); }
 
   // Schema dos settings para a aba Config (key, label, tipo, opções).
   const SETTINGS_SCHEMA = [
@@ -581,7 +642,7 @@ function panelHtml(opts?: {
       { key: 'alignment', label: L.cfg.alignment, type: 'enum', options: ['right','left'] },
       { key: 'priority', label: L.cfg.priority, type: 'number' },
     ]},
-    { id: 'source', section: L.sec.source, items: [
+    { id: 'source', section: L.sec.source, extra: 'oauthconsent', items: [
       { key: 'useOAuthUsage', label: L.cfg.useOAuthUsage, type: 'bool' },
       { key: 'oauthRefreshSeconds', label: L.cfg.oauthRefreshSeconds, type: 'number' },
       { key: 'ccusageCommand', label: L.cfg.ccusageCommand, type: 'string' },
@@ -609,6 +670,16 @@ function panelHtml(opts?: {
       { key: 'blockSummaryEnabled', label: L.cfg.blockSummaryEnabled, type: 'bool' },
       { key: 'warnThreshold', label: L.cfg.warnThreshold, type: 'number' },
       { key: 'errorThreshold', label: L.cfg.errorThreshold, type: 'number' },
+    ]},
+    { id: 'copilot', section: L.sec.copilot, items: [
+      { key: 'advisorEnabled', label: '🧭 ' + L.cfg.advisorEnabled, type: 'bool' },
+      { key: 'advisorNotifyEnabled', label: L.cfg.advisorNotifyEnabled, type: 'bool' },
+      { key: 'advisorCooldownHours', label: L.cfg.advisorCooldownHours, type: 'number' },
+      { key: 'tokenGoalFiveHour', label: L.cfg.tokenGoalFiveHour, type: 'number' },
+      { key: 'tokenGoalDaily', label: L.cfg.tokenGoalDaily, type: 'number' },
+      { key: 'historyEnabled', label: L.cfg.historyEnabled, type: 'bool' },
+      { key: 'historyRetentionDays', label: L.cfg.historyRetentionDays, type: 'number' },
+      { key: 'weeklySummaryEnabled', label: L.cfg.weeklySummaryEnabled, type: 'bool' },
     ]},
     { id: 'tips', section: L.sec.tips, help: L.cfg.tipsHelp, items: [
       { key: 'tipsContextBigPct', label: L.cfg.tipsContextBigPct, type: 'number' },
@@ -647,7 +718,14 @@ function panelHtml(opts?: {
     var m = Math.round(s / 60);
     if (m < 60) return fmt(L.agoMin, m);
     var h = Math.round(m / 60);
-    return fmt(L.agoH, h);
+    if (h < 48) return fmt(L.agoH, h);
+    return fmt(L.agoD, Math.round(h / 24));
+  }
+  // Idem, a partir de um timestamp ISO (ex.: created_at dos incidentes).
+  function fmtSinceIso(iso) {
+    if (!iso) return '';
+    var t = Date.parse(iso);
+    return isNaN(t) ? '' : fmtSince(t);
   }
   // Atualiza só o texto do "atualizado há Xs" (chamado a cada 1s).
   function tickLastUpd() {
@@ -955,8 +1033,20 @@ function panelHtml(opts?: {
     );
   }
 
+  // Consentimento do token OAuth: estado atual + botão conceder/revogar
+  // (dispara o comando no host, que abre o diálogo modal).
+  function oauthConsentRow(consent) {
+    var st = consent === 'granted' ? L.consent.granted
+      : consent === 'denied' ? L.consent.denied : L.consent.unset;
+    var btn = consent === 'granted' ? L.consent.revoke : L.consent.grant;
+    return '<div class="cfg-help-line">' + esc(L.consent.help) + '</div>' +
+      '<div class="cfg-row"><span class="cfg-label">' + esc(L.consent.label) +
+      ' · ' + esc(st) + '</span><span class="cfg-ctrl">' +
+      '<button class="sbtn" data-cmd="claudeUsageBar.oauthConsent">' + esc(btn) + '</button></span></div>';
+  }
+
   // Aba Config: form de settings + comandos + link.
-  function configTab(settings, placeholders) {
+  function configTab(settings, placeholders, oauthConsent) {
     settings = settings || {};
     placeholders = placeholders || {};
     var html = '';
@@ -1000,6 +1090,8 @@ function panelHtml(opts?: {
       });
       // AI advice: botões de ação (Definir chave / Gerar) depois dos campos.
       if (sec.extra === 'aiadvice') body += aiAdviceActions();
+      // Fonte: estado/botão do consentimento do token OAuth depois dos campos.
+      if (sec.extra === 'oauthconsent') body += oauthConsentRow(oauthConsent);
       // Um card por seção, colapsável (<details>), lembrando o estado.
       var openAttr = collapsed[sec.id] ? '' : ' open';
       html += '<details class="card controls cfg-sec" data-sec="' + sec.id + '"' + openAttr + '>' +
@@ -1059,8 +1151,16 @@ function panelHtml(opts?: {
       const inc = s.incidents.map(function(i){
         const cls = (i.impact === 'major' || i.impact === 'critical') ? ' major' : '';
         const upd = i.lastUpdate ? '<div class="st-inc-meta">' + esc(i.lastUpdate.slice(0,160)) + '</div>' : '';
+        // "ativo há 2h · atualizado há 20min" — relativo, a partir dos ISO da API.
+        const since = fmtSinceIso(i.createdAt);
+        const updSince = fmtSinceIso(i.updatedAt);
+        const parts = [];
+        if (since) parts.push(fmt(L.st.activeSince, since));
+        if (updSince) parts.push(fmt(L.st.updatedSince, updSince));
+        const times = parts.length
+          ? '<div class="st-inc-meta">' + esc(parts.join(' · ')) + '</div>' : '';
         return '<div class="st-inc' + cls + '"><div class="st-inc-name">' + esc(i.name) + '</div>' +
-          '<div class="st-inc-meta">' + esc(impactLabel(i.impact)) + ' · ' + esc(incStatusLabel(i.status)) + '</div>' + upd + '</div>';
+          '<div class="st-inc-meta">' + esc(impactLabel(i.impact)) + ' · ' + esc(incStatusLabel(i.status)) + '</div>' + times + upd + '</div>';
       }).join('');
       html += collapsibleCard('st-incidents', L.st.incidents, inc);
     }
@@ -1153,9 +1253,40 @@ function panelHtml(opts?: {
           return '<div class="row"><div class="row-head"><span class="row-label">' + esc(row.label) +
             '</span><span class="row-val">' + esc(row.value) + '</span></div>' + bar(pct, ringOverride) + '</div>';
         }).join('');
-        return card('<div class="ring-wrap">' +
+        // Copiloto de cota: conselhos locais; dispensar esconde enquanto o
+        // conselho segue ativo. Quando ele sai da lista, limpa o dismiss —
+        // se a condição voltar no futuro, o card reaparece.
+        Object.keys(advDismissed).forEach(function(k){
+          var still = (d.advice || []).some(function(a){ return a.key === k; });
+          if (!still) { delete advDismissed[k]; }
+        });
+        var advHtml = '';
+        (d.advice || []).forEach(function(a){
+          if (advDismissed[a.key]) return;
+          var icon = a.severity === 'warn' ? '⚠ ' : '💡 ';
+          advHtml += '<div class="adv ' + (a.severity === 'warn' ? 'warn' : 'info') + '">' +
+            '<div class="adv-title">' + icon + esc(a.title) +
+            '<button class="adv-x" data-dismiss="' + esc(a.key) + '" title="' + esc(L.advisor.dismiss) + '">×</button></div>' +
+            '<div class="adv-detail">' + esc(a.detail) + '</div></div>';
+        });
+        var advCard = advHtml ? collapsibleCard('copilot', L.advisor.title, advHtml) : '';
+        // Créditos extras (oauth): barra de utilização + usado/limite do mês.
+        var extraCard = '';
+        if (d.extraUsage && d.extraUsage.enabled) {
+          var eu = d.extraUsage;
+          var cur = eu.currency === 'USD' ? '$' : eu.currency + ' ';
+          var used = cur + Number(eu.usedCredits || 0).toFixed(2);
+          var lim = cur + Number(eu.monthlyLimit || 0).toFixed(2);
+          var pctE = Math.max(0, Math.min(100, eu.utilization || 0));
+          extraCard = collapsibleCard('extra', L.extra.title,
+            '<div class="row"><div class="row-head"><span class="row-label">' +
+            esc(L.extra.used.replace('{0}', used).replace('{1}', lim)) +
+            '</span><span class="row-val">' + Math.round(pctE) + '%</span></div>' +
+            bar(pctE, ringOverride) + '</div>');
+        }
+        return advCard + card('<div class="ring-wrap">' +
           ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub, ringOverride) +
-          '</div>' + rows) + sourceCard(d.source);
+          '</div>' + rows) + extraCard + sourceCard(d.source);
       }
       if (tab === 'custos') {
         // Aba dedicada: hoje/mês + custo/dia + tokens/dia + seletor + quebras + dicas.
@@ -1181,7 +1312,7 @@ function panelHtml(opts?: {
       if (tab === 'config') {
         // Os controles de estilo e do alerta de burn rate vivem dentro das
         // seções (Aparência / Alertas e cores) — sem cards standalone redundantes.
-        return configTab(d.settings, d.placeholders);
+        return configTab(d.settings, d.placeholders, d.oauthConsent);
       }
       return '';
     }
@@ -1217,6 +1348,14 @@ function panelHtml(opts?: {
 
   // (Re)liga todos os event listeners após cada render.
   function wireEvents() {
+    // Dispensar conselho do copiloto (some até a key mudar).
+    document.querySelectorAll('.adv-x[data-dismiss]').forEach(function(b){
+      b.addEventListener('click', function(){
+        advDismissed[b.getAttribute('data-dismiss')] = true;
+        saveState();
+        render(lastData, true);
+      });
+    });
     document.querySelectorAll('.tab').forEach(function(t){
       t.addEventListener('click', function(){
         activeTab = t.getAttribute('data-tab');
@@ -1395,6 +1534,7 @@ function wireMessages(
     "claudeUsageBar.toggleAlert",
     "claudeUsageBar.setAiAdviceKey",
     "claudeUsageBar.aiAdvice",
+    "claudeUsageBar.oauthConsent",
   ]);
   return webview.onDidReceiveMessage((msg) => {
     if (msg?.type === "setStyle" && typeof msg.style === "string") {

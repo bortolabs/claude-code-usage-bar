@@ -1,5 +1,8 @@
 import { tr } from "./i18n";
 import { CcusageData } from "./ccusage";
+// Projeção unificada em core/projection (regra dos 25% da janela — a variante
+// local antiga projetava já com 60s decorridos, cedo demais e alarmista).
+import { projectLimitPct } from "./core/projection";
 
 export interface AlertInput {
   block: CcusageData | null;
@@ -42,32 +45,6 @@ function fmtTok(n: number): string {
     return (n / 1_000).toFixed(0) + "k";
   }
   return String(Math.round(n));
-}
-
-/**
- * Projeta se um limite percentual (5h/7d) vai bater 100% antes do reset,
- * com base na velocidade média de consumo desde o início (assume uso linear).
- * Retorna a % projetada no momento do reset, ou null se não dá pra estimar.
- */
-function projectLimitPct(
-  usedPct: number | null,
-  resetsAtSec: number | null,
-  windowSeconds: number
-): number | null {
-  if (usedPct == null || !resetsAtSec) {
-    return null;
-  }
-  const remainingMs = resetsAtSec * 1000 - Date.now();
-  if (remainingMs <= 0) {
-    return usedPct;
-  }
-  const remainingSec = remainingMs / 1000;
-  const elapsedSec = windowSeconds - remainingSec;
-  if (elapsedSec <= 60) {
-    return null; // cedo demais pra projetar
-  }
-  const ratePerSec = usedPct / elapsedSec;
-  return usedPct + ratePerSec * remainingSec;
 }
 
 /** Minutos → rótulo curto ("3 min", "1h05"). Mínimo de 1 min. */

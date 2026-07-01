@@ -1,0 +1,37 @@
+name: CI
+
+# Valida todo push/PR: typecheck (tsc), testes (vitest) e bundle (esbuild).
+# A publicação continua exclusiva do publish.yml (tag v*.*.*).
+
+on:
+  push:
+    branches: ["master"]
+  pull_request: {}
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Testes
+        run: npm test
+
+      - name: Bundle (esbuild)
+        run: npm run bundle

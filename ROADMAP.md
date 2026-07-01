@@ -63,16 +63,19 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | **Dashboard completo + export HTML** | Comando que abre **tudo de uma vez** numa aba do editor (grid responsivo, seções expandidas, ao vivo) + export de um **`.html` autocontido** pro navegador (snapshot com tema próprio) | 0.30.0 |
 | **Dashboard de analytics** | Renderer dedicado: KPIs (incl. **cache hit rate**), composição de custo por tipo de token, gráfico temporal empilhado, **insights** locais, tabelas e breakdowns (modelo/projeto/sessão/contexto/skills/plugins/MCP/subagentes); janela Hoje/Semana/Mês/Tudo | 0.31.0 |
 | **AI advice (LLM, opt-in)** | Relatório de coaching em Markdown gerado por LLM (BYO key, Anthropic `/v1/messages` ou OpenAI-compatível), a partir dos agregados + amostra de prompts; chave no SecretStorage, com confirmação | 0.31.0 |
+| **Cotas 7d por modelo (Sonnet/Opus)** | Janelas semanais dedicadas do oauth/usage viram rows na Sessão, linhas no hover card e campos no export JSON; card de créditos extras; tempos relativos nos incidentes | 0.35.0 |
+| **Export CSV** (#18) | Comando + botão no dashboard: quebra por modelo/projeto/dia/sessão/contexto em CSV | 0.35.0 |
+| **Histórico persistente + heatmap** (#15) | Agregados por dia/hora que sobrevivem à limpeza de transcripts; heatmap semana×hora no dashboard | 0.35.0 |
+| **Comparativo de janelas** (#14) | "Hoje vs média 7d" e "semana vs anterior" no dashboard | 0.35.0 |
+| **Resumo semanal opt-in** (#17) | Notificação às segundas com a semana vs a anterior | 0.35.0 |
+| **Metas por token** (#16) | `tokenGoalFiveHour`/`tokenGoalDaily` com barra de progresso + aviso | 0.35.0 |
+| **Copiloto de cota** | Conselhos locais contínuos (Opus→Sonnet, o que cabe até o reset, melhor janela) com histerese; notificação opt-in | 0.35.0 |
+| **Base técnica** | vitest (70 testes) + CI em PR + bundle esbuild + backoff do oauth persistido | 0.35.0 |
 
 ## 💡 Próximas ideias
 
 | # | Feature | O que faz | Esforço | Viável? |
 | --- | --- | --- | --- | --- |
-| 14 | **Comparativo de janelas** | "Esta semana vs. anterior", "hoje vs. média dos últimos N dias" — delta de custo/tokens na aba Custos. Reusa `ccusage daily`, não toca em oauth/credenciais | Baixo | ✅ |
-| 15 | **Quebra por dia da semana / hora** | Heatmap ou barras de quando você mais gasta (por dia-da-semana ou faixa horária). Reusa o agregador (`transcriptStats.ts`) | Médio | ✅ |
-| 16 | **Orçamento/meta por token** | Hoje o orçamento é só por `$`/mês; expor um teto por **tokens** (5h/dia/semana) com alerta, complementando o de custo | Baixo | ✅ |
-| 17 | **Resumo semanal de custo** | Notificação opt-in com o resumo da semana (custo, top modelo/projeto, delta vs. anterior) — reusa o resumo de fim de bloco | Baixo | ✅ |
-| 18 | **Export de custo em CSV** | Botão pra exportar a quebra (por dia/modelo/projeto) em CSV, além do JSON v2 que já existe | Baixo | ✅ |
 | 10 | **Multi-conta / perfis** | Alternar entre contas (pessoal vs trabalho): token/transcripts por perfil. Mexe em fonte de dados, oauth e persistência — fechar escopo antes | Alto | ⚠️ depende do setup |
 
 ## 🌐 Externo / operacional (fora do código)

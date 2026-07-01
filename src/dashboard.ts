@@ -66,8 +66,31 @@ export interface DashboardData {
   bySubagent: { name: string; calls: number }[];
   isSub: boolean;
   tableVersion: string;
+  /**
+   * Histórico persistente (heatmap semana×hora + comparativos). null = ainda
+   * sem dados suficientes ou historyEnabled desligado.
+   */
+  history?: {
+    /** Tokens somados por [dia-da-semana 0..6 (0=dom)][hora 0..23]. */
+    heatmap: number[][];
+    peak: { weekday: number; hour: number; tokens: number } | null;
+    /** Nº de dias com dados no heatmap (gate de exibição: mínimo ~7). */
+    daysTracked: number;
+    comparisons: {
+      todayVsAvg: HistDelta | null;
+      weekVsPrev: HistDelta | null;
+    };
+  } | null;
   /** Rótulo de "gerado em" (só no export estático). */
   generatedLabel?: string;
+}
+
+/** Delta de comparativo de janelas (ROADMAP #14). */
+export interface HistDelta {
+  tokensPct: number | null;
+  costPct: number | null;
+  current: { tokens: number; costUSD: number };
+  baseline: { tokens: number; costUSD: number };
 }
 
 /** Strings da UI do dashboard (traduzidas via tr, injetadas como `L`). */
@@ -79,6 +102,7 @@ function dashboardStrings() {
     refresh: tr("Atualizar"),
     aiAdvice: tr("AI advice"),
     exportHtml: tr("Exportar HTML"),
+    exportCsv: tr("Exportar CSV"),
     openInBrowser: tr("Abrir no navegador"),
     windows: {
       today: tr("Hoje"),
@@ -131,6 +155,16 @@ function dashboardStrings() {
     approxNote: tr("≈ aproximado · local, sem chamada externa · tabela v{0}"),
     subNote: tr("sua assinatura cobre — equivalente de API (≈ aproximado)"),
     empty: tr("Sem dados nesta janela ainda."),
+    heatmapTitle: tr("Quando você mais usa (semana × hora)"),
+    heatmapCollecting: tr("Coletando histórico… o heatmap aparece com ~7 dias de dados."),
+    heatmapPeakLabel: tr("pico: {0} {1}"),
+    weekdays: [
+      tr("dom"), tr("seg"), tr("ter"), tr("qua"),
+      tr("qui"), tr("sex"), tr("sáb"),
+    ],
+    cmpTitle: tr("Comparativos"),
+    cmpToday: tr("Hoje vs média 7d"),
+    cmpWeek: tr("Semana vs anterior"),
     footerRepo: "bortolabs/claude-code-usage-bar",
   };
 }
@@ -218,6 +252,22 @@ export function dashboardHtml(
   .ins { border-left:3px solid var(--warn); padding:7px 11px; margin:8px 0; font-size:12.5px; border-radius:0 6px 6px 0; background:color-mix(in srgb, var(--warn) 10%, transparent); }
   .ins.info { border-left-color: var(--c-input); background:color-mix(in srgb, var(--c-input) 9%, transparent); }
   .ins.good { border-left-color: var(--ok); background:color-mix(in srgb, var(--ok) 10%, transparent); }
+  /* heatmap semana×hora */
+  .hm-row { display:flex; align-items:center; gap:6px; margin:2px 0; }
+  .hm-day { width:30px; font-size:10.5px; color:var(--vscode-descriptionForeground); text-align:right; }
+  .hm-cells { display:grid; grid-template-columns:repeat(24,1fr); gap:2px; flex:1; }
+  .hm-cell { aspect-ratio:1/1; min-width:8px; border-radius:2px; background:var(--track); }
+  .hm-axis { display:grid; grid-template-columns:repeat(24,1fr); gap:2px; margin-left:36px; font-size:9.5px; color:var(--vscode-descriptionForeground); }
+  .hm-axis span { text-align:left; }
+  .hm-note { font-size:12px; color:var(--vscode-descriptionForeground); }
+  .hm-peak { font-size:11px; color:var(--vscode-descriptionForeground); margin-top:6px; }
+  /* comparativos */
+  .cmp-row { display:flex; align-items:baseline; gap:10px; margin:6px 0; font-size:12.5px; flex-wrap:wrap; }
+  .cmp-label { color:var(--vscode-descriptionForeground); min-width:150px; }
+  .cmp-val { font-variant-numeric:tabular-nums; }
+  .cmp-pct { font-weight:600; }
+  .cmp-pct.up { color: var(--warn); }
+  .cmp-pct.down { color: var(--ok); }
   /* chart */
   .chart { width:100%; height:auto; }
   .chart rect { transition: opacity .15s; }
@@ -342,6 +392,60 @@ export function dashboardHtml(
     return '<div class="card"><div class="sec-title">'+esc(L.tableTime)+'</div><div class="scroll"><table>'+head+body+'</table></div></div>';
   }
 
+  // Heatmap semana×hora do histórico persistente (ROADMAP #15).
+  function heatmapCard(){
+    var h = data.history;
+    if(!h) return '';
+    if(!h.daysTracked || h.daysTracked < 7){
+      return '<div class="card"><div class="sec-title" style="margin-top:0">'+esc(L.heatmapTitle)+'</div>'
+        +'<div class="hm-note">'+esc(L.heatmapCollecting)+'</div></div>';
+    }
+    var max=0, wd, hh;
+    for(wd=0; wd<7; wd++) for(hh=0; hh<24; hh++) if(h.heatmap[wd][hh]>max) max=h.heatmap[wd][hh];
+    if(!max) return '';
+    var rows='';
+    for(wd=0; wd<7; wd++){
+      var cells='';
+      for(hh=0; hh<24; hh++){
+        var v=h.heatmap[wd][hh]||0;
+        var style = v>0
+          ? 'background:color-mix(in srgb, var(--c-input) '+Math.round(15+85*(v/max))+'%, transparent)'
+          : '';
+        cells += '<div class="hm-cell" data-tip="'+esc(L.weekdays[wd]+' '+hh+'h · '+tok(v))+'" style="'+style+'"></div>';
+      }
+      rows += '<div class="hm-row"><div class="hm-day">'+esc(L.weekdays[wd])+'</div><div class="hm-cells">'+cells+'</div></div>';
+    }
+    var axis='<div class="hm-axis">';
+    for(hh=0; hh<24; hh++){ axis += '<span>'+(hh%6===0?hh+'h':'')+'</span>'; }
+    axis += '</div>';
+    var peak = h.peak
+      ? '<div class="hm-peak">'+esc(fmt(L.heatmapPeakLabel, L.weekdays[h.peak.weekday], h.peak.hour+'h'))+'</div>'
+      : '';
+    return '<div class="card"><div class="sec-title" style="margin-top:0">'+esc(L.heatmapTitle)+'</div>'
+      +rows+axis+peak+'</div>';
+  }
+
+  // Comparativos de janelas (ROADMAP #14): hoje vs média 7d, semana vs anterior.
+  function cmpCard(){
+    var h = data.history;
+    if(!h || !h.comparisons) return '';
+    function row(label, d){
+      if(!d) return '';
+      function pct(p){
+        if(p==null) return '';
+        var s=(p>=0?'+':'')+Math.round(p)+'%';
+        var cls=p>=0?' up':' down';
+        return ' <span class="cmp-pct'+cls+'">'+esc(s)+'</span>';
+      }
+      return '<div class="cmp-row"><span class="cmp-label">'+esc(label)+'</span>'
+        +'<span class="cmp-val">'+esc(tok(d.current.tokens))+pct(d.tokensPct)+'</span>'
+        +'<span class="cmp-val">'+esc(usd(d.current.costUSD))+pct(d.costPct)+'</span></div>';
+    }
+    var body = row(L.cmpToday, h.comparisons.todayVsAvg) + row(L.cmpWeek, h.comparisons.weekVsPrev);
+    if(!body) return '';
+    return '<div class="card"><div class="sec-title" style="margin-top:0">'+esc(L.cmpTitle)+'</div>'+body+'</div>';
+  }
+
   function render(d){
     if(d) data=d; if(!data) return;
     var k=data.kpis;
@@ -350,6 +454,7 @@ export function dashboardHtml(
     var genTxt = IS_EXPORT ? ('<span class="gen">'+esc(fmt(L.generatedAt, STATIC_GENERATED_AT||data.generatedLabel||''))+'</span>') : '';
     var actions='<button class="btn needs-host" data-act="aiAdvice">✦ '+esc(L.aiAdvice)+'</button>'
       +'<button class="btn needs-host" data-act="export">⬇ '+esc(L.exportHtml)+'</button>'
+      +'<button class="btn needs-host" data-act="exportCsv">⬇ CSV</button>'
       +'<button class="btn needs-host" data-act="refresh">↻</button>';
     var header='<div class="header"><span class="title">'+esc(L.title)+'</span><div class="header-right">'+genTxt+winSel+actions+'</div></div>';
 
@@ -395,11 +500,13 @@ export function dashboardHtml(
 
     var tables='<div class="grid2">'+modelTable(data.byModel)+timeTable()+'</div>';
 
+    var hist = cmpCard() + heatmapCard();
     document.getElementById('app').innerHTML = header
       + kpis
       + '<div class="sec-title">'+esc(L.composition)+'</div>' + compositionBar(data.costByType)
       + chartCard()
       + (insights?('<div class="sec-title">'+esc(L.insightsTitle)+'</div>'+insights):'')
+      + (hist?('<div class="grid2" style="margin-bottom:12px">'+hist+'</div>'):'')
       + tables
       + breakdowns
       + footer();
@@ -419,6 +526,7 @@ export function dashboardHtml(
       if(a==='refresh') vscode.postMessage({type:'refresh'});
       else if(a==='aiAdvice') vscode.postMessage({type:'aiAdvice'});
       else if(a==='export') vscode.postMessage({type:'exportDashboardHtml'});
+      else if(a==='exportCsv') vscode.postMessage({type:'exportCsv'});
       else if(a==='repo'){ e.preventDefault(); vscode.postMessage({type:'openRepo'}); }
     }); });
   }
@@ -477,6 +585,8 @@ export class DashboardPanel {
         vscode.commands.executeCommand("claudeUsageBar.aiAdvice");
       } else if (msg?.type === "exportDashboardHtml") {
         vscode.commands.executeCommand("claudeUsageBar.exportDashboardHtml");
+      } else if (msg?.type === "exportCsv") {
+        vscode.commands.executeCommand("claudeUsageBar.exportCsv");
       } else if (msg?.type === "openRepo") {
         vscode.env.openExternal(
           vscode.Uri.parse("https://github.com/bortolabs/claude-code-usage-bar")
