@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.35.1",
+  "version": "0.36.0",
   "publisher": "bortolabs",
   "sponsor": {
     "url": "https://github.com/sponsors/bortolabs"
@@ -223,6 +223,41 @@
           "minimum": 0,
           "maximum": 100,
           "markdownDescription": "%config.tipsSubagentPct.desc%"
+        },
+        "claudeUsageBar.anomalyDetectionEnabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.anomalyDetectionEnabled.desc%"
+        },
+        "claudeUsageBar.anomalyNotifyEnabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.anomalyNotifyEnabled.desc%"
+        },
+        "claudeUsageBar.anomalyCacheHitMinPct": {
+          "type": "number",
+          "default": 50,
+          "minimum": 0,
+          "maximum": 100,
+          "markdownDescription": "%config.anomalyCacheHitMinPct.desc%"
+        },
+        "claudeUsageBar.anomalyMcpCallsMax": {
+          "type": "number",
+          "default": 60,
+          "minimum": 0,
+          "markdownDescription": "%config.anomalyMcpCallsMax.desc%"
+        },
+        "claudeUsageBar.anomalyCtxInflatedTurns": {
+          "type": "number",
+          "default": 3,
+          "minimum": 0,
+          "markdownDescription": "%config.anomalyCtxInflatedTurns.desc%"
+        },
+        "claudeUsageBar.anomalyToolLoopK": {
+          "type": "number",
+          "default": 5,
+          "minimum": 2,
+          "markdownDescription": "%config.anomalyToolLoopK.desc%"
         },
         "claudeUsageBar.barStyle": {
           "type": "string",

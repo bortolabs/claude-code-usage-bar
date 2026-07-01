@@ -348,5 +348,20 @@
   "não decidido": "sin decidir",
   "Conceder acesso": "Conceder acceso",
   "Revogar acesso": "Revocar acceso",
-  "O token local do Claude Code CLI só é lido com a sua permissão, e só para consultar a cota real (api.anthropic.com/api/oauth/usage).": "El token local del CLI de Claude Code solo se lee con tu permiso, y solo para consultar la cuota real (api.anthropic.com/api/oauth/usage)."
+  "O token local do Claude Code CLI só é lido com a sua permissão, e só para consultar a cota real (api.anthropic.com/api/oauth/usage).": "El token local del CLI de Claude Code solo se lee con tu permiso, y solo para consultar la cuota real (api.anthropic.com/api/oauth/usage).",
+  "Possível loop: a mesma chamada \"{0}\" se repetiu {1}× seguidas num turno. Cheque retries presos ou testes falhando em série.": "Posible bucle: la misma llamada \"{0}\" se repitió {1}× seguidas en un turno. Revisa reintentos atascados o pruebas fallando en serie.",
+  "{0} turnos carregaram contexto acima de 200k. Contexto inflado encarece cada turno — use /compact no meio e /clear ao trocar de assunto.": "{0} turnos cargaron contexto por encima de 200k. El contexto inflado encarece cada turno — usa /compact a mitad de tarea y /clear al cambiar de tema.",
+  "Cache hit em {0}% — criar/expirar cache custa mais que reusar. Sessões muito fragmentadas ou trocas frequentes de contexto derrubam o reaproveitamento.": "Cache hit en {0}% — crear/expirar caché cuesta más que reutilizar. Sesiones muy fragmentadas o cambios frecuentes de contexto reducen el reaprovechamiento.",
+  "O servidor MCP \"{0}\" foi chamado {1}× na janela — volume alto demais. Pode ser um processo em loop ou chamadas redundantes queimando tokens.": "El servidor MCP \"{0}\" se llamó {1}× en la ventana — volumen demasiado alto. Puede ser un proceso en bucle o llamadas redundantes quemando tokens.",
+  "Anomalias": "Anomalías",
+  "Nenhuma anomalia detectada. ✅": "Ninguna anomalía detectada. ✅",
+  "Anomalias (desperdício)": "Anomalías (desperdicio)",
+  "Detector de padrões de desperdício (loop de tool, contexto inflado, cache baixo, MCP disparado). Limiares maiores = menos alertas.": "Detector de patrones de desperdicio (bucle de tool, contexto inflado, caché bajo, MCP disparado). Umbrales más altos = menos alertas.",
+  "Detectar anomalias": "Detectar anomalías",
+  "Notificar anomalia crítica (loop)": "Notificar anomalía crítica (bucle)",
+  "Anomalia: cache hit mínimo (%)": "Anomalía: cache hit mínimo (%)",
+  "Anomalia: MCP máx. (chamadas)": "Anomalía: MCP máx. (llamadas)",
+  "Anomalia: turnos inflados (mín.)": "Anomalía: turnos inflados (mín.)",
+  "Anomalia: loop de tool (repetições)": "Anomalía: bucle de tool (repeticiones)",
+  "Desligar avisos": "Desactivar avisos"
 }

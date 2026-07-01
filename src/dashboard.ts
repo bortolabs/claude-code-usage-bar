@@ -40,6 +40,7 @@ export interface DashboardData {
   costByType: { input: number; output: number; cacheRead: number; cacheWrite: number };
   series: { unit: "hour" | "day"; points: DashSeriesPoint[] };
   insights: { level: string; text: string }[];
+  anomalies: { level: string; text: string }[];
   byModel: {
     model: string;
     costUSD: number;
@@ -128,6 +129,7 @@ function dashboardStrings() {
       messages: tr("Mensagens"),
     },
     insightsTitle: tr("Insights"),
+    anomaliesTitle: tr("Anomalias"),
     bd: {
       model: tr("Por modelo"),
       project: tr("Por projeto"),
@@ -252,6 +254,7 @@ export function dashboardHtml(
   .ins { border-left:3px solid var(--warn); padding:7px 11px; margin:8px 0; font-size:12.5px; border-radius:0 6px 6px 0; background:color-mix(in srgb, var(--warn) 10%, transparent); }
   .ins.info { border-left-color: var(--c-input); background:color-mix(in srgb, var(--c-input) 9%, transparent); }
   .ins.good { border-left-color: var(--ok); background:color-mix(in srgb, var(--ok) 10%, transparent); }
+  .ins.crit { border-left-color: var(--err); background:color-mix(in srgb, var(--err) 12%, transparent); font-weight:600; }
   /* heatmap semana×hora */
   .hm-row { display:flex; align-items:center; gap:6px; margin:2px 0; }
   .hm-day { width:30px; font-size:10.5px; color:var(--vscode-descriptionForeground); text-align:right; }
@@ -475,6 +478,8 @@ export function dashboardHtml(
 
     var insights = (data.insights&&data.insights.length)
       ? '<div>'+data.insights.map(function(i){return '<div class="ins '+esc(i.level)+'">'+esc(i.text)+'</div>';}).join('')+'</div>' : '';
+    var anomalies = (data.anomalies&&data.anomalies.length)
+      ? '<div>'+data.anomalies.map(function(a){return '<div class="ins '+esc(a.level)+'">'+esc(a.text)+'</div>';}).join('')+'</div>' : '';
 
     // breakdowns
     var mdl=(data.byModel||[]).map(function(m){return {label:m.model,value:m.costUSD};});
@@ -505,6 +510,7 @@ export function dashboardHtml(
       + kpis
       + '<div class="sec-title">'+esc(L.composition)+'</div>' + compositionBar(data.costByType)
       + chartCard()
+      + (anomalies?('<div class="sec-title">'+esc(L.anomaliesTitle)+'</div>'+anomalies):'')
       + (insights?('<div class="sec-title">'+esc(L.insightsTitle)+'</div>'+insights):'')
       + (hist?('<div class="grid2" style="margin-bottom:12px">'+hist+'</div>'):'')
       + tables

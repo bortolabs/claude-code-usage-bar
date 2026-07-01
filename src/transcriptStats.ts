@@ -77,6 +77,12 @@ export interface TranscriptStats {
   costByType: { input: number; output: number; cacheRead: number; cacheWrite: number };
   /** Fração (0–1) do custo vindo de sessões com duração ≥ 8h (p/ insight). */
   longSessionCostShare: number;
+  /** Nº de turnos com contexto (input+cache_read) acima de CTX_INFLATED_K (p/ anomalias). */
+  ctxInflatedTurns: number;
+  /** Maior run de chamadas de tool IDÊNTICAS (name+input) num mesmo turno (p/ anomalias). */
+  maxToolRunLength: number;
+  /** Nome da tool do maior run (p/ o texto da anomalia de loop). */
+  toolLoopName: string;
   /** Sempre true: custo vem da tabela local, não do ccusage. */
   approximate: true;
   /** Versão da tabela de preços usada (p/ exibir "tabela vX"). */
@@ -111,6 +117,15 @@ export const DEFAULT_TIP_THRESHOLDS: TipThresholds = {
 };
 
 const TIP_MIN_TURNS = 5; // amostra mínima p/ arriscar uma dica
+
+/**
+ * Corte (em tokens de contexto = input+cache_read do turno) acima do qual um turno
+ * conta como "inflado" p/ a anomalia `ctxInflated`. É constante de CÓDIGO de propósito:
+ * o cache de stats (`statsCache`) não inclui settings, então o corte aplicado durante a
+ * varredura não pode variar por setting. O limiar CONFIGURÁVEL da anomalia é o número
+ * MÍNIMO de turnos inflados (`anomalyCtxInflatedTurns`), aplicado depois em computeAnomalies.
+ */
+const CTX_INFLATED_K = 200_000;
 
 /** Faixas de tamanho de contexto (input + cache_read do turno), em ordem. */
 const CONTEXT_BUCKETS: { key: string; max: number }[] = [
@@ -216,6 +231,10 @@ class Accum {
   cOutput = 0;
   cCacheRead = 0;
   cCacheWrite = 0;
+  // Sinais de anomalia (escalares, computados em streaming — ver onLine).
+  ctxInflatedTurns = 0;
+  maxToolRunLength = 0;
+  toolLoopName = "";
 
   add(map: Map<string, TokenCost>, key: string, tokens: number, cost: number) {
     const cur = map.get(key) ?? { tokens: 0, costUSD: 0 };
@@ -330,6 +349,10 @@ function onLine(
 
   // Por tamanho de contexto: input + cache_read do turno.
   const ctxTokens = inTok + crTok;
+  // Anomalia: turno com contexto acima do corte fixo (ver CTX_INFLATED_K).
+  if (ctxTokens > CTX_INFLATED_K) {
+    acc.ctxInflatedTurns += 1;
+  }
   const bk = bucketFor(ctxTokens);
   const cur = acc.byBucket.get(bk) ?? { bucket: bk, tokens: 0, costUSD: 0, turns: 0 };
   cur.tokens += tokens;
@@ -339,6 +362,12 @@ function onLine(
 
   // MCP / subagentes / skills / plugins: CONTAGEM a partir dos blocos tool_use.
   // (Não dá pra atribuir tokens a um tool_use isolado dentro do turno.)
+  // Anomalia `toolLoop`: maior run de chamadas IDÊNTICAS (name+input) neste turno.
+  // Nível A (só dentro do turno) — sem estado cross-turn, então não confunde tools
+  // de sessões diferentes na mesma passada. Casar name+input evita falso positivo
+  // com N chamadas paralelas da mesma tool com args diferentes (ex.: 5 Reads).
+  let runKey = "";
+  let runLen = 0;
   const content = msg?.content;
   if (Array.isArray(content)) {
     for (const block of content) {
@@ -346,6 +375,23 @@ function onLine(
         continue;
       }
       const name: string = block.name;
+      let inputSig: string;
+      try {
+        inputSig = JSON.stringify(block.input);
+      } catch {
+        inputSig = "";
+      }
+      const callKey = name + " " + inputSig;
+      if (callKey === runKey) {
+        runLen += 1;
+      } else {
+        runKey = callKey;
+        runLen = 1;
+      }
+      if (runLen > acc.maxToolRunLength) {
+        acc.maxToolRunLength = runLen;
+        acc.toolLoopName = name;
+      }
       if (name.startsWith("mcp__")) {
         // mcp__<server>__<tool> → server
         const server = name.split("__")[1] || name;
@@ -589,6 +635,9 @@ export function readTranscriptStats(
       cacheWrite: acc.cCacheWrite,
     },
     longSessionCostShare,
+    ctxInflatedTurns: acc.ctxInflatedTurns,
+    maxToolRunLength: acc.maxToolRunLength,
+    toolLoopName: acc.toolLoopName,
     approximate: true,
     tableVersion: pricingTableVersion,
   };
@@ -614,6 +663,9 @@ function emptyStats(): TranscriptStats {
     tokenTotals: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     costByType: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     longSessionCostShare: 0,
+    ctxInflatedTurns: 0,
+    maxToolRunLength: 0,
+    toolLoopName: "",
     approximate: true,
     tableVersion: pricingTableVersion,
   };

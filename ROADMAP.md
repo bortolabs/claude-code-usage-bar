@@ -71,6 +71,7 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | **Metas por token** (#16) | `tokenGoalFiveHour`/`tokenGoalDaily` com barra de progresso + aviso | 0.35.0 |
 | **Copiloto de cota** | Conselhos locais contínuos (Opus→Sonnet, o que cabe até o reset, melhor janela) com histerese; notificação opt-in | 0.35.0 |
 | **Base técnica** | vitest (70 testes) + CI em PR + bundle esbuild + backoff do oauth persistido | 0.35.0 |
+| **Detector de anomalias/desperdício** (#4) | Motor local `anomalies.ts`: loop de tool (name+input), contexto inflado, cache hit baixo, MCP disparado; card no painel + seção no dashboard + notificação opt-in (só crítico); 6 settings i18n | 0.36.0 |
 
 ## 💡 Próximas ideias
 

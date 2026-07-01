@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.36.0
+
+### 🔎 Detector de anomalias e desperdício de tokens (roadmap #4)
+
+- **Motor local novo (`src/anomalies.ts`)** que aponta padrões **acionáveis** de desperdício,
+  além dos "insights" descritivos e das "dicas" de economia. Local, sem rede, sem LLM. Quatro
+  detectores:
+  - **Loop de tool** (crítico) — a mesma chamada **idêntica** (`name` + `input`) repetida em
+    sequência num turno. Casar o input evita falso positivo com N chamadas paralelas da mesma
+    tool com argumentos diferentes (ex.: vários `Read` de arquivos distintos).
+  - **Contexto inflado** — turnos carregando contexto acima de 200k somando além do limiar.
+  - **Cache hit baixo** — aproveitamento de cache abaixo do piso (criar/expirar cache custa
+    mais que reusar).
+  - **MCP disparado** — um servidor MCP com volume de chamadas desproporcional na janela.
+- **Sinais em streaming**: os dados por-turno (`ctxInflatedTurns`, maior run de tool idêntica)
+  são computados direto no agregador, sem guardar os turnos em memória nem furar o cache.
+- **UI**: card "Anomalias" no painel (⛔ crítico / ⚠ alerta / ℹ info) e seção dedicada no
+  dashboard. **Notificação nativa opt-in** (desligada por padrão, só p/ anomalia crítica;
+  re-arma sozinha por janela, no molde do alerta de burn rate).
+- **6 settings novos** (`anomalyDetectionEnabled`, `anomalyNotifyEnabled`,
+  `anomalyCacheHitMinPct`, `anomalyMcpCallsMax`, `anomalyCtxInflatedTurns`, `anomalyToolLoopK`)
+  na aba Config, traduzidos nos 5 idiomas. Cobertura com 22 testes novos (vitest).
+
 ## 0.35.1
 
 - **fix: card "Créditos extras" mostrava centavos como dólares.** A API `oauth/usage` devolve

@@ -177,4 +177,59 @@ describe("readTranscriptStats", () => {
     const s = readTranscriptStats(WIN_START, WIN_END);
     expect(s.turns).toBe(1);
   });
+
+  // Contexto (input+cache_read) acima de 200k conta como turno "inflado".
+  const bigCtx = { input_tokens: 250_000, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+
+  it("ctxInflatedTurns conta só os turnos com contexto > 200k", () => {
+    writeSession(
+      "-Users-me-meu-projeto",
+      "sessao-ctx",
+      turn({ ts: iso(0), usage: bigCtx }) +
+        turn({ ts: iso(1), usage: bigCtx }) +
+        turn({ ts: iso(2) }) // normal (~3k de contexto)
+    );
+    const s = readTranscriptStats(WIN_START, WIN_END);
+    expect(s.ctxInflatedTurns).toBe(2);
+  });
+
+  it("maxToolRunLength: chamadas IDÊNTICAS seguidas contam como run", () => {
+    const bash = { type: "tool_use", name: "Bash", input: { command: "ls" } };
+    writeSession(
+      "-Users-me-meu-projeto",
+      "sessao-loop",
+      turn({ ts: iso(0), content: [bash, bash, bash, bash, bash] })
+    );
+    const s = readTranscriptStats(WIN_START, WIN_END);
+    expect(s.maxToolRunLength).toBe(5);
+    expect(s.toolLoopName).toBe("Bash");
+  });
+
+  it("chamadas da MESMA tool com input diferente NÃO viram run (sem falso positivo)", () => {
+    writeSession(
+      "-Users-me-meu-projeto",
+      "sessao-parallel",
+      turn({
+        ts: iso(0),
+        content: [
+          { type: "tool_use", name: "Read", input: { file: "a.ts" } },
+          { type: "tool_use", name: "Read", input: { file: "b.ts" } },
+          { type: "tool_use", name: "Read", input: { file: "c.ts" } },
+        ],
+      })
+    );
+    const s = readTranscriptStats(WIN_START, WIN_END);
+    expect(s.maxToolRunLength).toBe(1);
+  });
+
+  it("o run NÃO atravessa turnos (é por turno)", () => {
+    const bash = { type: "tool_use", name: "Bash", input: { command: "ls" } };
+    writeSession(
+      "-Users-me-meu-projeto",
+      "sessao-cross",
+      turn({ ts: iso(0), content: [bash] }) + turn({ ts: iso(1), content: [bash] })
+    );
+    const s = readTranscriptStats(WIN_START, WIN_END);
+    expect(s.maxToolRunLength).toBe(1);
+  });
 });

@@ -348,5 +348,20 @@
   "não decidido": "nicht entschieden",
   "Conceder acesso": "Zugriff gewähren",
   "Revogar acesso": "Zugriff widerrufen",
-  "O token local do Claude Code CLI só é lido com a sua permissão, e só para consultar a cota real (api.anthropic.com/api/oauth/usage).": "Das lokale Token des Claude Code CLI wird nur mit deiner Erlaubnis gelesen, und nur um das reale Kontingent abzufragen (api.anthropic.com/api/oauth/usage)."
+  "O token local do Claude Code CLI só é lido com a sua permissão, e só para consultar a cota real (api.anthropic.com/api/oauth/usage).": "Das lokale Token des Claude Code CLI wird nur mit deiner Erlaubnis gelesen, und nur um das reale Kontingent abzufragen (api.anthropic.com/api/oauth/usage).",
+  "Possível loop: a mesma chamada \"{0}\" se repetiu {1}× seguidas num turno. Cheque retries presos ou testes falhando em série.": "Möglicher Loop: derselbe Aufruf \"{0}\" wiederholte sich {1}× hintereinander in einem Turn. Prüfe hängende Retries oder seriell fehlschlagende Tests.",
+  "{0} turnos carregaram contexto acima de 200k. Contexto inflado encarece cada turno — use /compact no meio e /clear ao trocar de assunto.": "{0} Turns luden Kontext über 200k. Aufgeblähter Kontext verteuert jeden Turn — nutze /compact mittendrin und /clear beim Themenwechsel.",
+  "Cache hit em {0}% — criar/expirar cache custa mais que reusar. Sessões muito fragmentadas ou trocas frequentes de contexto derrubam o reaproveitamento.": "Cache hit bei {0}% — Cache erstellen/ablaufen lassen kostet mehr als Wiederverwendung. Stark fragmentierte Sitzungen oder häufige Kontextwechsel senken die Wiederverwendung.",
+  "O servidor MCP \"{0}\" foi chamado {1}× na janela — volume alto demais. Pode ser um processo em loop ou chamadas redundantes queimando tokens.": "Der MCP-Server \"{0}\" wurde {1}× im Fenster aufgerufen — zu hohes Volumen. Kann ein Prozess in einer Schleife oder redundante Aufrufe sein, die Tokens verbrennen.",
+  "Anomalias": "Anomalien",
+  "Nenhuma anomalia detectada. ✅": "Keine Anomalie erkannt. ✅",
+  "Anomalias (desperdício)": "Anomalien (Verschwendung)",
+  "Detector de padrões de desperdício (loop de tool, contexto inflado, cache baixo, MCP disparado). Limiares maiores = menos alertas.": "Detektor für Verschwendungsmuster (Tool-Loop, aufgeblähter Kontext, niedriger Cache, ausgelöstes MCP). Höhere Schwellenwerte = weniger Warnungen.",
+  "Detectar anomalias": "Anomalien erkennen",
+  "Notificar anomalia crítica (loop)": "Kritische Anomalie benachrichtigen (Loop)",
+  "Anomalia: cache hit mínimo (%)": "Anomalie: minimale Cache-Trefferquote (%)",
+  "Anomalia: MCP máx. (chamadas)": "Anomalie: MCP max. (Aufrufe)",
+  "Anomalia: turnos inflados (mín.)": "Anomalie: aufgeblähte Turns (min.)",
+  "Anomalia: loop de tool (repetições)": "Anomalie: Tool-Loop (Wiederholungen)",
+  "Desligar avisos": "Warnungen ausschalten"
 }

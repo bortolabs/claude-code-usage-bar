@@ -33,6 +33,12 @@ import {
   TipThresholds,
 } from "./transcriptStats";
 import { computeInsightTexts } from "./insights";
+import {
+  computeAnomalies,
+  computeAnomalyTexts,
+  anomalyText,
+  AnomalyThresholds,
+} from "./anomalies";
 import { runAiAdvice, setAiAdviceKey } from "./aiAdvice";
 import { fetchStatus, StatusResult, StatusData, hasIssue } from "./status";
 import { initI18n, setLang, tr } from "./i18n";
@@ -391,6 +397,9 @@ export function activate(context: vscode.ExtensionContext) {
   // Alerta: controle de cooldown da notificação.
   let lastAlertKey = "";
   let lastAlertAtMs = 0;
+  // Anomalia crítica (loop): cooldown/histerese da notificação opt-in.
+  let lastAnomalyKey = "";
+  let lastAnomalyAtMs = 0;
   // Copiloto de cota: histerese (keys ativas no render anterior) + cooldown
   // próprio da notificação (bem mais folgado que o do alerta — 6h default).
   let activeAdviceKeys = new Set<string>();
@@ -795,6 +804,9 @@ export function activate(context: vscode.ExtensionContext) {
       costByType: s.costByType,
       series: { unit: useHour ? "hour" : "day", points },
       insights: computeInsightTexts(s),
+      anomalies: (cfg().get<boolean>("anomalyDetectionEnabled") ?? true)
+        ? computeAnomalyTexts(s, anomalyThresholds())
+        : [],
       byModel: s.byModel,
       byProject: s.byProject.map((p) => ({
         project: p.project,
@@ -839,6 +851,33 @@ export function activate(context: vscode.ExtensionContext) {
       mcpCalls: cfg().get<number>("tipsMcpCalls") ?? 40,
       subagentShare: frac("tipsSubagentPct", 40),
     };
+  };
+
+  // Limiares do detector de anomalias a partir dos settings (cacheHit em % → fração).
+  const anomalyThresholds = (): Partial<AnomalyThresholds> => {
+    const c = cfg();
+    const num = (k: string, d: number) => {
+      const v = c.get<number>(k);
+      return typeof v === "number" ? v : d;
+    };
+    return {
+      cacheHitMinPct: num("anomalyCacheHitMinPct", 50) / 100,
+      mcpCallsMax: num("anomalyMcpCallsMax", 60),
+      ctxInflatedTurns: num("anomalyCtxInflatedTurns", 3),
+      toolLoopK: num("anomalyToolLoopK", 5),
+    };
+  };
+
+  // Anomalias localizadas p/ a UI. Gate: insightsEnabled (I/O de stats já feita)
+  // + anomalyDetectionEnabled específico. Vazio se stats ausente ou desligado.
+  const currentAnomalyTexts = () => {
+    if (!lastStats) {
+      return [];
+    }
+    if (!(cfg().get<boolean>("anomalyDetectionEnabled") ?? true)) {
+      return [];
+    }
+    return computeAnomalyTexts(lastStats, anomalyThresholds());
   };
 
   // Recalcula as estatísticas locais (custo por modelo/projeto/contexto/MCP/
@@ -1693,6 +1732,56 @@ export function activate(context: vscode.ExtensionContext) {
       lastAlertKey = "";
     }
 
+    // Anomalia CRÍTICA (loop de tool) — notificação OPT-IN (default off). Só
+    // dispara p/ nível "crit", respeita o silêncio de 1h e um cooldown próprio.
+    // Re-arma sozinha quando não há mais anomalia crítica (mesma mecânica do
+    // burn rate: zera a key p/ voltar a notificar quando reaparecer).
+    const anomalyNotifyOn = c.get<boolean>("anomalyNotifyEnabled") ?? false;
+    const critList = lastStats
+      ? computeAnomalies(lastStats, anomalyThresholds()).filter((a) => a.level === "crit")
+      : [];
+    const critAnomaly = critList[0];
+    if (
+      anomalyNotifyOn &&
+      critAnomaly &&
+      (cfg().get<boolean>("anomalyDetectionEnabled") ?? true) &&
+      Date.now() >= snoozeUntilMs
+    ) {
+      const cooldownMs = (c.get<number>("alertCooldownMinutes") ?? 15) * 60_000;
+      const key = critAnomaly.id + ":" + JSON.stringify(critAnomaly.values);
+      const now = Date.now();
+      if (key !== lastAnomalyKey || now - lastAnomalyAtMs > cooldownMs) {
+        lastAnomalyKey = key;
+        lastAnomalyAtMs = now;
+        const btnOpen = tr("Abrir painel");
+        const btnSnooze = tr("Silenciar 1h");
+        const btnOff = tr("Desligar avisos");
+        vscode.window
+          .showWarningMessage(
+            tr("Claude Usage — {0}", anomalyText(critAnomaly)),
+            btnOpen,
+            btnSnooze,
+            btnOff
+          )
+          .then((choice) => {
+            if (choice === btnOpen) {
+              vscode.commands.executeCommand("claudeUsageBar.openPanel");
+            } else if (choice === btnSnooze) {
+              snoozeUntilMs = Date.now() + 60 * 60_000;
+            } else if (choice === btnOff) {
+              cfg().update(
+                "anomalyNotifyEnabled",
+                false,
+                vscode.ConfigurationTarget.Global
+              );
+              render();
+            }
+          });
+      }
+    } else if (!critAnomaly) {
+      lastAnomalyKey = "";
+    }
+
     // Copiloto de cota: conselhos locais (advisor.ts) com histerese entre
     // renders. A notificação (só a de troca de modelo) é OPT-IN e tem cooldown
     // próprio, bem mais folgado que o dos alertas.
@@ -1822,6 +1911,7 @@ export function activate(context: vscode.ExtensionContext) {
       monthlyBudgetUsd: monthlyBudget,
       stats: lastStats,
       tips: lastStats ? computeTips(lastStats, tipThresholds()) : [],
+      anomalies: currentAnomalyTexts(),
       costWindow: costWindowValue,
     };
     item.tooltip = buildTooltip(view);
@@ -1878,6 +1968,7 @@ export function activate(context: vscode.ExtensionContext) {
     monthlyBudgetUsd: number;
     stats: TranscriptStats | null;
     tips: Tip[];
+    anomalies: { level: "crit" | "warn" | "info"; text: string }[];
     costWindow: "5h" | "today" | "7d" | "30d";
   };
 
@@ -2311,6 +2402,7 @@ export function activate(context: vscode.ExtensionContext) {
         byMcpServer: v.stats ? v.stats.byMcpServer : [],
         bySubagent: v.stats ? v.stats.bySubagent : [],
         tips: v.tips,
+        anomalies: v.anomalies,
         tableVersion: v.stats ? v.stats.tableVersion : null,
         window: v.costWindow,
         insightsEnabled: cfg().get<boolean>("insightsEnabled") ?? true,
@@ -2376,7 +2468,10 @@ export function activate(context: vscode.ExtensionContext) {
     staleAfterSeconds: 900, accountType: "auto", mode: "auto", costCapUsd: 5,
     monthlyBudgetUsd: 0, monthlyBudgetAlertEnabled: true, insightsEnabled: true,
     language: "auto", costWindow: "5h", tipsContextBigPct: 25, tipsCacheReadPct: 70,
-    tipsOpusPct: 70, tipsMcpCalls: 40, tipsSubagentPct: 40, sessionTokenCap: 0,
+    tipsOpusPct: 70, tipsMcpCalls: 40, tipsSubagentPct: 40,
+    anomalyDetectionEnabled: true, anomalyNotifyEnabled: false,
+    anomalyCacheHitMinPct: 50, anomalyMcpCallsMax: 60,
+    anomalyCtxInflatedTurns: 3, anomalyToolLoopK: 5, sessionTokenCap: 0,
     intenseTokensPerMin: 50000, burnRateAlertEnabled: true, burnRateMaxPerHour: 20,
     alertCooldownMinutes: 15, colorByProjection: true, resetWarningMinutes: 10,
     blockSummaryEnabled: true, warnThreshold: 60, errorThreshold: 85,
@@ -2397,7 +2492,10 @@ export function activate(context: vscode.ExtensionContext) {
       "accountType", "mode", "costCapUsd", "monthlyBudgetUsd",
       "monthlyBudgetAlertEnabled", "insightsEnabled", "costWindow",
       "tipsContextBigPct", "tipsCacheReadPct", "tipsOpusPct", "tipsMcpCalls",
-      "tipsSubagentPct", "sessionTokenCap",
+      "tipsSubagentPct",
+      "anomalyDetectionEnabled", "anomalyNotifyEnabled", "anomalyCacheHitMinPct",
+      "anomalyMcpCallsMax", "anomalyCtxInflatedTurns", "anomalyToolLoopK",
+      "sessionTokenCap",
       "intenseTokensPerMin", "burnRateAlertEnabled", "burnRateMaxPerHour",
       "alertCooldownMinutes", "colorByProjection", "resetWarningMinutes",
       "blockSummaryEnabled", "warnThreshold", "errorThreshold",

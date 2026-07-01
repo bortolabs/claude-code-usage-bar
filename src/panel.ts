@@ -74,6 +74,8 @@ export interface PanelData {
     byMcpServer: { name: string; calls: number }[];
     bySubagent: { name: string; calls: number }[];
     tips: { id: string; level: "warn" | "info"; values: Record<string, string | number> }[];
+    /** Anomalias já localizadas (texto pronto), no molde dos insights. */
+    anomalies: { level: "crit" | "warn" | "info"; text: string }[];
     tableVersion: string | null;
     /** Janela ativa das quebras (p/ destacar o seletor e rotular os cards). */
     window: "5h" | "today" | "7d" | "30d";
@@ -185,6 +187,10 @@ function panelStrings() {
         mcp: tr("O servidor MCP \"{0}\" foi chamado {1}×. Vale conferir chamadas redundantes."),
         subagents: tr("Subagentes puxam ~{0}% do custo. Úteis, mas pesados — avalie reduzir o fan-out."),
       },
+      anomalies: {
+        title: tr("Anomalias"),
+        none: tr("Nenhuma anomalia detectada. ✅"),
+      },
     },
     sec: {
       language: tr("Idioma"),
@@ -193,6 +199,7 @@ function panelStrings() {
       account: tr("Conta e limites"),
       alerts: tr("Alertas e cores"),
       tips: tr("Dicas de custo"),
+      anomalies: tr("Anomalias (desperdício)"),
       copilot: tr("Copiloto e histórico"),
       status: tr("Status da Anthropic"),
       export: tr("Exportar uso (p/ agentes/scripts)"),
@@ -221,6 +228,13 @@ function panelStrings() {
       tipsOpusPct: tr("Dica: Opus (% custo)"),
       tipsMcpCalls: tr("Dica: MCP (chamadas)"),
       tipsSubagentPct: tr("Dica: subagentes (% custo)"),
+      anomaliesHelp: tr("Detector de padrões de desperdício (loop de tool, contexto inflado, cache baixo, MCP disparado). Limiares maiores = menos alertas."),
+      anomalyDetectionEnabled: tr("Detectar anomalias"),
+      anomalyNotifyEnabled: tr("Notificar anomalia crítica (loop)"),
+      anomalyCacheHitMinPct: tr("Anomalia: cache hit mínimo (%)"),
+      anomalyMcpCallsMax: tr("Anomalia: MCP máx. (chamadas)"),
+      anomalyCtxInflatedTurns: tr("Anomalia: turnos inflados (mín.)"),
+      anomalyToolLoopK: tr("Anomalia: loop de tool (repetições)"),
       alignment: tr("Lado da status bar"),
       priority: tr("Prioridade na status bar"),
       useOAuthUsage: tr("Usar cota real (oauth/usage)"),
@@ -591,6 +605,8 @@ function panelHtml(opts?: {
   .st-inc-name { font-size: 12.5px; font-weight: 600; }
   .st-inc-meta { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 2px; }
   .st-recent { font-size: 11.5px; color: var(--vscode-descriptionForeground); margin: 3px 0; }
+  .st-recent.an-crit { border-left: 2px solid var(--err); padding-left: 6px; color: var(--vscode-foreground); }
+  .st-recent.an-warn { border-left: 2px solid var(--warn); padding-left: 6px; }
   /* cores por estado */
   .stc-ok { color: var(--ok); } .stc-warn { color: var(--warn); } .stc-err { color: var(--err); }
   .bgc-ok { background: var(--ok); } .bgc-warn { background: var(--warn); } .bgc-err { background: var(--err); }
@@ -687,6 +703,14 @@ function panelHtml(opts?: {
       { key: 'tipsOpusPct', label: L.cfg.tipsOpusPct, type: 'number' },
       { key: 'tipsMcpCalls', label: L.cfg.tipsMcpCalls, type: 'number' },
       { key: 'tipsSubagentPct', label: L.cfg.tipsSubagentPct, type: 'number' },
+    ]},
+    { id: 'anomalies', section: L.sec.anomalies, help: L.cfg.anomaliesHelp, items: [
+      { key: 'anomalyDetectionEnabled', label: L.cfg.anomalyDetectionEnabled, type: 'bool' },
+      { key: 'anomalyNotifyEnabled', label: L.cfg.anomalyNotifyEnabled, type: 'bool' },
+      { key: 'anomalyCacheHitMinPct', label: L.cfg.anomalyCacheHitMinPct, type: 'number' },
+      { key: 'anomalyMcpCallsMax', label: L.cfg.anomalyMcpCallsMax, type: 'number' },
+      { key: 'anomalyCtxInflatedTurns', label: L.cfg.anomalyCtxInflatedTurns, type: 'number' },
+      { key: 'anomalyToolLoopK', label: L.cfg.anomalyToolLoopK, type: 'number' },
     ]},
     { id: 'status', section: L.sec.status, items: [
       { key: 'statusCheckEnabled', label: L.cfg.statusCheckEnabled, type: 'bool' },
@@ -1021,6 +1045,20 @@ function panelHtml(opts?: {
     return collapsibleCard('tips', L.cost.tips.title, rows);
   }
 
+  // Card "Anomalias": padrões de desperdício (⛔ crítico / ⚠ alerta / ℹ info).
+  // Texto já vem localizado do host (molde dos insights), diferente das dicas.
+  function anomaliesCard(cost) {
+    if (!cost) return '';
+    const list = (cost.anomalies || []).filter(function(a){ return a && a.text; });
+    const rows = list.length
+      ? list.map(function(a){
+          const icon = a.level === 'crit' ? '⛔' : a.level === 'warn' ? '⚠' : 'ℹ';
+          return '<div class="st-recent an-' + esc(a.level) + '">' + icon + ' ' + esc(a.text) + '</div>';
+        }).join('')
+      : '<div class="st-recent">' + esc(L.cost.anomalies.none) + '</div>';
+    return collapsibleCard('anomalies', L.cost.anomalies.title, rows);
+  }
+
   // Card "Fonte de dados": mostra a fonte ativa (oauth/statusline/ccusage) e,
   // no fallback, o motivo do oauth não entrar — fim do fallback silencioso.
   function sourceCard(src) {
@@ -1300,7 +1338,7 @@ function panelHtml(opts?: {
         var breakdowns = '';
         if (insightsOn) {
           breakdowns = windowSelector(c.window) + (hasStats
-            ? byModelCard(c) + projectsCostCard(c) + bucketsCard(c) + countsCard(c) + tipsCard(c)
+            ? byModelCard(c) + projectsCostCard(c) + bucketsCard(c) + countsCard(c) + anomaliesCard(c) + tipsCard(c)
             : '<div class="empty">' + esc(L.cost.emptyWindow) + '</div>');
         } else if (c) {
           breakdowns = '<div class="empty">' + esc(L.cost.offHint) + '</div>';
