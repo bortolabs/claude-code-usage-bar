@@ -19,7 +19,9 @@ export interface OAuthUsage {
   extraUsage: {
     enabled: boolean;
     utilization: number;
+    /** Em unidades da moeda (a API manda centavos; normalizado no parse). */
     usedCredits: number;
+    /** Em unidades da moeda (a API manda centavos; normalizado no parse). */
     monthlyLimit: number;
     currency: string;
   } | null;
@@ -196,10 +198,14 @@ export async function fetchOAuthUsage(
               enabled: !!eu.is_enabled,
               utilization:
                 typeof eu.utilization === "number" ? eu.utilization : 0,
+              // A API devolve valores monetários em CENTAVOS (ex.: limite de
+              // US$ 25 vem como 2500) — normaliza pra dólares aqui, na borda.
               usedCredits:
-                typeof eu.used_credits === "number" ? eu.used_credits : 0,
+                typeof eu.used_credits === "number" ? eu.used_credits / 100 : 0,
               monthlyLimit:
-                typeof eu.monthly_limit === "number" ? eu.monthly_limit : 0,
+                typeof eu.monthly_limit === "number"
+                  ? eu.monthly_limit / 100
+                  : 0,
               currency: typeof eu.currency === "string" ? eu.currency : "USD",
             }
           : null,

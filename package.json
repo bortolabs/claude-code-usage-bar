@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.35.0",
+  "version": "0.35.1",
   "publisher": "bortolabs",
   "sponsor": {
     "url": "https://github.com/sponsors/bortolabs"

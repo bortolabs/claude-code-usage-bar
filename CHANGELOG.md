@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.35.1
+
+- **fix: card "Créditos extras" mostrava centavos como dólares.** A API `oauth/usage` devolve
+  `used_credits`/`monthly_limit` em **centavos** (ex.: limite de US$ 25 vem como `2500`) — o card
+  exibia "$0.00 de $2500.00". Normalizado para a unidade da moeda na borda do parse
+  (`oauthUsage.ts`); agora mostra "$0.00 de $25.00".
+
 ## 0.35.0
 
 ### 🔐 Consentimento explícito para o token OAuth
