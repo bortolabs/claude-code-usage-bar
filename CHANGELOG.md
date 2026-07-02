@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.38.0
+
+### 🔮 Previsão estatística de fim-de-cota (roadmap #12)
+
+O alerta de burn rate projeta **linear**: assume que o ritmo das próximas horas é igual ao
+ritmo médio até agora. Mas o seu uso tem **forma** — você usa mais em certas horas/dias. Esta
+versão ensina a projeção a olhar a sua **curva histórica de uso** (o heatmap semana×hora já
+persistido desde a 0.35), tudo local, sem rede e sem LLM.
+
+- **Motor novo (`src/core/forecast.ts`), puro e testado.** A projeção da janela de 5h passa a
+  ponderar o tempo restante pela intensidade histórica das horas que **vêm**, não só pelo
+  relógio: `ritmo = uso% / intensidade-histórica-decorrida`, `projeção = uso% + ritmo ×
+  intensidade-histórica-restante`. Se as próximas horas costumam ser mais pesadas que as já
+  vividas, projeta **acima** do linear; mais leves, **abaixo**. Com heatmap uniforme (ou sem
+  histórico), colapsa exatamente no linear — degradação graciosa.
+- **Tier 1 — refino do alerta.** Quando o plano 5h projeta estouro, o alerta ganha uma
+  **sub-linha**: _"No seu padrão de uso: ~X% no reset — {provavelmente cabe · no limite ·
+  confirma o risco}"_. É sub-linha do próprio alerta, não uma voz paralela — respeita a
+  hierarquia da 0.37.0. O **gatilho** do alerta segue linear de propósito: o forecast só
+  refina o texto, nunca silencia um aviso de segurança com base numa média histórica.
+- **Tier 2 — melhor horário pra tarefa pesada.** Fora de alerta, o Copiloto sugere a sua hora
+  historicamente **mais leve** nas próximas 12h (_"Melhor horário p/ tarefa pesada: qua
+  14h"_). Gated pra não virar ruído: só com uso 5h ≥ 50%, sem alerta ativo e quando o melhor
+  horário não é agora.
+- **Guarda de regressão da 0.37.0.** A supressão do conselho "Cabem ~X até o reset" sob burn
+  rate, que vivia inline sem teste, virou o helper puro `suppressUnderBurnRate` com cobertura
+  (reproduzindo o cenário real que a sessão anterior não pôde validar por 429 no oauth).
+- **Higiene de empacotamento.** `.vscodeignore`/`.gitignore` passam a excluir os diretórios de
+  dev locais (`.vexp/`, `.rtk/`, `.claude/`, `docs/`), que inflavam/quebravam builds locais.
+- Suíte de testes: 97 → **113**.
+
 ## 0.37.0
 
 ### 🎚️ Hierarquia de 3 tiers: anomalias, dicas e burn rate falam com uma voz
