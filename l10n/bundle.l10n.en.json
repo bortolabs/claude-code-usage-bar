@@ -363,5 +363,11 @@
   "Anomalia: MCP máx. (chamadas)": "Anomaly: MCP max. (calls)",
   "Anomalia: turnos inflados (mín.)": "Anomaly: inflated turns (min.)",
   "Anomalia: loop de tool (repetições)": "Anomaly: tool loop (repetitions)",
-  "Desligar avisos": "Turn off warnings"
+  "Desligar avisos": "Turn off warnings",
+  "provavelmente cabe": "probably fits",
+  "no limite": "right at the limit",
+  "confirma o risco": "confirms the risk",
+  "No seu padrão de uso: ~{0}% no reset — {1}": "By your usage pattern: ~{0}% at reset — {1}",
+  "Melhor horário p/ tarefa pesada: {0} {1}h": "Best time for heavy work: {0} {1}h",
+  "Sua hora historicamente mais leve nas próximas 12h.": "Your historically lightest hour in the next 12h."
 }

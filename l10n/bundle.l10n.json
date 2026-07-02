@@ -363,5 +363,11 @@
   "Anomalia: MCP máx. (chamadas)": "Anomalia: MCP máx. (chamadas)",
   "Anomalia: turnos inflados (mín.)": "Anomalia: turnos inflados (mín.)",
   "Anomalia: loop de tool (repetições)": "Anomalia: loop de tool (repetições)",
-  "Desligar avisos": "Desligar avisos"
+  "Desligar avisos": "Desligar avisos",
+  "provavelmente cabe": "provavelmente cabe",
+  "no limite": "no limite",
+  "confirma o risco": "confirma o risco",
+  "No seu padrão de uso: ~{0}% no reset — {1}": "No seu padrão de uso: ~{0}% no reset — {1}",
+  "Melhor horário p/ tarefa pesada: {0} {1}h": "Melhor horário p/ tarefa pesada: {0} {1}h",
+  "Sua hora historicamente mais leve nas próximas 12h.": "Sua hora historicamente mais leve nas próximas 12h."
 }

@@ -45,6 +45,7 @@ import { runAiAdvice, setAiAdviceKey } from "./aiAdvice";
 import { fetchStatus, StatusResult, StatusData, hasIssue } from "./status";
 import { initI18n, setLang, tr } from "./i18n";
 import { evaluateAdvice, suppressUnderBurnRate, Advice } from "./advisor";
+import { lightestUpcomingHour } from "./core/forecast";
 import { HistoryStore } from "./history/store";
 import {
   snapshotsFromStats,
@@ -1841,6 +1842,36 @@ export function activate(context: vscode.ExtensionContext) {
               fmtTokens(today.totalTokens),
               fmtTokens(goalDaily)
             ),
+            notify: false,
+          });
+        }
+      }
+      // Tier 2 (#12): fora de alerta, sugere o horário historicamente MAIS LEVE
+      // pra planejar tarefa pesada. Gated pra não virar ruído: só com uso já
+      // relevante na janela (planejar faz sentido), sem alerta ativo (Tier 1
+      // domina), sem goodWindow já dizendo "agora é bom", e quando o melhor
+      // horário não é a hora atual. Info, nunca notifica.
+      if (
+        !alert.active &&
+        (fiveHour ?? 0) >= 50 &&
+        !advice.some((a) => a.key === "goodWindow") &&
+        hist?.heatmap
+      ) {
+        const light = lightestUpcomingHour(hist.heatmap, 12);
+        if (light && light.hour !== new Date().getHours()) {
+          const wd = [
+            tr("dom"), tr("seg"), tr("ter"), tr("qua"),
+            tr("qui"), tr("sex"), tr("sáb"),
+          ][light.weekday];
+          advice.push({
+            key: "heavyWorkWindow",
+            severity: "info",
+            title: tr(
+              "Melhor horário p/ tarefa pesada: {0} {1}h",
+              wd,
+              String(light.hour)
+            ),
+            detail: tr("Sua hora historicamente mais leve nas próximas 12h."),
             notify: false,
           });
         }

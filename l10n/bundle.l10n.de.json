@@ -363,5 +363,11 @@
   "Anomalia: MCP máx. (chamadas)": "Anomalie: MCP max. (Aufrufe)",
   "Anomalia: turnos inflados (mín.)": "Anomalie: aufgeblähte Turns (min.)",
   "Anomalia: loop de tool (repetições)": "Anomalie: Tool-Loop (Wiederholungen)",
-  "Desligar avisos": "Warnungen ausschalten"
+  "Desligar avisos": "Warnungen ausschalten",
+  "provavelmente cabe": "passt wahrscheinlich",
+  "no limite": "genau am Limit",
+  "confirma o risco": "bestätigt das Risiko",
+  "No seu padrão de uso: ~{0}% no reset — {1}": "Nach deinem Nutzungsmuster: ~{0}% beim Reset — {1}",
+  "Melhor horário p/ tarefa pesada: {0} {1}h": "Beste Zeit für schwere Arbeit: {0} {1} Uhr",
+  "Sua hora historicamente mais leve nas próximas 12h.": "Deine historisch leichteste Stunde in den nächsten 12 Std."
 }
