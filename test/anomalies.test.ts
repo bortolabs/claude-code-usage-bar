@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   computeAnomalies,
   computeAnomalyTexts,
+  suppressCoveredTips,
   DEFAULT_ANOMALY_THRESHOLDS,
+  Anomaly,
 } from "../src/anomalies";
 import { TranscriptStats } from "../src/transcriptStats";
 
@@ -136,5 +138,34 @@ describe("computeAnomalyTexts", () => {
 
   it("stats saudável → lista vazia", () => {
     expect(computeAnomalyTexts(stats())).toEqual([]);
+  });
+});
+
+describe("suppressCoveredTips (escalonamento anomalia → dica)", () => {
+  const ano = (id: string): Anomaly => ({ id, level: "warn", values: {} });
+  const tips = [{ id: "context" }, { id: "cacheRead" }, { id: "opus" }, { id: "mcp" }];
+
+  it("mcpRunaway suprime a dica 'mcp'", () => {
+    const out = suppressCoveredTips([ano("mcpRunaway")], tips).map((t) => t.id);
+    expect(out).not.toContain("mcp");
+    expect(out).toContain("opus");
+  });
+
+  it("ctxInflated suprime a dica 'context'", () => {
+    const out = suppressCoveredTips([ano("ctxInflated")], tips).map((t) => t.id);
+    expect(out).not.toContain("context");
+  });
+
+  it("cacheLow NÃO suprime a dica 'cacheRead' (são opostas)", () => {
+    const out = suppressCoveredTips([ano("cacheLow")], tips).map((t) => t.id);
+    expect(out).toContain("cacheRead");
+  });
+
+  it("sem anomalia → dicas intactas", () => {
+    expect(suppressCoveredTips([], tips)).toHaveLength(4);
+  });
+
+  it("toolLoop não cobre dica nenhuma", () => {
+    expect(suppressCoveredTips([ano("toolLoop")], tips)).toHaveLength(4);
   });
 });

@@ -37,6 +37,8 @@ import {
   computeAnomalies,
   computeAnomalyTexts,
   anomalyText,
+  suppressCoveredTips,
+  Anomaly,
   AnomalyThresholds,
 } from "./anomalies";
 import { runAiAdvice, setAiAdviceKey } from "./aiAdvice";
@@ -870,14 +872,14 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Anomalias localizadas p/ a UI. Gate: insightsEnabled (I/O de stats já feita)
   // + anomalyDetectionEnabled específico. Vazio se stats ausente ou desligado.
-  const currentAnomalyTexts = () => {
+  const currentAnomalies = (): Anomaly[] => {
     if (!lastStats) {
       return [];
     }
     if (!(cfg().get<boolean>("anomalyDetectionEnabled") ?? true)) {
       return [];
     }
-    return computeAnomalyTexts(lastStats, anomalyThresholds());
+    return computeAnomalies(lastStats, anomalyThresholds());
   };
 
   // Recalcula as estatísticas locais (custo por modelo/projeto/contexto/MCP/
@@ -1803,6 +1805,12 @@ export function activate(context: vscode.ExtensionContext) {
         },
         activeAdviceKeys
       );
+      // Tier 1 domina: com o alerta de burn rate ativo, o "Cabem ~X até o reset"
+      // vira ruído (o alerta já diz que vai ESTOURAR, e com a ação). Suprime pra
+      // não ter duas vozes sobre cota lado a lado.
+      if (alert.active) {
+        advice = advice.filter((a) => a.key !== "fitsUntilReset");
+      }
       // Metas de token (ROADMAP #16): opt-in (0 = desligado). Avaliadas aqui
       // (fora do advisor.ts) porque dependem de fontes locais (bloco/daily).
       const goal5h = cfg().get<number>("tokenGoalFiveHour") ?? 0;
@@ -1876,6 +1884,22 @@ export function activate(context: vscode.ExtensionContext) {
     const modelName =
       (fresh && s?.model) || currentModel || block?.model || null;
 
+    // Anomalias (uma passada): a CRÍTICA sobe pro banner (Tier 1, junto do burn
+    // rate); as ⚠ warn vão pro Copiloto no webview (Tier 2); as dicas cobertas
+    // somem (Tier 3, via suppressCoveredTips no `tips` abaixo).
+    const anomalyList = currentAnomalies();
+    const critForBanner = anomalyList.find((a) => a.level === "crit");
+    const alertOut: AlertResult = critForBanner
+      ? alert.active
+        ? { ...alert, reasons: [...alert.reasons, anomalyText(critForBanner)] }
+        : {
+            active: true,
+            message: anomalyText(critForBanner),
+            reasons: [anomalyText(critForBanner)],
+            key: "anomaly:" + critForBanner.id,
+          }
+      : alert;
+
     const summary = costSummary();
     const view = {
       mode: mode === "plan" ? ("plan" as const) : ("api" as const),
@@ -1895,7 +1919,7 @@ export function activate(context: vscode.ExtensionContext) {
       isSub,
       block,
       state: s,
-      alert,
+      alert: alertOut,
       alertEnabled: alertOn,
       advice,
       projPct,
@@ -1910,8 +1934,10 @@ export function activate(context: vscode.ExtensionContext) {
       monthProjected: summary.monthProjected,
       monthlyBudgetUsd: monthlyBudget,
       stats: lastStats,
-      tips: lastStats ? computeTips(lastStats, tipThresholds()) : [],
-      anomalies: currentAnomalyTexts(),
+      tips: lastStats
+        ? suppressCoveredTips(anomalyList, computeTips(lastStats, tipThresholds()))
+        : [],
+      anomalies: anomalyList.map((a) => ({ level: a.level, text: anomalyText(a) })),
       costWindow: costWindowValue,
     };
     item.tooltip = buildTooltip(view);

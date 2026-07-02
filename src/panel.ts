@@ -1307,6 +1307,13 @@ function panelHtml(opts?: {
             '<button class="adv-x" data-dismiss="' + esc(a.key) + '" title="' + esc(L.advisor.dismiss) + '">×</button></div>' +
             '<div class="adv-detail">' + esc(a.detail) + '</div></div>';
         });
+        // Anomalias ⚠ (warn) sobem pro Copiloto (Tier 2): é a aba viva, onde o
+        // usuário fica. A CRÍTICA ⛔ vai pro banner global; o detalhe completo
+        // (todas) segue na aba Custos. Texto já vem localizado do host.
+        (d.cost && d.cost.anomalies || []).forEach(function(a){
+          if (!a || !a.text || a.level !== 'warn') return;
+          advHtml += '<div class="adv warn"><div class="adv-detail">⚠ ' + esc(a.text) + '</div></div>';
+        });
         var advCard = advHtml ? collapsibleCard('copilot', L.advisor.title, advHtml) : '';
         // Créditos extras (oauth): barra de utilização + usado/limite do mês.
         var extraCard = '';

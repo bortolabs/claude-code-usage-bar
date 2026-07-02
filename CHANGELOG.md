@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.37.0
+
+### 🎚️ Hierarquia de 3 tiers: anomalias, dicas e burn rate falam com uma voz
+
+Reorganização de UX de como os avisos acionáveis aparecem — antes espalhados entre um banner
+global, o card Copiloto e as abas Custos, às vezes repetindo a mesma coisa lado a lado.
+
+- **Tier 1 — Alerta (banner global):** a **anomalia crítica** (loop de tool) agora sobe pro
+  banner do topo, visível em **qualquer aba** — não depende mais só da notificação opt-in
+  (que nasce desligada). Sem burn rate, ela vira o banner; com burn rate ativo, entra como
+  linha extra.
+- **Tier 2 — Orientação (card Copiloto, aba Sessão):** as **anomalias de alerta** (⚠ contexto
+  inflado, cache baixo, MCP disparado) agora aparecem no **Copiloto**, a aba que fica aberta
+  durante o uso. Antes só existiam na aba Custos. Reusa o texto já localizado (sem i18n novo).
+- **Tier 3 — Análise (aba Custos):** as dicas seguem no seu lugar, agora **sem duplicar** as
+  anomalias.
+- **Escalonamento anomalia → dica:** quando uma anomalia dispara, a **dica equivalente é
+  suprimida** (`mcpRunaway` cobre a dica de MCP; `ctxInflated` cobre a de contexto grande) —
+  a anomalia é mais forte e já traz a ação. `cacheLow` fica de fora de propósito (é o oposto
+  da dica de cache-read: hit baixo vs. releitura alta).
+- **Burn rate domina a cota:** com o alerta de burn rate ativo, o conselho "Cabem ~X tokens
+  até o reset" é **suprimido** — acabou o "vai estourar" logo acima de "cabem 39M". Uma voz
+  por situação. Regra unificadora: **tier superior suprime o redundante do inferior.**
+- Motor puro novo (`suppressCoveredTips`) com 5 testes; suíte total em 97.
+
 ## 0.36.0
 
 ### 🔎 Detector de anomalias e desperdício de tokens (roadmap #4)

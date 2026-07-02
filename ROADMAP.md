@@ -72,12 +72,17 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | **Copiloto de cota** | Conselhos locais contínuos (Opus→Sonnet, o que cabe até o reset, melhor janela) com histerese; notificação opt-in | 0.35.0 |
 | **Base técnica** | vitest (70 testes) + CI em PR + bundle esbuild + backoff do oauth persistido | 0.35.0 |
 | **Detector de anomalias/desperdício** (#4) | Motor local `anomalies.ts`: loop de tool (name+input), contexto inflado, cache hit baixo, MCP disparado; card no painel + seção no dashboard + notificação opt-in (só crítico); 6 settings i18n | 0.36.0 |
+| **Hierarquia de 3 tiers (anomalias/dicas/burn rate)** | Anomalia crítica ⛔ sobe pro banner global; anomalias ⚠ warn entram no Copiloto (aba Sessão); escalonamento suprime a dica coberta (`mcpRunaway`→mcp, `ctxInflated`→contexto); burn rate ativo some o "Cabem ~X" | 0.37.0 |
 
 ## 💡 Próximas ideias
 
 | # | Feature | O que faz | Esforço | Viável? |
 | --- | --- | --- | --- | --- |
 | 10 | **Multi-conta / perfis** | Alternar entre contas (pessoal vs trabalho): token/transcripts por perfil. Mexe em fonte de dados, oauth e persistência — fechar escopo antes | Alto | ⚠️ depende do setup |
+| 11 | **Auto-piloto de cota (ações reais)** | Fecha o loop: quando a cota 5h/7d cai, troca de modelo (Opus→Sonnet) e/ou pausa via hook `Stop`, revertendo no reset. "Modo economia" com 1 clique. Escrita segura de settings/hooks, com opt-in explícito | Médio-alto | ⚠️ precisa consentimento + reversão garantida |
+| 12 | **Previsão estatística de fim-de-cota** | Forecast pelo seu padrão real de uso (heatmap semana×hora + histórico já persistidos na 0.35), não linear. Responde "chego até o reset?" e "melhor horário pra tarefa pesada". Local, sem LLM | Médio | ✅ dados já existem (`src/history/`) |
+| 13 | **Custo por branch / tarefa / PR** | Cruza timestamp dos transcripts com `git log`/branch: quanto custou cada feature/PR. Card "top tarefas mais caras da semana". Killer feature p/ freelancer/lead | Médio | ✅ (rotular "≈ aproximado") |
+| 14 | **Benchmark anônimo comunitário** | Percentil opt-in e anonimizado vs comunidade ("top 15% do plano Max"). Só percentis agregados, zero conteúdo de prompt. Vantagem de rede | Alto | ⚠️ exige backend + política de privacidade |
 
 ## 🌐 Externo / operacional (fora do código)
 

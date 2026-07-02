@@ -133,3 +133,28 @@ export function computeAnomalyTexts(
 export function hasCriticalAnomaly(list: Anomaly[]): boolean {
   return list.some((a) => a.level === "crit");
 }
+
+/**
+ * Mapa de ESCALONAMENTO anomalia → dica coberta. Quando a anomalia dispara, a
+ * dica equivalente é redundante: a anomalia já diz o mesmo, com mais peso e ação.
+ * `cacheLow` × dica de cache-read são OPOSTAS (hit baixo vs share alto) — não
+ * entram aqui. `ctxInflated` (turnos > 200k) cobre a dica de contexto grande.
+ */
+export const ANOMALY_COVERS_TIP: Record<string, string> = {
+  mcpRunaway: "mcp",
+  ctxInflated: "context",
+};
+
+/**
+ * Remove as dicas cobertas por uma anomalia ativa (escalonamento). Uma voz por
+ * padrão: a anomalia (mais forte) assume; abaixo do limiar dela, a dica volta.
+ */
+export function suppressCoveredTips<T extends { id: string }>(
+  anomalies: Anomaly[],
+  tips: T[]
+): T[] {
+  const covered = new Set(
+    anomalies.map((a) => ANOMALY_COVERS_TIP[a.id]).filter(Boolean)
+  );
+  return tips.filter((t) => !covered.has(t.id));
+}
