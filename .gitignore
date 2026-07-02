@@ -4,4 +4,5 @@ out/
 .DS_Store
 .vscode-test/
 .rtk/
+.vexp/
 .claude/settings.local.json
