@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { evaluateAdvice, AdvisorInput } from "../src/advisor";
+import {
+  evaluateAdvice,
+  suppressUnderBurnRate,
+  Advice,
+  AdvisorInput,
+} from "../src/advisor";
 
 /** Input sintético com overrides pontuais — tudo null/ausente por padrão. */
 const base = (over: Partial<AdvisorInput> = {}): AdvisorInput => ({
@@ -224,5 +229,52 @@ describe("evaluateAdvice", () => {
   it("input vazio (tudo null) → []", () => {
     const r = evaluateAdvice(base({ nowMs: NOW }));
     expect(r).toEqual([]);
+  });
+});
+
+describe("suppressUnderBurnRate (Tier 1 domina Tier 3)", () => {
+  const info = (key: string): Advice => ({
+    key,
+    severity: "info",
+    title: key,
+    detail: "",
+    notify: false,
+  });
+
+  it("burn rate ativo → remove fitsUntilReset, preserva o resto", () => {
+    const advice = [info("fitsUntilReset"), info("weekTight"), info("goodWindow")];
+    const out = suppressUnderBurnRate(advice, true);
+    expect(out.map((a) => a.key)).toEqual(["weekTight", "goodWindow"]);
+  });
+
+  it("burn rate inativo → passa intacto (inclui fitsUntilReset)", () => {
+    const advice = [info("fitsUntilReset"), info("weekTight")];
+    const out = suppressUnderBurnRate(advice, false);
+    expect(out.map((a) => a.key)).toEqual(["fitsUntilReset", "weekTight"]);
+  });
+
+  it("não muta o array de entrada", () => {
+    const advice = [info("fitsUntilReset")];
+    suppressUnderBurnRate(advice, true);
+    expect(advice.map((a) => a.key)).toEqual(["fitsUntilReset"]);
+  });
+
+  // Reprodução end-to-end do cenário que a S2 não conseguiu ver ao vivo (429 no
+  // oauth): números REAIS desta sessão (oauth five_hour=76%, bloco 116.377M,
+  // ritmo 447k tok/min, 34min restantes). evaluateAdvice gera o "Cabem ~X" e,
+  // com burn rate ativo, a supressão o remove — fim do "vai estourar" × "cabem".
+  it("cenário real oauth: gera fitsUntilReset e o burn rate o suprime", () => {
+    const advice = evaluateAdvice(
+      base({
+        fiveHourPct: 76,
+        blockTokens: 116_377_174,
+        tokensPerMinute: 447_126,
+        remainingMinutes: 34,
+        nowMs: NOW,
+      })
+    );
+    expect(advice.find((a) => a.key === "fitsUntilReset")).toBeDefined();
+    const out = suppressUnderBurnRate(advice, true);
+    expect(out.find((a) => a.key === "fitsUntilReset")).toBeUndefined();
   });
 });

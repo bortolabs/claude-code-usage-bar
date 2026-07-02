@@ -44,7 +44,7 @@ import {
 import { runAiAdvice, setAiAdviceKey } from "./aiAdvice";
 import { fetchStatus, StatusResult, StatusData, hasIssue } from "./status";
 import { initI18n, setLang, tr } from "./i18n";
-import { evaluateAdvice, Advice } from "./advisor";
+import { evaluateAdvice, suppressUnderBurnRate, Advice } from "./advisor";
 import { HistoryStore } from "./history/store";
 import {
   snapshotsFromStats,
@@ -1807,10 +1807,8 @@ export function activate(context: vscode.ExtensionContext) {
       );
       // Tier 1 domina: com o alerta de burn rate ativo, o "Cabem ~X até o reset"
       // vira ruído (o alerta já diz que vai ESTOURAR, e com a ação). Suprime pra
-      // não ter duas vozes sobre cota lado a lado.
-      if (alert.active) {
-        advice = advice.filter((a) => a.key !== "fitsUntilReset");
-      }
+      // não ter duas vozes sobre cota lado a lado. Regra pura e testada.
+      advice = suppressUnderBurnRate(advice, alert.active);
       // Metas de token (ROADMAP #16): opt-in (0 = desligado). Avaliadas aqui
       // (fora do advisor.ts) porque dependem de fontes locais (bloco/daily).
       const goal5h = cfg().get<number>("tokenGoalFiveHour") ?? 0;

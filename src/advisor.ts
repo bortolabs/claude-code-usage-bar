@@ -168,3 +168,21 @@ export function evaluateAdvice(
 
   return out;
 }
+
+/**
+ * Tier 1 domina Tier 3: com o alerta de burn rate ATIVO, o conselho
+ * "Cabem ~X tokens até o reset" (`fitsUntilReset`) vira ruído — o alerta já diz
+ * que vai ESTOURAR, e com a ação. Suprime pra não ter duas vozes sobre cota
+ * lado a lado ("vai estourar" logo acima de "cabem 39M"). Sem burn rate, os
+ * conselhos passam intactos. Puro (espelha `suppressCoveredTips`), pra ter guarda
+ * de regressão sobre a regra que antes vivia inline no render.
+ */
+export function suppressUnderBurnRate(
+  advice: readonly Advice[],
+  burnRateActive: boolean
+): Advice[] {
+  if (!burnRateActive) {
+    return [...advice];
+  }
+  return advice.filter((a) => a.key !== "fitsUntilReset");
+}
