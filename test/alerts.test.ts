@@ -111,4 +111,34 @@ describe("evaluateAlerts", () => {
     // …mas NÃO muda a key (não é um tipo novo de alerta).
     expect(r.key).toBe("plan5h");
   });
+
+  it("refino #12: heatmap com sinal adiciona a sub-linha 'No seu padrão'", () => {
+    const heat = Array.from({ length: 7 }, () => new Array(24).fill(100));
+    const r = evaluateAlerts(
+      base({
+        fiveHour: 80,
+        fiveHourResetsAt: nowSec() + 2.5 * 3600,
+        heatmap: heat,
+      })
+    );
+    expect(r.reasons.some((x) => x.includes("No seu padrão"))).toBe(true);
+    // sub-linha informativa — NÃO muda a key nem o trigger.
+    expect(r.key).toBe("plan5h");
+  });
+
+  it("refino #12: sem heatmap (ou sem plan5h) não adiciona a sub-linha", () => {
+    const semHeat = evaluateAlerts(
+      base({ fiveHour: 80, fiveHourResetsAt: nowSec() + 2.5 * 3600 })
+    );
+    expect(semHeat.reasons.some((x) => x.includes("No seu padrão"))).toBe(false);
+    // alerta de custo (sem plan5h) + heatmap → mesmo assim não entra.
+    const semPlan5h = evaluateAlerts(
+      base({
+        block: block({ projectedCost: 12 }),
+        costCap: 5,
+        heatmap: Array.from({ length: 7 }, () => new Array(24).fill(100)),
+      })
+    );
+    expect(semPlan5h.reasons.some((x) => x.includes("No seu padrão"))).toBe(false);
+  });
 });

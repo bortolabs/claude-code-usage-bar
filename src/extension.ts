@@ -1649,6 +1649,9 @@ export function activate(context: vscode.ExtensionContext) {
           sevenDayResetsAt: sevenDayResetMs
             ? Math.floor(sevenDayResetMs / 1000)
             : s?.seven_day?.resets_at ?? null,
+          // Curva histórica p/ o refino não-linear da projeção 5h (#12).
+          // buildDashHistory é cacheado (5min) — reuso barato.
+          heatmap: buildDashHistory()?.heatmap ?? null,
         })
       : { active: false, message: "", reasons: [], key: "" };
 

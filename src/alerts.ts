@@ -3,6 +3,8 @@ import { CcusageData } from "./ccusage";
 // Projeção unificada em core/projection (regra dos 25% da janela — a variante
 // local antiga projetava já com 60s decorridos, cedo demais e alarmista).
 import { projectLimitPct } from "./core/projection";
+// Previsão não-linear (#12): refina o alerta 5h pela curva histórica de uso.
+import { forecastFiveHour } from "./core/forecast";
 
 export interface AlertInput {
   block: CcusageData | null;
@@ -15,6 +17,8 @@ export interface AlertInput {
   sevenDay: number | null;
   fiveHourResetsAt: number | null;
   sevenDayResetsAt: number | null;
+  /** Heatmap 7×24 (weekday × hora) p/ o refino não-linear da projeção 5h (#12). */
+  heatmap?: number[][] | null;
 }
 
 export interface AlertResult {
@@ -213,6 +217,33 @@ export function evaluateAlerts(input: AlertInput): AlertResult {
         String(Math.max(1, Math.round(pacing.reducePct)))
       )
     );
+  }
+
+  // Refino não-linear (#12): quando o plano 5h projeta estouro (linear), a curva
+  // histórica de uso (heatmap) diz se o SEU padrão confirma ou alivia o risco.
+  // Sub-linha do alerta — NÃO muda a key nem o trigger (linear segue conservador,
+  // pra não silenciar um alerta de segurança com base numa média histórica).
+  if (keys.includes("plan5h") && input.heatmap && input.fiveHourResetsAt) {
+    const fc = forecastFiveHour({
+      usedPct: input.fiveHour,
+      fiveHourResetMs: input.fiveHourResetsAt * 1000,
+      heatmap: input.heatmap,
+    });
+    if (fc && fc.method === "heatmap") {
+      const tail =
+        fc.verdict === "fits"
+          ? tr("provavelmente cabe")
+          : fc.verdict === "tight"
+          ? tr("no limite")
+          : tr("confirma o risco");
+      reasons.push(
+        tr(
+          "No seu padrão de uso: ~{0}% no reset — {1}",
+          String(fc.projectedPct),
+          tail
+        )
+      );
+    }
   }
 
   return {
