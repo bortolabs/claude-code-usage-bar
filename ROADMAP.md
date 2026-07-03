@@ -74,6 +74,7 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | **Detector de anomalias/desperdício** (#4) | Motor local `anomalies.ts`: loop de tool (name+input), contexto inflado, cache hit baixo, MCP disparado; card no painel + seção no dashboard + notificação opt-in (só crítico); 6 settings i18n | 0.36.0 |
 | **Hierarquia de 3 tiers (anomalias/dicas/burn rate)** | Anomalia crítica ⛔ sobe pro banner global; anomalias ⚠ warn entram no Copiloto (aba Sessão); escalonamento suprime a dica coberta (`mcpRunaway`→mcp, `ctxInflated`→contexto); burn rate ativo some o "Cabem ~X" | 0.37.0 |
 | **Previsão estatística de fim-de-cota** (#12) | Motor puro `core/forecast.ts`: projeção da janela 5h ponderada pela curva histórica de uso (heatmap semana×hora), não linear; refina o alerta de burn rate ("no seu padrão: ~X%") e sugere a hora mais leve p/ tarefa pesada. Local, sem LLM | 0.38.0 |
+| **Card "Contexto" na aba Sessão** | Card dedicado com uso da janela do último turno — usado/janela (`142.5k / 1M`) + % + espaço livre + barra; fiel ao topo do `/context` (soma input+cache). Motor puro `contextFromUsage`; tokens/janela também no export JSON | 0.39.0 |
 
 ## 💡 Próximas ideias
 

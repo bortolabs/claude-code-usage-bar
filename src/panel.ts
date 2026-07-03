@@ -22,6 +22,8 @@ export interface PanelData {
    */
   ringColorOverride: string | null;
   rows: { label: string; value: string; pct: number | null }[];
+  /** Contexto do último turno (card na aba Sessão): usado/janela/%. null = sem dado. */
+  context?: { tokens: number; window: number; pct: number } | null;
   /** Créditos extras (oauth) — card na aba Sessão. null = conta sem o recurso. */
   extraUsage?: {
     enabled: boolean;
@@ -305,6 +307,11 @@ function panelStrings() {
     extra: {
       title: tr("Créditos extras"),
       used: tr("{0} de {1} no mês"),
+    },
+    context: {
+      title: tr("Contexto"),
+      used: tr("Usado"),
+      free: tr("Espaço livre"),
     },
     advisor: {
       title: tr("Copiloto"),
@@ -1000,6 +1007,21 @@ function panelHtml(opts?: {
       rows + '<div class="cfg-help-line">' + esc(L.cost.byContextHelp) + '</div>');
   }
 
+  // Card "Contexto" (aba Sessão): uso da janela do último turno — usado/janela/%
+  // + espaço livre. É fiel ao topo do /context (mesma soma input+cache); a barra
+  // usa o semáforo (verde com folga → vermelho quando cheio), o sinal desejado.
+  function contextCard(ctx) {
+    if (!ctx || !ctx.window || ctx.tokens == null) return '';
+    const pct = Math.max(0, Math.min(100, ctx.pct));
+    const free = Math.max(0, ctx.window - ctx.tokens);
+    const head = '<div class="row"><div class="row-head"><span class="row-label">' +
+      esc(fmtTok(ctx.tokens) + ' / ' + fmtTok(ctx.window)) +
+      '</span><span class="row-val">' + Math.round(pct) + '%</span></div>' + bar(pct, null) + '</div>';
+    const usedRow = kvRow(L.context.used, fmtTok(ctx.tokens) + ' · ' + Math.round(pct) + '%');
+    const freeRow = kvRow(L.context.free, fmtTok(free) + ' · ' + Math.round(100 - pct) + '%');
+    return collapsibleCard('context', L.context.title, head + usedRow + freeRow);
+  }
+
   // Card "MCP e subagentes": CONTAGEM de chamadas (sem custo — não dá pra atribuir).
   function countsCard(cost) {
     const mcp = ((cost && cost.byMcpServer) || []).filter(function(x){ return x && x.calls > 0; });
@@ -1331,7 +1353,7 @@ function panelHtml(opts?: {
         }
         return advCard + card('<div class="ring-wrap">' +
           ringSvg(d.ringPct, d.level, d.centerLabel, d.centerSub, ringOverride) +
-          '</div>' + rows) + extraCard + sourceCard(d.source);
+          '</div>' + rows) + extraCard + contextCard(d.context) + sourceCard(d.source);
       }
       if (tab === 'custos') {
         // Aba dedicada: hoje/mês + custo/dia + tokens/dia + seletor + quebras + dicas.

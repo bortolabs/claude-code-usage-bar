@@ -2,11 +2,15 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-/** Turno atual: modelo em uso + % de uso da janela de contexto (ambos do transcript). */
+/** Turno atual: modelo em uso + uso da janela de contexto (ambos do transcript). */
 export interface CurrentTurn {
   model: string | null;
   /** % da janela de contexto preenchida (0-100) ou null se desconhecido. */
   contextPct: number | null;
+  /** Tokens de contexto do último turno (input + cache), ou null se desconhecido. */
+  contextTokens: number | null;
+  /** Janela de contexto do modelo (tokens), ou null se desconhecido. */
+  contextWindow: number | null;
 }
 
 /**
@@ -21,11 +25,11 @@ export function readCurrentTurn(): CurrentTurn {
     const root = path.join(os.homedir(), ".claude", "projects");
     const latest = mostRecentJsonl(root);
     if (!latest) {
-      return { model: null, contextPct: null };
+      return { model: null, contextPct: null, contextTokens: null, contextWindow: null };
     }
     return lastTurnInFile(latest);
   } catch {
-    return { model: null, contextPct: null };
+    return { model: null, contextPct: null, contextTokens: null, contextWindow: null };
   }
 }
 
@@ -35,6 +39,22 @@ function contextWindowFor(model: string | null): number {
     return 200_000;
   }
   return 1_000_000;
+}
+
+/** Contexto do turno a partir do `usage`: tokens usados, janela e % (0-100). */
+export function contextFromUsage(
+  usage: any,
+  model: string | null,
+): { tokens: number; window: number; pct: number } {
+  const n = (k: string) =>
+    usage && typeof usage[k] === "number" ? (usage[k] as number) : 0;
+  const tokens =
+    n("input_tokens") +
+    n("cache_read_input_tokens") +
+    n("cache_creation_input_tokens");
+  const window = contextWindowFor(model);
+  const pct = window > 0 ? Math.min(100, (tokens / window) * 100) : 0;
+  return { tokens, window, pct };
 }
 
 /** Mapeia o id técnico para um nome curto amigável. */
@@ -109,11 +129,13 @@ function lastTurnInFile(file: string): CurrentTurn {
   try {
     content = fs.readFileSync(file, "utf8");
   } catch {
-    return { model: null, contextPct: null };
+    return { model: null, contextPct: null, contextTokens: null, contextWindow: null };
   }
   const lines = content.trimEnd().split("\n");
   let model: string | null = null;
   let contextPct: number | null = null;
+  let contextTokens: number | null = null;
+  let contextWindow: number | null = null;
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i];
     if (!line || line.indexOf('"model"') === -1) {
@@ -137,13 +159,11 @@ function lastTurnInFile(file: string): CurrentTurn {
     if (contextPct === null && o?.isSidechain !== true) {
       const u = o?.message?.usage;
       if (u) {
-        const n = (k: string) => (typeof u[k] === "number" ? u[k] : 0);
-        const ctx =
-          n("input_tokens") +
-          n("cache_read_input_tokens") +
-          n("cache_creation_input_tokens");
-        if (ctx > 0) {
-          contextPct = Math.min(100, (ctx / contextWindowFor(m)) * 100);
+        const c = contextFromUsage(u, m);
+        if (c.tokens > 0) {
+          contextPct = c.pct;
+          contextTokens = c.tokens;
+          contextWindow = c.window;
         }
       }
     }
@@ -151,5 +171,5 @@ function lastTurnInFile(file: string): CurrentTurn {
       break;
     }
   }
-  return { model, contextPct };
+  return { model, contextPct, contextTokens, contextWindow };
 }

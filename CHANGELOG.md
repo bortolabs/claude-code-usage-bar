@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.39.0
+
+### 🧠 Card "Contexto" na aba Sessão: tokens absolutos, não só o %
+
+A aba Sessão mostrava o contexto como uma linha solta ("Contexto — 14%"). O `%` sozinho
+esconde a escala: 14% de 1M são ~142k tokens — invisível na fração. Esta versão troca aquela
+linha por um **card dedicado "Contexto"** (logo acima de "Fonte de Dados") que reproduz o topo
+do `/context` do Claude Code, tudo local e sem rede.
+
+- **Usado / janela + espaço livre.** O card mostra `142.5k / 1M · 14%` com barra, mais as
+  linhas **Usado** e **Espaço livre** (tokens + %). O número é **fiel ao `/context` real** — é a
+  mesma soma `input + cache_read + cache_creation` do último turno da conversa principal, sobre a
+  janela do modelo (Haiku 200k, demais 1M). Assim dá pra vigiar quão perto de um contexto grande
+  a sessão está, não só a fração.
+- **Só o que dá pra mostrar com fidelidade.** O breakdown por categoria do `/context` (system
+  prompt, tools, MCP, memory, skills, messages) **não é persistido em lugar legível** — o Claude
+  Code o calcula em memória e descarta. Em vez de estimar categorias que divergiriam do número
+  real, o card mostra só o agregado usado/livre, sempre exato.
+- **Motor puro e testado.** A extração dos tokens+janela do turno virou a função pura
+  `contextFromUsage` (`src/transcript.ts`), com cobertura (Opus/Haiku, clamp em 100%, usage
+  vazio). Os campos `contextTokens`/`contextWindow` também entram no export JSON, pra um agente
+  ler quanto de contexto resta.
+- i18n: novas strings "Usado"/"Espaço livre" em pt/en/es/fr/de. Suíte: 113 → **118**.
+
 ## 0.38.0
 
 ### 🔮 Previsão estatística de fim-de-cota (roadmap #12)

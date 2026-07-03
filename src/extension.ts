@@ -374,6 +374,10 @@ export function activate(context: vscode.ExtensionContext) {
   // % de contexto do último turno (do transcript) — fonte primária do Contexto,
   // funciona no app/IDE sem depender da statusline (que pode estar velha).
   let currentContextPct: number | null = null;
+  // Tokens absolutos de contexto + janela do modelo do último turno (transcript).
+  // Alimentam o card "Contexto" (usado/janela). null = sem dado fresco do transcript.
+  let currentContextTokens: number | null = null;
+  let currentContextWindow: number | null = null;
   // Histórico diário (sparkline). Atualizado num intervalo mais folgado.
   let lastDaily: CcusageDaily[] = [];
   // Estatísticas locais dos transcripts (custo por modelo etc.) do bloco de 5h.
@@ -541,6 +545,8 @@ export function activate(context: vscode.ExtensionContext) {
         ? win(v.sevenDayOpus.utilization, v.sevenDayOpus.resetsAt, null)
         : null,
       contextPct: v?.ctxPct != null ? Math.round(v.ctxPct) : null,
+      contextTokens: v?.ctxTokens ?? null,
+      contextWindow: v?.ctxWindow ?? null,
       cost: v ? Number((v.cost ?? 0).toFixed(2)) : null,
       etaMinutes: v?.etaMin ?? null,
       // v2: custo de hoje/mês (ccusage, oficial) + quebra por modelo (≈ aproximado).
@@ -611,6 +617,10 @@ export function activate(context: vscode.ExtensionContext) {
     }
     if (turn.contextPct != null) {
       currentContextPct = turn.contextPct;
+    }
+    if (turn.contextTokens != null) {
+      currentContextTokens = turn.contextTokens;
+      currentContextWindow = turn.contextWindow;
     }
     render();
   };
@@ -1289,6 +1299,20 @@ export function activate(context: vscode.ExtensionContext) {
     // statusline está parada.
     const ctxPct =
       currentContextPct != null ? currentContextPct : fresh ? ctxPctOf(s) : null;
+    // Tokens/janela do contexto (card "Contexto"): mesma prioridade do ctxPct —
+    // transcript ao vivo; senão a statusline (usado = input+output, janela = size).
+    let ctxTokens: number | null = null;
+    let ctxWindow: number | null = null;
+    if (currentContextTokens != null && currentContextWindow) {
+      ctxTokens = currentContextTokens;
+      ctxWindow = currentContextWindow;
+    } else if (fresh && s?.context?.size && s.context.size > 0) {
+      const used = (s.context.input ?? 0) + (s.context.output ?? 0);
+      if (used > 0) {
+        ctxTokens = used;
+        ctxWindow = s.context.size;
+      }
+    }
     // Custo: prefere o do bloco ccusage (real do bloco de 5h); senão statusline.
     const cost = block?.costUSD ?? s?.cost_usd ?? 0;
 
@@ -1946,6 +1970,8 @@ export function activate(context: vscode.ExtensionContext) {
       sevenDayOpus: usage?.sevenDayOpus ?? null,
       extraUsage: usage?.extraUsage?.enabled ? usage.extraUsage : null,
       ctxPct,
+      ctxTokens,
+      ctxWindow,
       cost,
       costCap,
       isSub,
@@ -2005,6 +2031,8 @@ export function activate(context: vscode.ExtensionContext) {
       currency: string;
     } | null;
     ctxPct: number | null;
+    ctxTokens: number | null;
+    ctxWindow: number | null;
     cost: number;
     costCap: number;
     isSub: boolean;
@@ -2309,13 +2337,8 @@ export function activate(context: vscode.ExtensionContext) {
       });
     }
 
-    if (v.ctxPct != null) {
-      rows.push({
-        label: tr("Contexto"),
-        value: `${Math.round(v.ctxPct)}%`,
-        pct: v.ctxPct,
-      });
-    }
+    // O contexto agora vive no card "Contexto" (usado/janela/%), não mais como
+    // linha escalar aqui — evita mostrar "Contexto X%" duplicado.
     // Metas de token (ROADMAP #16): barras de progresso opt-in (0 = sem meta).
     const goalRow5h = cfg().get<number>("tokenGoalFiveHour") ?? 0;
     if (goalRow5h > 0 && v.block) {
@@ -2395,6 +2418,11 @@ export function activate(context: vscode.ExtensionContext) {
       // Cor do tema do anel/barras (claude/mono/custom); null = semáforo normal.
       ringColorOverride: resolveRingColorOverride(),
       rows,
+      // Card "Contexto" (aba Sessão): usado/janela/% do último turno. null = sem dado.
+      context:
+        v.ctxTokens != null && v.ctxWindow
+          ? { tokens: v.ctxTokens, window: v.ctxWindow, pct: v.ctxPct ?? 0 }
+          : null,
       // Créditos extras (oauth) — card na aba Sessão quando habilitado na conta.
       extraUsage: v.extraUsage,
       // Conselhos do copiloto (sem o flag notify — o webview só exibe).
