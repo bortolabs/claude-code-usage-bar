@@ -568,6 +568,25 @@ export function activate(context: vscode.ExtensionContext) {
             approximate: true,
           }))
         : null,
+      byProject: v && v.stats
+        ? v.stats.byProject.map((p) => ({
+            project: p.project,
+            tokens: p.tokens,
+            costUSD: Number(p.costUSD.toFixed(4)),
+            approximate: true,
+          }))
+        : null,
+      // byBranch cruza o horário de cada turno com os checkouts do git (reflog):
+      // atribuição ≈ aproximada, boa p/ "quanto custou a feature/PR X".
+      byBranch: v && v.stats
+        ? v.stats.byBranch.map((b) => ({
+            branch: b.branch,
+            project: b.project,
+            tokens: b.tokens,
+            costUSD: Number(b.costUSD.toFixed(4)),
+            approximate: true,
+          }))
+        : null,
     };
     try {
       const p = resolveExportPath();
@@ -825,6 +844,12 @@ export function activate(context: vscode.ExtensionContext) {
         project: p.project,
         costUSD: p.costUSD,
         tokens: p.tokens,
+      })),
+      byBranch: s.byBranch.map((b) => ({
+        branch: b.branch,
+        project: b.project,
+        costUSD: b.costUSD,
+        tokens: b.tokens,
       })),
       bySession: s.bySession.map((x) => ({
         session: x.session,
@@ -2475,6 +2500,14 @@ export function activate(context: vscode.ExtensionContext) {
               project: p.project,
               tokens: p.tokens,
               costUSD: p.costUSD,
+            }))
+          : [],
+        byBranch: v.stats
+          ? v.stats.byBranch.map((b) => ({
+              branch: b.branch,
+              project: b.project,
+              tokens: b.tokens,
+              costUSD: b.costUSD,
             }))
           : [],
         byContextBucket: v.stats

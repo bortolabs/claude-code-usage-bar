@@ -205,6 +205,8 @@
   "Custo por dia": "Cost per day",
   "Janela das quebras": "Breakdown window",
   "Por projeto": "By project",
+  "Por branch": "By branch",
+  "Cruza o horário de cada turno com os checkouts do git — atribuição ≈ aproximada.": "Cross-references each turn's time with git checkouts — attribution is ≈ approximate.",
   "Por modelo": "By model",
   "Por tamanho de contexto": "By context size",
   "MCP e subagentes": "MCP and subagents",

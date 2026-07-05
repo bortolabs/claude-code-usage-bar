@@ -205,6 +205,8 @@
   "Custo por dia": "Kosten pro Tag",
   "Janela das quebras": "Aufschlüsselungsfenster",
   "Por projeto": "Nach Projekt",
+  "Por branch": "Nach Branch",
+  "Cruza o horário de cada turno com os checkouts do git — atribuição ≈ aproximada.": "Verknüpft die Zeit jedes Turns mit den Git-Checkouts — Zuordnung ≈ ungefähr.",
   "Por modelo": "Nach Modell",
   "Por tamanho de contexto": "Nach Kontextgröße",
   "MCP e subagentes": "MCP und Subagenten",

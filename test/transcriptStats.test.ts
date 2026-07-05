@@ -232,4 +232,37 @@ describe("readTranscriptStats", () => {
     const s = readTranscriptStats(WIN_START, WIN_END);
     expect(s.maxToolRunLength).toBe(1);
   });
+
+  it("byBranch: atribui custo ao branch ativo no horário do turno (resolver injetado)", () => {
+    writeSession(
+      "-Users-me-proj",
+      "sessao-branch",
+      turn({ ts: iso(0), cwd: "/Users/me/proj" }) + // feat/a
+        turn({ ts: iso(5), cwd: "/Users/me/proj", isSidechain: true }) + // subagente → branch REAL
+        turn({ ts: iso(30), cwd: "/Users/me/proj" }) // feat/b
+    );
+    // Antes de T0+20min = feat/a; depois = feat/b.
+    const cutoff = T0 + 20 * 60000;
+    const resolver = (_cwd: string | undefined, ts: number) =>
+      ts < cutoff ? "feat/a" : "feat/b";
+
+    const s = readTranscriptStats(WIN_START, WIN_END, 8, resolver);
+    const byBranch = Object.fromEntries(s.byBranch.map((b) => [b.branch, b]));
+
+    expect(s.byBranch.map((b) => b.branch).sort()).toEqual(["feat/a", "feat/b"]);
+    // feat/a soma o turno normal + o sidechain (2 × 3800 tokens).
+    expect(byBranch["feat/a"].tokens).toBe(7600);
+    expect(byBranch["feat/b"].tokens).toBe(3800);
+    // O branch usa o projeto REAL do cwd, não o sintético "subagentes".
+    expect(byBranch["feat/a"].project).toBe("proj");
+    // byProject, em paralelo, mantém o sidechain no projeto sintético.
+    expect(s.byProject.map((p) => p.project).sort()).toEqual(["proj", "subagentes"]);
+  });
+
+  it("byBranch: resolver null (feature off / sem git) → lista vazia, sem quebrar", () => {
+    writeSession("-Users-me-proj2", "s", turn({ ts: iso(0), cwd: "/Users/me/proj2" }));
+    const s = readTranscriptStats(WIN_START, WIN_END, 8, null);
+    expect(s.byBranch).toEqual([]);
+    expect(s.turns).toBe(1); // o resto da agregação segue normal
+  });
 });

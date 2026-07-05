@@ -205,6 +205,8 @@
   "Custo por dia": "Custo por dia",
   "Janela das quebras": "Janela das quebras",
   "Por projeto": "Por projeto",
+  "Por branch": "Por branch",
+  "Cruza o horário de cada turno com os checkouts do git — atribuição ≈ aproximada.": "Cruza o horário de cada turno com os checkouts do git — atribuição ≈ aproximada.",
   "Por modelo": "Por modelo",
   "Por tamanho de contexto": "Por tamanho de contexto",
   "MCP e subagentes": "MCP e subagentes",

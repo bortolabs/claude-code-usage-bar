@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.40.0
+
+### 💸 Custo por branch/PR: quanto custou cada feature (#13)
+
+A extensão já dizia *quanto* você gastou (por modelo, projeto, dia). Esta versão responde
+**em quê**: um card **"Por branch"** na aba Custos (e um breakdown no dashboard completo)
+atribui o custo aproximado a cada branch/tarefa — "a feature X custou ~$30 de Claude".
+Ouro pra freelancer precificar projeto e pra lead achar onde o custo explode.
+
+- **Como funciona.** Cada turno do transcript tem timestamp; o `git reflog` de cada repo
+  registra a hora de cada checkout. Cruzando os dois, sabemos o branch ativo em cada
+  instante e somamos o custo dos turnos por branch. Tudo local, sem rede: o reflog é lido
+  **uma vez por repo** (preguiçoso e memoizado), só quando as quebras são recalculadas.
+- **Multi-repo de verdade.** Branches homônimos em repos diferentes (dois `master`) não se
+  fundem — quando há mais de um repo na janela, a label prefixa o projeto
+  (`meu-app · master`).
+- **Subagentes contam na tarefa.** O custo de sidechains entra no branch real em que você
+  estava (via `cwd`), não num balde separado — o gasto do subagente pertence à feature que
+  o disparou. Por isso o "Por branch" de um repo pode somar um pouco mais que o
+  "Por projeto" correspondente.
+- **≈ aproximado, e rotulado.** A atribuição é por tempo: duas janelas do Claude Code em
+  branches diferentes ao mesmo tempo se misturam, e o reflog expira (~90 dias — folga sobre
+  a janela máxima de 30d das quebras). Checkout pra SHA solto aparece como `(detached)`.
+
+### 📤 Export JSON: `byProject` e `byBranch` para agentes
+
+O export local (`~/.claude/usage-bar.json`) agora inclui **`byProject`** e **`byBranch`**
+(ambos `approximate: true`, mesmo molde do `byModel`) — um agente em auto-mode pode ler
+"quanto custou o branch X / projeto Y" sem parsear transcript nenhum. Campos aditivos:
+o formato segue `v: 2`, leitores existentes não quebram.
+
+Suíte de testes: 118 → 132 (motor de linha-do-tempo de branches coberto de ponta a ponta,
+incluindo reflog sem checkouts, detached HEAD e repos sem git).
+
 ## 0.39.0
 
 ### 🧠 Card "Contexto" na aba Sessão: tokens absolutos, não só o %

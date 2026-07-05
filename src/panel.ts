@@ -72,6 +72,7 @@ export interface PanelData {
     overBudget: boolean;
     byModel: { model: string; tokens: number; costUSD: number }[];
     byProject: { project: string; tokens: number; costUSD: number }[];
+    byBranch: { branch: string; project: string; tokens: number; costUSD: number }[];
     byContextBucket: { bucket: string; tokens: number; costUSD: number; turns: number }[];
     byMcpServer: { name: string; calls: number }[];
     bySubagent: { name: string; calls: number }[];
@@ -164,6 +165,8 @@ function panelStrings() {
       budget: tr("Orçamento"),
       byModel: tr("Por modelo"),
       byProject: tr("Por projeto"),
+      byBranch: tr("Por branch"),
+      byBranchHelp: tr("Cruza o horário de cada turno com os checkouts do git — atribuição ≈ aproximada."),
       byContext: tr("Por tamanho de contexto"),
       byContextHelp: tr("Turnos com mais contexto custam mais por resposta — /compact ajuda a enxugar."),
       counts: tr("MCP e subagentes"),
@@ -980,6 +983,26 @@ function panelHtml(opts?: {
     return collapsibleCard('byproject', L.cost.byProject + ' (' + winLabel(cost.window) + ')', rows);
   }
 
+  // Card "Por branch" (custo ≈): quanto cada branch/tarefa custou na janela.
+  // Cruza o timestamp de cada turno com o histórico de checkouts do git.
+  function branchesCostCard(cost) {
+    const list = ((cost && cost.byBranch) || []).filter(function(b){ return b && (b.costUSD > 0 || b.tokens > 0); });
+    if (!list.length) return '';
+    const sub = !!cost.isSub;
+    // Se há mais de um repo, prefixa o branch com o projeto p/ desambiguar (ex.: mesmo "master").
+    const multiRepo = (function(){ var seen={}; var n=0; list.forEach(function(b){ if(!seen[b.project]){seen[b.project]=1;n++;} }); return n > 1; })();
+    const max = Math.max.apply(null, list.map(function(b){ return b.costUSD; }).concat([0.0001]));
+    const rows = list.map(function(b){
+      const pct = (b.costUSD / max) * 100;
+      const label = multiRepo ? (b.project + '/' + b.branch) : b.branch;
+      const val = fmtTok(b.tokens) + ' · ' + (sub ? '~' : '') + fmtUsd(b.costUSD) + (sub ? ' ' + L.cost.equiv : '');
+      return '<div class="row"><div class="row-head"><span class="row-label">' + esc(label) +
+        '</span><span class="row-val">' + esc(val) + '</span></div>' + bar(pct, null) + '</div>';
+    }).join('');
+    return collapsibleCard('bybranch', L.cost.byBranch + ' (' + winLabel(cost.window) + ')',
+      rows + '<div class="cfg-help-line">' + esc(L.cost.byBranchHelp) + '</div>');
+  }
+
   // Barra dos buckets de contexto: tinge de warn os turnos com contexto grande.
   function bucketBar(pct, warn) {
     pct = Math.max(0, Math.min(100, pct));
@@ -1358,7 +1381,7 @@ function panelHtml(opts?: {
       if (tab === 'custos') {
         // Aba dedicada: hoje/mês + custo/dia + tokens/dia + seletor + quebras + dicas.
         const c = d.cost;
-        const hasStats = !!(c && (c.byModel.length || c.byProject.length ||
+        const hasStats = !!(c && (c.byModel.length || c.byProject.length || c.byBranch.length ||
           c.byContextBucket.length || c.byMcpServer.length || c.bySubagent.length));
         const insightsOn = !!(c && c.insightsEnabled);
         const sparks = costSparkline(d.daily) + sparkline(d.daily);
@@ -1367,7 +1390,7 @@ function panelHtml(opts?: {
         var breakdowns = '';
         if (insightsOn) {
           breakdowns = windowSelector(c.window) + (hasStats
-            ? byModelCard(c) + projectsCostCard(c) + bucketsCard(c) + countsCard(c) + anomaliesCard(c) + tipsCard(c)
+            ? byModelCard(c) + projectsCostCard(c) + branchesCostCard(c) + bucketsCard(c) + countsCard(c) + anomaliesCard(c) + tipsCard(c)
             : '<div class="empty">' + esc(L.cost.emptyWindow) + '</div>');
         } else if (c) {
           breakdowns = '<div class="empty">' + esc(L.cost.offHint) + '</div>';

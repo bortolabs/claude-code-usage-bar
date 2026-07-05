@@ -52,6 +52,7 @@ export interface DashboardData {
     messages: number;
   }[];
   byProject: { project: string; costUSD: number; tokens: number }[];
+  byBranch: { branch: string; project: string; costUSD: number; tokens: number }[];
   bySession: {
     session: string;
     project: string;
@@ -133,6 +134,7 @@ function dashboardStrings() {
     bd: {
       model: tr("Por modelo"),
       project: tr("Por projeto"),
+      branch: tr("Por branch"),
       session: tr("Por sessão"),
       context: tr("Por tamanho de contexto"),
       skills: tr("Skills"),
@@ -484,6 +486,7 @@ export function dashboardHtml(
     // breakdowns
     var mdl=(data.byModel||[]).map(function(m){return {label:m.model,value:m.costUSD};});
     var prj=(data.byProject||[]).map(function(p){return {label:p.project,value:p.costUSD};});
+    var brc=(data.byBranch||[]).map(function(b){return {label:(b.project?b.project+' · ':'')+b.branch,value:b.costUSD};});
     var ses=(data.bySession||[]).map(function(s){return {label:(s.project?s.project+' · ':'')+String(s.session).slice(0,8)+' ('+dur(s.durationMs)+')',value:s.costUSD};});
     var ctx=(data.byContext||[]).map(function(b){return {label:b.bucket,value:b.costUSD};});
     var skl=(data.bySkill||[]).map(function(x){return {label:x.name,value:x.calls};});
@@ -495,6 +498,7 @@ export function dashboardHtml(
     var breakdowns='<div class="grid2">'
       +bdSection(L.bd.model,mdl,costFmt,'var(--c-input)')
       +bdSection(L.bd.project,prj,costFmt,'var(--c-hit)')
+      +bdSection(L.bd.branch,brc,costFmt,'var(--c-miss)')
       +bdSection(L.bd.session,ses,costFmt,'var(--c-output)')
       +bdSection(L.bd.context,ctx,costFmt,'var(--c-miss)')
       +bdSection(L.bd.skills,skl,callFmt,'var(--c-input)')

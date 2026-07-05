@@ -3,6 +3,7 @@ import * as os from "os";
 import * as path from "path";
 import { costForSplit, CostBreakdown, UsageLike, pricingTableVersion } from "./pricing";
 import { prettyModel } from "./transcript";
+import { BranchResolver, buildBranchResolver } from "./branchTimeline";
 
 /**
  * Agregador LOCAL dos transcripts do Claude Code (`~/.claude/projects/**`).
@@ -35,6 +36,10 @@ export interface ModelStat extends TokenCost, TokenSplit {
 export interface ProjectStat extends TokenCost {
   project: string;
 }
+export interface BranchStat extends TokenCost {
+  branch: string; // nome do branch (ou "(detached)")
+  project: string; // repo/projeto a que o branch pertence (desambigua nomes iguais)
+}
 export interface BucketStat extends TokenCost {
   bucket: string; // chave do tamanho de contexto (ver CONTEXT_BUCKETS)
   turns: number;
@@ -60,6 +65,7 @@ export interface CountStat {
 export interface TranscriptStats {
   byModel: ModelStat[];
   byProject: ProjectStat[];
+  byBranch: BranchStat[];
   byContextBucket: BucketStat[];
   byMcpServer: CountStat[];
   bySubagent: CountStat[];
@@ -210,6 +216,7 @@ function hourKey(ts: number): string {
 class Accum {
   byModel = new Map<string, FullTC>();
   byProject = new Map<string, TokenCost>();
+  byBranch = new Map<string, BranchStat>();
   byBucket = new Map<string, BucketStat>();
   byMcp = new Map<string, number>();
   bySub = new Map<string, number>();
@@ -243,6 +250,15 @@ class Accum {
     map.set(key, cur);
   }
 
+  /** Acumula custo por branch (chave = projeto + separador + branch, p/ não fundir repos). */
+  addBranch(branch: string, project: string, tokens: number, cost: number) {
+    const key = project + "\u001f" + branch;
+    const cur = this.byBranch.get(key) ?? { branch, project, tokens: 0, costUSD: 0 };
+    cur.tokens += tokens;
+    cur.costUSD += cost;
+    this.byBranch.set(key, cur);
+  }
+
   /** Acumula a contribuição de um turno num mapa "cheio" (modelo/dia/hora). */
   addFull(map: Map<string, FullTC>, key: string, c: TurnContrib) {
     const x = map.get(key) ?? emptyFull();
@@ -267,7 +283,8 @@ function onLine(
   dirName: string,
   sessionId: string,
   windowStartMs: number,
-  windowEndMs: number
+  windowEndMs: number,
+  branchResolver: BranchResolver | null
 ) {
   const msg = o?.message;
   const usage: UsageLike | undefined = msg?.usage;
@@ -325,6 +342,17 @@ function onLine(
   const isSide = o?.isSidechain === true;
   const proj = isSide ? SUBAGENTS_PROJECT : projectName(o?.cwd, dirName);
   acc.add(acc.byProject, proj, tokens, cost);
+
+  // Por branch (≈ aproximado): cruza o timestamp do turno com o reflog do repo do
+  // cwd. Sidechains contam no branch REAL (via cwd), não no projeto sintético —
+  // o custo do subagente faz parte do custo daquela tarefa/branch.
+  if (branchResolver) {
+    const branchProj = projectName(o?.cwd, dirName);
+    const branch = branchResolver(o?.cwd, ts);
+    if (branch) {
+      acc.addBranch(branch, branchProj, tokens, cost);
+    }
+  }
 
   // Por sessão (cada .jsonl). Mantém também duração (first/last timestamp).
   const sess = acc.bySession.get(sessionId) ?? {
@@ -484,7 +512,8 @@ function processFile(
   ref: FileRef,
   acc: Accum,
   windowStartMs: number,
-  windowEndMs: number
+  windowEndMs: number,
+  branchResolver: BranchResolver | null
 ) {
   let content: string;
   try {
@@ -504,7 +533,7 @@ function processFile(
     } catch {
       continue;
     }
-    onLine(acc, o, ref.dirName, sessionId, windowStartMs, windowEndMs);
+    onLine(acc, o, ref.dirName, sessionId, windowStartMs, windowEndMs, branchResolver);
   }
 }
 
@@ -527,7 +556,8 @@ let statsCache: { key: string; stats: TranscriptStats } | null = null;
 export function readTranscriptStats(
   windowStartMs: number,
   windowEndMs: number = Date.now(),
-  limit = 8
+  limit = 8,
+  branchResolver: BranchResolver | null = buildBranchResolver()
 ): TranscriptStats {
   const root = path.join(os.homedir(), ".claude", "projects");
   let dirs: fs.Dirent[];
@@ -562,7 +592,7 @@ export function readTranscriptStats(
   // Cache-miss: lê+processa só os arquivos coletados.
   const acc = new Accum();
   for (const f of files) {
-    processFile(f, acc, windowStartMs, windowEndMs);
+    processFile(f, acc, windowStartMs, windowEndMs, branchResolver);
   }
 
   const byModel = sortTC(
@@ -571,6 +601,7 @@ export function readTranscriptStats(
   const byProject = sortTC(
     Array.from(acc.byProject.entries()).map(([project, tc]) => ({ project, ...tc }))
   ).slice(0, limit);
+  const byBranch = sortTC(Array.from(acc.byBranch.values())).slice(0, limit);
   // Buckets: ordem fixa (do menor pro maior contexto), só os com turnos.
   const byContextBucket = CONTEXT_BUCKETS.map((b) => acc.byBucket.get(b.key)).filter(
     (b): b is BucketStat => !!b && b.turns > 0
@@ -611,6 +642,7 @@ export function readTranscriptStats(
   const stats: TranscriptStats = {
     byModel,
     byProject,
+    byBranch,
     byContextBucket,
     byMcpServer,
     bySubagent,
@@ -649,6 +681,7 @@ function emptyStats(): TranscriptStats {
   return {
     byModel: [],
     byProject: [],
+    byBranch: [],
     byContextBucket: [],
     byMcpServer: [],
     bySubagent: [],

@@ -385,6 +385,12 @@ Formato (`v: 2`):
   "month": { "costUSD": 96.10, "projectedUSD": 142.30, "budgetUSD": 0, "overBudget": false },
   "byModel": [
     { "model": "Opus 4.8", "tokens": 62118770, "costUSD": 98.65, "approximate": true }
+  ],
+  "byProject": [
+    { "project": "meu-app", "tokens": 41200000, "costUSD": 64.10, "approximate": true }
+  ],
+  "byBranch": [
+    { "branch": "feat/login", "project": "meu-app", "tokens": 18300000, "costUSD": 28.40, "approximate": true }
   ]
 }
 ```
@@ -396,6 +402,10 @@ Formato (`v: 2`):
 - **`today`/`month`** vêm do **ccusage** (custo oficial). **`byModel`** é **`approximate`**
   (atribuição por uma tabela de preços local) — bom p/ proporção entre modelos, não p/ fatura.
   Campos novos da `v2`; os da `v1` seguem iguais.
+- **`byProject`/`byBranch`** também são **`approximate`**. O `byBranch` cruza o horário de
+  cada turno com os checkouts do git (`git reflog`) do repo — responde "quanto custou a
+  feature/PR X", mas a atribuição é por tempo (duas janelas em branches diferentes ao
+  mesmo tempo se misturam).
 
 Exemplo de loop com critério de parada (Python):
 

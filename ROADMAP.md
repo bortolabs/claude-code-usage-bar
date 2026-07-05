@@ -75,6 +75,7 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | **Hierarquia de 3 tiers (anomalias/dicas/burn rate)** | Anomalia crítica ⛔ sobe pro banner global; anomalias ⚠ warn entram no Copiloto (aba Sessão); escalonamento suprime a dica coberta (`mcpRunaway`→mcp, `ctxInflated`→contexto); burn rate ativo some o "Cabem ~X" | 0.37.0 |
 | **Previsão estatística de fim-de-cota** (#12) | Motor puro `core/forecast.ts`: projeção da janela 5h ponderada pela curva histórica de uso (heatmap semana×hora), não linear; refina o alerta de burn rate ("no seu padrão: ~X%") e sugere a hora mais leve p/ tarefa pesada. Local, sem LLM | 0.38.0 |
 | **Card "Contexto" na aba Sessão** | Card dedicado com uso da janela do último turno — usado/janela (`142.5k / 1M`) + % + espaço livre + barra; fiel ao topo do `/context` (soma input+cache). Motor puro `contextFromUsage`; tokens/janela também no export JSON | 0.39.0 |
+| **Custo por branch/PR** (#13) | Cruza timestamp dos turnos com `git reflog` (checkouts): custo ≈ por branch/tarefa. Card "Por branch" na aba Custos + breakdown no dashboard + `byProject`/`byBranch` no export JSON | 0.40.0 |
 
 ## 💡 Próximas ideias
 
@@ -82,7 +83,6 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | --- | --- | --- | --- | --- |
 | 10 | **Multi-conta / perfis** | Alternar entre contas (pessoal vs trabalho): token/transcripts por perfil. Mexe em fonte de dados, oauth e persistência — fechar escopo antes | Alto | ⚠️ depende do setup |
 | 11 | **Auto-piloto de cota (ações reais)** | Fecha o loop: quando a cota 5h/7d cai, troca de modelo (Opus→Sonnet) e/ou pausa via hook `Stop`, revertendo no reset. "Modo economia" com 1 clique. Escrita segura de settings/hooks, com opt-in explícito | Médio-alto | ⚠️ precisa consentimento + reversão garantida |
-| 13 | **Custo por branch / tarefa / PR** | Cruza timestamp dos transcripts com `git log`/branch: quanto custou cada feature/PR. Card "top tarefas mais caras da semana". Killer feature p/ freelancer/lead | Médio | ✅ (rotular "≈ aproximado") |
 | 14 | **Benchmark anônimo comunitário** | Percentil opt-in e anonimizado vs comunidade ("top 15% do plano Max"). Só percentis agregados, zero conteúdo de prompt. Vantagem de rede | Alto | ⚠️ exige backend + política de privacidade |
 
 ## 🌐 Externo / operacional (fora do código)
