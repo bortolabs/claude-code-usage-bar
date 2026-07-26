@@ -262,6 +262,10 @@ function callLLM(cfg: AiAdviceConfig, apiKey: string, system: string, user: stri
     }
     // http p/ endpoints locais (Ollama/LM Studio em localhost), https p/ o resto.
     const lib = url.protocol === "http:" ? http : https;
+    // Timeout maior p/ endpoint local: a chamada não usa streaming, então nada chega
+    // até o modelo terminar de gerar — e um modelo grande no LM Studio/Ollama pode
+    // levar vários minutos legitimamente. Remoto segue em 2min (lá a lentidão é falha).
+    const isLocal = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
     const req = lib.request(
       {
         method: "POST",
@@ -269,7 +273,7 @@ function callLLM(cfg: AiAdviceConfig, apiKey: string, system: string, user: stri
         port: url.port || (url.protocol === "http:" ? 80 : 443),
         path: url.pathname + url.search,
         headers,
-        timeout: 120000,
+        timeout: isLocal ? 600000 : 120000,
       },
       (res) => {
         const chunks: Buffer[] = [];

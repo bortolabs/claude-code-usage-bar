@@ -818,9 +818,9 @@ function panelHtml(opts?: {
   }
   // Presets do AI advice: autopreenchem style/endpoint/modelo num clique.
   var AI_PRESETS = {
-    ollama: { style: 'openai', endpoint: 'http://localhost:11434/v1/chat/completions', model: 'llama3.1' },
+    ollama: { style: 'openai', endpoint: 'http://localhost:11434/v1/chat/completions', model: 'llama3.3' },
     lmstudio: { style: 'openai', endpoint: 'http://localhost:1234/v1/chat/completions', model: '' },
-    gemini: { style: 'openai', endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-2.0-flash' },
+    gemini: { style: 'openai', endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-flash-latest' },
     groq: { style: 'openai', endpoint: 'https://api.groq.com/openai/v1/chat/completions', model: 'llama-3.3-70b-versatile' },
     anthropic: { style: 'anthropic', endpoint: '', model: 'claude-opus-4-8' },
   };
