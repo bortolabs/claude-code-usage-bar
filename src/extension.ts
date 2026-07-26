@@ -379,6 +379,10 @@ export function activate(context: vscode.ExtensionContext) {
   // Alimentam o card "Contexto" (usado/janela). null = sem dado fresco do transcript.
   let currentContextTokens: number | null = null;
   let currentContextWindow: number | null = null;
+  // A leitura acima foi restrita ao projeto desta janela? Se sim, NÃO caímos na
+  // statusline (arquivo único da máquina) quando o projeto não tem sessão — seria
+  // exibir o contexto de outro projeto, exatamente o que o escopo evita.
+  let contextScoped = false;
   // Histórico diário (sparkline). Atualizado num intervalo mais folgado.
   let lastDaily: CcusageDaily[] = [];
   // Estatísticas locais dos transcripts (custo por modelo etc.) do bloco de 5h.
@@ -631,17 +635,25 @@ export function activate(context: vscode.ExtensionContext) {
     }
     // Modelo + contexto atuais vêm do transcript (o ccusage mistura modelos do
     // bloco; e o contexto da statusline pode estar velho no app/IDE).
-    const turn = readCurrentTurn();
-    if (turn.model) {
+    // ESCOPO: restrito ao(s) projeto(s) desta janela — com 2 janelas em projetos
+    // diferentes, ambas exibiam o contexto da sessão que gravou por último.
+    const turn = readCurrentTurn(
+      vscode.workspace.workspaceFolders?.map((f) => f.uri.fsPath)
+    );
+    // Com escopo, um retorno vazio é INFORMAÇÃO ("este projeto não tem sessão") e
+    // precisa zerar o estado, senão o valor velho fica grudado na tela. Sem escopo
+    // segue o comportamento antigo: só sobrescreve quando há dado novo.
+    if (turn.model || turn.scoped) {
       currentModel = turn.model;
     }
-    if (turn.contextPct != null) {
+    if (turn.contextPct != null || turn.scoped) {
       currentContextPct = turn.contextPct;
     }
-    if (turn.contextTokens != null) {
+    if (turn.contextTokens != null || turn.scoped) {
       currentContextTokens = turn.contextTokens;
       currentContextWindow = turn.contextWindow;
     }
+    contextScoped = turn.scoped;
     render();
   };
 
@@ -1372,8 +1384,12 @@ export function activate(context: vscode.ExtensionContext) {
     // modelo), que funciona no app/IDE; cai pra statusline só se fresca. Assim
     // não congela mais num valor velho (ex.: "6%" de 47h atrás) quando a
     // statusline está parada.
+    // A statusline é um arquivo ÚNICO da máquina: quando a leitura do transcript
+    // está escopada no projeto desta janela, ela não serve de fallback (traria o
+    // contexto de outro projeto). Sem escopo, continua valendo.
+    const ctxFallback = !contextScoped && fresh;
     const ctxPct =
-      currentContextPct != null ? currentContextPct : fresh ? ctxPctOf(s) : null;
+      currentContextPct != null ? currentContextPct : ctxFallback ? ctxPctOf(s) : null;
     // Tokens/janela do contexto (card "Contexto"): mesma prioridade do ctxPct —
     // transcript ao vivo; senão a statusline (usado = input+output, janela = size).
     let ctxTokens: number | null = null;
@@ -1381,7 +1397,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (currentContextTokens != null && currentContextWindow) {
       ctxTokens = currentContextTokens;
       ctxWindow = currentContextWindow;
-    } else if (fresh && s?.context?.size && s.context.size > 0) {
+    } else if (ctxFallback && s?.context?.size && s.context.size > 0) {
       const used = (s.context.input ?? 0) + (s.context.output ?? 0);
       if (used > 0) {
         ctxTokens = used;

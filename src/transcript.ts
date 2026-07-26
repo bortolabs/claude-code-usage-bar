@@ -11,6 +11,32 @@ export interface CurrentTurn {
   contextTokens: number | null;
   /** Janela de contexto do modelo (tokens), ou null se desconhecido. */
   contextWindow: number | null;
+  /**
+   * A busca foi RESTRITA ao(s) projeto(s) do workspace? Quando true, um retorno
+   * vazio significa "este projeto não tem transcript" — e quem consome NÃO deve
+   * cair em fontes globais (statusline), sob pena de exibir o número de outro
+   * projeto, que é justamente o que o escopo existe para evitar.
+   */
+  scoped: boolean;
+}
+
+const EMPTY: Omit<CurrentTurn, "scoped"> = {
+  model: null,
+  contextPct: null,
+  contextTokens: null,
+  contextWindow: null,
+};
+
+/**
+ * Nome da pasta de transcript correspondente a um caminho de workspace. O Claude
+ * Code monta o diretório em `~/.claude/projects/` trocando cada caractere não
+ * alfanumérico do `cwd` por `-` (`/Users/me/meu-app` → `-Users-me-meu-app`).
+ *
+ * O mapeamento é LOSSY (`my-app` e `my.app` geram o mesmo slug), por isso quem usa
+ * confere depois a `cwd` gravada dentro do arquivo escolhido.
+ */
+export function projectSlug(fsPath: string): string {
+  return fsPath.replace(/[^A-Za-z0-9]/g, "-");
 }
 
 /**
@@ -19,18 +45,69 @@ export interface CurrentTurn {
  * mistura vários (opus, haiku de subagentes…); o transcript reflete o turno
  * corrente. O **contexto** vem dos tokens do último turno (input + cache) sobre a
  * janela do modelo — assim funciona no app/IDE sem depender da statusline.
+ *
+ * ESCOPO POR PROJETO: com `workspacePaths`, só olha os transcripts do(s) projeto(s)
+ * daquele workspace. Sem isso, duas janelas do VS Code abertas em projetos
+ * diferentes mostravam AMBAS o mesmo contexto — o da sessão que gravou por último,
+ * fosse ela de qual projeto fosse. Sem `workspacePaths` (janela sem pasta aberta),
+ * mantém o comportamento global.
  */
-export function readCurrentTurn(): CurrentTurn {
+export function readCurrentTurn(workspacePaths?: string[]): CurrentTurn {
   try {
     const root = path.join(os.homedir(), ".claude", "projects");
-    const latest = mostRecentJsonl(root);
-    if (!latest) {
-      return { model: null, contextPct: null, contextTokens: null, contextWindow: null };
+    const paths = (workspacePaths ?? []).filter((p) => !!p);
+    if (paths.length > 0) {
+      const turn = mostRecentInProjects(root, paths);
+      return { ...(turn ?? EMPTY), scoped: true };
     }
-    return lastTurnInFile(latest);
+    const latest = mostRecentJsonl(root);
+    return { ...(latest ? lastTurnInFile(latest) : EMPTY), scoped: false };
   } catch {
-    return { model: null, contextPct: null, contextTokens: null, contextWindow: null };
+    return { ...EMPTY, scoped: (workspacePaths ?? []).length > 0 };
   }
+}
+
+/**
+ * Turno mais recente entre os projetos do workspace (multi-root: pega a sessão mais
+ * recente entre todas as pastas). Percorre os candidatos do mais novo pro mais velho
+ * e aceita o primeiro cuja `cwd` case com o workspace — assim uma colisão de slug
+ * não faz a janela exibir o contexto do projeto errado.
+ */
+function mostRecentInProjects(
+  root: string,
+  workspacePaths: string[]
+): Omit<CurrentTurn, "scoped"> | null {
+  const wanted = new Set(workspacePaths);
+  const candidates: { file: string; mtime: number }[] = [];
+  for (const wp of workspacePaths) {
+    const dir = path.join(root, projectSlug(wp));
+    let files: string[];
+    try {
+      files = fs.readdirSync(dir).filter((f) => f.endsWith(".jsonl"));
+    } catch {
+      continue; // projeto sem transcript
+    }
+    for (const f of files) {
+      const full = path.join(dir, f);
+      try {
+        candidates.push({ file: full, mtime: fs.statSync(full).mtimeMs });
+      } catch {
+        // ignora
+      }
+    }
+  }
+  candidates.sort((a, b) => b.mtime - a.mtime);
+  for (const c of candidates) {
+    const turn = lastTurnInFile(c.file);
+    // `cwd` ausente (formato antigo) não invalida: o slug já apontou pra cá.
+    if (turn.cwd && !wanted.has(turn.cwd)) {
+      continue;
+    }
+    if (turn.model !== null || turn.contextTokens !== null) {
+      return turn;
+    }
+  }
+  return null;
 }
 
 /** Janela de contexto (tokens) por modelo. Haiku = 200k; demais 4.x = 1M. */
@@ -119,23 +196,30 @@ function mostRecentJsonl(root: string): string | null {
   return best?.file ?? null;
 }
 
+/** Igual ao CurrentTurn, mais a `cwd` do turno (p/ conferir o projeto). */
+interface TurnInFile extends Omit<CurrentTurn, "scoped"> {
+  /** `cwd` gravada no transcript, quando presente. */
+  cwd: string | null;
+}
+
 /**
  * Lê o arquivo de trás pra frente e retorna o último modelo válido + a % de
  * contexto do último turno da CONVERSA PRINCIPAL (ignora sidechains/subagentes).
  * Modelo e contexto podem vir de linhas diferentes; para no primeiro de cada.
  */
-function lastTurnInFile(file: string): CurrentTurn {
+function lastTurnInFile(file: string): TurnInFile {
   let content: string;
   try {
     content = fs.readFileSync(file, "utf8");
   } catch {
-    return { model: null, contextPct: null, contextTokens: null, contextWindow: null };
+    return { ...EMPTY, cwd: null };
   }
   const lines = content.trimEnd().split("\n");
   let model: string | null = null;
   let contextPct: number | null = null;
   let contextTokens: number | null = null;
   let contextWindow: number | null = null;
+  let cwd: string | null = null;
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i];
     if (!line || line.indexOf('"model"') === -1) {
@@ -152,6 +236,9 @@ function lastTurnInFile(file: string): CurrentTurn {
     if (!valid) {
       continue;
     }
+    if (cwd === null && typeof o?.cwd === "string" && o.cwd) {
+      cwd = o.cwd;
+    }
     if (model === null) {
       model = m;
     }
@@ -167,9 +254,9 @@ function lastTurnInFile(file: string): CurrentTurn {
         }
       }
     }
-    if (model !== null && contextPct !== null) {
+    if (model !== null && contextPct !== null && cwd !== null) {
       break;
     }
   }
-  return { model, contextPct, contextTokens, contextWindow };
+  return { model, contextPct, contextTokens, contextWindow, cwd };
 }

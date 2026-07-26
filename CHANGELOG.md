@@ -23,6 +23,28 @@ o custo, mas nunca contradiz o número oficial — e ela estava contradizendo.
   usados pelas anomalias e dicas. Numa medição de ponta a ponta, o dia fechou em **$59.93
   contra os $60.21 do ccusage** — 0,5% de diferença, no lugar de 3x.
 
+### 🪟 Contexto por projeto: cada janela mostra o seu (multi-projeto)
+
+Com duas janelas do VS Code abertas em projetos diferentes, **as duas mostravam o mesmo
+contexto** — o da sessão que gravou por último, fosse ela de qual projeto fosse. Quem
+trabalha em dois projetos ao mesmo tempo via o número do outro na própria tela.
+
+- **A causa.** A leitura do turno atual pegava o `.jsonl` mais recente de
+  `~/.claude/projects/` inteiro, sem relação com o workspace da janela. Agora a busca é
+  restrita aos transcripts do(s) projeto(s) daquela janela (multi-root incluído, pegando a
+  sessão mais recente entre as pastas). Vale para o card "Contexto" e para a linha "Modelo".
+- **Sem adivinhação.** A pasta do transcript é o `cwd` com cada caractere não alfanumérico
+  virando `-`, um mapeamento que **perde informação** (`my.app` e `my-app` dão o mesmo
+  nome). Por isso a `cwd` gravada dentro do arquivo escolhido é conferida contra o
+  workspace antes de o número ir pra tela.
+- **Projeto sem sessão → card escondido.** Em vez de exibir o contexto de outro projeto,
+  o card some. Pelo mesmo motivo, quando há escopo a statusline (`~/.claude/usage-state.json`,
+  arquivo único da máquina) deixa de servir de fallback para o contexto.
+- **Janela sem pasta aberta** continua no comportamento global de antes.
+- **Limitação:** o export JSON é um arquivo único. Com duas janelas, cada uma passa a
+  gravar o contexto do **seu** projeto no mesmo caminho, alternadamente — quem consome o
+  export em multi-projeto deve apontar `exportStatePath` para caminhos distintos.
+
 ### 🔔 Aviso de versão nova
 
 O publisher está bloqueado no VS Code Marketplace, então o release sai no **Open VSX** +
@@ -36,7 +58,7 @@ estava nesse caminho ficava preso na versão instalada sem saber que havia novid
   atrasa a ativação. Botão "Não avisar mais" e o setting **`updateCheckEnabled`** (aba
   Config → Status) desligam de vez.
 
-Suíte de testes: 132 → **144**.
+Suíte de testes: 132 → **151**.
 
 ## 0.40.0
 
