@@ -37,4 +37,6 @@ bloqueado pela Microsoft). Branch principal: `master`.
 
 ## Commits
 
-Fechar com: `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
+Fechar com o trailer do **modelo da sessão**, não de um modelo fixo:
+`Co-Authored-By: Claude <Modelo> (1M context) <noreply@anthropic.com>`.
+Ex. na sessão atual: `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`.
