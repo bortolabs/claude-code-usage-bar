@@ -49,14 +49,19 @@ uso/cota/custo do Claude Code, lendo transcripts locais (`~/.claude/projects/`) 
 5. **Contexto/modelo são do projeto da janela**, cota e custo são da conta. Fontes globais
    (statusline) não podem vazar para um valor escopado por projeto.
 
-## Adicionar um setting: 4 lugares
+## Adicionar um setting: 5 lugares
 
-Esquecer um deles produz um setting que existe mas não aparece (ou aparece vazio) na aba Config:
+Esquecer um deles produz um setting que existe mas não aparece (ou aparece vazio) na aba
+Config — ou que ninguém descobre, porque não está documentado:
 
 1. `package.json` → `contributes.configuration.properties` (com `%config.<key>.desc%`)
 2. `package.nls.json` + as 4 traduções → texto de `config.<key>.desc`
 3. `panel.ts` → rótulo em `L.cfg.<key>` **e** o item na seção correspondente da aba Config
 4. `extension.ts` → `SETTING_DEFAULTS` **e** a lista de chaves em `collectSettings`
+5. `README.md` **e** `README.pt-BR.md` → linha na tabela do grupo correspondente. Os grupos
+   dos READMEs espelham o `SETTINGS_SCHEMA` do `panel.ts`, então é o mesmo grupo do passo 3.
+   Reuse o texto do passo 2 em vez de escrever descrição nova. `test/settingsDocs.test.ts`
+   quebra a CI se faltar (ou se os dois READMEs divergirem entre si).
 
 ## Build/test
 

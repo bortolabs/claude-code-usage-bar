@@ -6,8 +6,6 @@
 
 **🌐 Language / Idioma:** **English** · [Português (Brasil)](https://github.com/bortolabs/claude-code-usage-bar/blob/master/README.pt-BR.md)
 
-> 🎉 **1,300+ downloads** on Open VSX — thanks to everyone using it! 🙏
-
 > ⚠️ **Community extension — unofficial.** Not affiliated with, endorsed by, or sponsored by **Anthropic**.
 > "Claude" and "Claude Code" are trademarks of Anthropic, used here only for reference/interoperability.
 
@@ -318,50 +316,132 @@ there's a reset, **how long until the window turns over** — with **"Open panel
 > **Language** is not a `settings.json` key: switch it with the flags under **Config →
 > Language** (stored per machine, so the flags persist).
 
+The groups below are the same ones you see in the **Config** tab of the panel, in the same
+order — if you found a setting there, it is under the matching heading here.
+
+### Source and refresh
+
 | Setting | Default | Description |
 | --- | --- | --- |
-| `claudeUsageBar.ccusageCommand` | `npx -y ccusage@latest blocks --active --json` | ccusage command. Point it at a global binary to avoid npx latency. |
-| `claudeUsageBar.ccusageRefreshSeconds` | `60` | How often ccusage refreshes. |
 | `claudeUsageBar.useOAuthUsage` | `true` | Use `api/oauth/usage` (real quota, same as `/usage`) as the primary source. |
 | `claudeUsageBar.oauthRefreshSeconds` | `60` | How often the oauth/usage endpoint is queried. |
+| `claudeUsageBar.ccusageCommand` | `npx -y ccusage@latest blocks --active --json` | ccusage command. Point it at a global binary to avoid npx latency. |
+| `claudeUsageBar.ccusageRefreshSeconds` | `60` | How often ccusage refreshes. |
+| `claudeUsageBar.stateFilePath` | `~/.claude/usage-state.json` | Path to the statusline file. |
+| `claudeUsageBar.staleAfterSeconds` | `900` | Window during which statusline data is considered fresh. |
+
+### Account and limits
+
+| Setting | Default | Description |
+| --- | --- | --- |
 | `claudeUsageBar.accountType` | `auto` | `subscription` (cost = reference, no cap/alert) or `api` (real cost). `auto` = subscription. |
 | `claudeUsageBar.mode` | `auto` | `auto` picks the source; `subscriber` forces 5h/7d limits; `cost` forces cost. |
-| `claudeUsageBar.barStyle` | `ring` | Status bar style: `ring`, `bar`, `number` or `icon`. |
-| `claudeUsageBar.statusBarValue` | `quota` | What the number shows: `quota` (quota/time), `today` (today's cost `$`) or `session` (5h block cost `$`). |
 | `claudeUsageBar.costCapUsd` | `5` | Cost cap (USD) used to color the indicator. `0` disables it. |
 | `claudeUsageBar.monthlyBudgetUsd` | `0` | Monthly budget (USD). `>0` enables the budget bar and the alert (month/projection). `0` disables it. |
 | `claudeUsageBar.monthlyBudgetAlertEnabled` | `true` | Monthly budget alert. Off by default on a subscription. |
 | `claudeUsageBar.insightsEnabled` | `true` | Analyze local transcripts for cost per model. Turn off to skip the disk reads. |
-| `claudeUsageBar.costWindow` | `5h` | Window for the **breakdowns** in the Costs tab: `5h`/`today`/`7d`/`30d` (also adjustable via the selector in the tab). |
+| `claudeUsageBar.sessionTokenCap` | `0` | Token cap per 5h session (e.g. `150000000`). Projects the token overrun at the current pace. `0` disables it. |
+| `claudeUsageBar.intenseTokensPerMin` | `50000` | Tokens/min pace that counts as 100% in the projection color (subscription in the app). |
+
+### Appearance
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `claudeUsageBar.ringTheme` | `semaforo` | Ring color: `semaforo` (traffic light), `claude` (orange), `mono`/`custom` (your own color). Critical is always red. |
+| `claudeUsageBar.ringColor` | `#4caf78` | Hex color used when `ringTheme` is `mono`/`custom`. |
+| `claudeUsageBar.statusBarValue` | `quota` | What the number shows: `quota` (quota/time), `today` (today's cost `$`) or `session` (5h block cost `$`). |
+| `claudeUsageBar.alignment` | `right` | Status bar side (`right`/`left`). |
+| `claudeUsageBar.priority` | `100` | Item priority. |
+
+### Alerts and colors
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `claudeUsageBar.burnRateAlertEnabled` | `true` | Enables/disables the burn rate alert (overrun projection). |
+| `claudeUsageBar.burnRateMaxPerHour` | `20` | Pace alert: `$/h` above this fires (on a subscription, only if set). |
+| `claudeUsageBar.alertCooldownMinutes` | `15` | Minimum time between alert notifications. |
+| `claudeUsageBar.colorByProjection` | `true` | Color by overrun projection (worst of current and projected). |
+| `claudeUsageBar.resetWarningMinutes` | `10` | Warns when this much time is left before the 5h session reset. `0` disables it. |
+| `claudeUsageBar.lowQuotaThreshold` | `15` | Warns when less than this % of quota is left (5h or 7d), real quota only. `0` disables it. |
+| `claudeUsageBar.blockSummaryEnabled` | `true` | Shows a consumption summary when the 5h session closes. |
+| `claudeUsageBar.warnThreshold` | `60` | % from which it turns yellow. |
+| `claudeUsageBar.errorThreshold` | `85` | % from which it turns red. |
+
+### Copilot & history
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `claudeUsageBar.advisorEnabled` | `true` | Quota copilot: local advice on the Session tab (Opus→Sonnet switch, what fits until reset, best window). No LLM, no network. |
+| `claudeUsageBar.advisorNotifyEnabled` | `false` | Native copilot notification (model-switch suggestion only). Off by default. |
+| `claudeUsageBar.advisorCooldownHours` | `6` | Minimum interval (hours) between copilot notifications. |
+| `claudeUsageBar.tokenGoalFiveHour` | `0` | Personal token goal per 5h window (`0` = off). Shows a progress bar and a copilot notice when exceeded. |
+| `claudeUsageBar.tokenGoalDaily` | `0` | Personal token goal per day (`0` = off). Shows a progress bar and a copilot notice when exceeded. |
+| `claudeUsageBar.historyEnabled` | `true` | Keeps a local usage history (per day/hour) that survives Claude Code transcript cleanup — powers the dashboard heatmap and comparisons. |
+| `claudeUsageBar.historyRetentionDays` | `365` | Days of local history to keep (minimum 7). |
+| `claudeUsageBar.weeklySummaryEnabled` | `false` | Weekly notification (Mondays) with the week's cost/tokens vs the previous one. |
+
+### Cost tips
+
+| Setting | Default | Description |
+| --- | --- | --- |
 | `claudeUsageBar.tipsContextBigPct` | `25` | Context tip: warns when turns `>150k` account for ≥ this % of the cost. |
 | `claudeUsageBar.tipsCacheReadPct` | `70` | Cache tip: warns when re-reads (cache-read) exceed this % of the input. |
 | `claudeUsageBar.tipsOpusPct` | `70` | Model tip: warns when Opus concentrates ≥ this % of the cost. |
 | `claudeUsageBar.tipsMcpCalls` | `40` | MCP tip: warns when an MCP server exceeds this number of calls. |
 | `claudeUsageBar.tipsSubagentPct` | `40` | Subagent tip: warns when they add up to ≥ this % of the cost. |
-| `claudeUsageBar.stateFilePath` | `~/.claude/usage-state.json` | Path to the statusline file. |
-| `claudeUsageBar.warnThreshold` | `60` | % from which it turns yellow. |
-| `claudeUsageBar.errorThreshold` | `85` | % from which it turns red. |
-| `claudeUsageBar.alignment` | `right` | Status bar side (`right`/`left`). |
-| `claudeUsageBar.priority` | `100` | Item priority. |
-| `claudeUsageBar.colorByProjection` | `true` | Color by overrun projection (worst of current and projected). |
-| `claudeUsageBar.intenseTokensPerMin` | `50000` | Tokens/min pace that counts as 100% in the projection color (subscription in the app). |
-| `claudeUsageBar.sessionTokenCap` | `0` | Token cap per 5h session (e.g. `150000000`). Projects the token overrun at the current pace. `0` disables it. |
-| `claudeUsageBar.resetWarningMinutes` | `10` | Warns when this much time is left before the 5h session reset. `0` disables it. |
-| `claudeUsageBar.lowQuotaThreshold` | `15` | Warns when less than this % of quota is left (5h or 7d), real quota only. `0` disables it. |
-| `claudeUsageBar.burnRateAlertEnabled` | `true` | Enables/disables the burn rate alert (overrun projection). |
-| `claudeUsageBar.burnRateMaxPerHour` | `20` | Pace alert: `$/h` above this fires (on a subscription, only if set). |
-| `claudeUsageBar.alertCooldownMinutes` | `15` | Minimum time between alert notifications. |
-| `claudeUsageBar.ringTheme` | `semaforo` | Ring color: `semaforo` (traffic light), `claude` (orange), `mono`/`custom` (your own color). Critical is always red. |
-| `claudeUsageBar.ringColor` | `#4caf78` | Hex color used when `ringTheme` is `mono`/`custom`. |
-| `claudeUsageBar.blockSummaryEnabled` | `true` | Shows a consumption summary when the 5h session closes. |
+
+### Anomalies (waste)
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `claudeUsageBar.anomalyDetectionEnabled` | `true` | Turns on the anomaly/waste detector (tool loop, inflated context, low cache hit, MCP spike). Shows up as a card in the panel and a section in the dashboard. |
+| `claudeUsageBar.anomalyNotifyEnabled` | `false` | Notify with a native alert when there's a **critical** anomaly (e.g. tool loop). Off by default; re-arms itself per window. |
+| `claudeUsageBar.anomalyCacheHitMinPct` | `50` | Cache anomaly: warns when the **cache hit rate** falls below this %. |
+| `claudeUsageBar.anomalyMcpCallsMax` | `60` | MCP anomaly: warns when an MCP server is called **more than** this many times in the window (above the cost tip, which is 40). |
+| `claudeUsageBar.anomalyCtxInflatedTurns` | `3` | Context anomaly: warns when there are **at least** this many turns with context above 200k. |
+| `claudeUsageBar.anomalyToolLoopK` | `5` | Loop anomaly: warns when the **same tool call** repeats this many times in a row within a turn. |
+
+### Anthropic status
+
+| Setting | Default | Description |
+| --- | --- | --- |
 | `claudeUsageBar.statusCheckEnabled` | `true` | Monitors Anthropic status (`status.claude.com`) and shows the Status tab. |
 | `claudeUsageBar.statusBadgeEnabled` | `true` | ☁ badge in the status bar during an incident. |
 | `claudeUsageBar.statusNotifyEnabled` | `true` | Notifies (once per incident) about new issues in the Anthropic ecosystem. |
 | `claudeUsageBar.statusRefreshSeconds` | `300` | How often status.claude.com is queried. |
 | `claudeUsageBar.updateCheckEnabled` | `true` | Notifies when a new version is published on Open VSX (checks at most once a day). Especially useful if you installed from the `.vsix`, which never auto-updates. |
-| `claudeUsageBar.staleAfterSeconds` | `900` | Window during which statusline data is considered fresh. |
+
+### AI advice (AI coaching)
+
+Opt-in and BYO key — see **AI advice — which key to use** above for ready-made presets. The
+API key itself lives in VS Code's secure store (SecretStorage), never in a setting.
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `claudeUsageBar.aiAdviceApiStyle` | `anthropic` | AI advice API style: `anthropic` (`/v1/messages`) or `openai` (compatible). |
+| `claudeUsageBar.aiAdviceEndpoint` | `""` | AI advice endpoint (empty = Anthropic `/v1/messages`). |
+| `claudeUsageBar.aiAdviceModel` | `""` | AI advice model (empty = `claude-opus-4-8`). |
+| `claudeUsageBar.aiAdvicePromptWindowDays` | `30` | AI advice: window (days) to sample your prompts. |
+| `claudeUsageBar.aiAdviceMaxPrompts` | `40` | AI advice: maximum number of sampled prompts. |
+
+### Export usage (for agents/scripts)
+
+| Setting | Default | Description |
+| --- | --- | --- |
 | `claudeUsageBar.exportStateEnabled` | `true` | Write the usage file for agents/scripts. |
 | `claudeUsageBar.exportStatePath` | `""` | Export path (empty = `~/.claude/usage-bar.json`). |
+
+### Panel & dashboard
+
+These four have no row in the Config tab — you change them straight from the UI (the window
+selector in each tab, the status bar style command). They are still plain settings.
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `claudeUsageBar.barStyle` | `ring` | Status bar style: `ring`, `bar`, `number` or `icon`. |
+| `claudeUsageBar.costWindow` | `5h` | Window for the **breakdowns** in the Costs tab: `5h`/`today`/`7d`/`30d` (also adjustable via the selector in the tab). |
+| `claudeUsageBar.dashboardWindow` | `today` | Analytics dashboard window (Today/Week/Month/All). |
+| `claudeUsageBar.tooltipDetail` | `full` | Detail level of the status-bar **hover card**. `full` = rate limits + usage/tokens/models for the active window; `compact` = rate limits + link only. |
 
 ## Usage export (for agents/scripts)
 
