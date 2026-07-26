@@ -6,3 +6,12 @@ out/
 .rtk/
 .vexp/
 .claude/settings.local.json
+
+# Config de tooling local do mantenedor (vexp): caminhos absolutos desta máquina e
+# instruções para ferramentas que um contribuidor não tem. O que é compartilhável
+# mora no CLAUDE.md da raiz; hooks pessoais, no .claude/settings.local.json acima.
+.claude/CLAUDE.md
+.claude/hooks/
+.github/copilot-instructions.md
+.vscode/mcp.json
+.vscode/settings.json
