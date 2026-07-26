@@ -373,5 +373,8 @@
   "confirma o risco": "confirms the risk",
   "No seu padrão de uso: ~{0}% no reset — {1}": "By your usage pattern: ~{0}% at reset — {1}",
   "Melhor horário p/ tarefa pesada: {0} {1}h": "Best time for heavy work: {0} {1}h",
-  "Sua hora historicamente mais leve nas próximas 12h.": "Your historically lightest hour in the next 12h."
+  "Sua hora historicamente mais leve nas próximas 12h.": "Your historically lightest hour in the next 12h.",
+  "Ver release": "View release",
+  "Não avisar mais": "Don't notify again",
+  "Claude Usage: versão {0} disponível (você está na {1}).": "Claude Usage: version {0} available (you are on {1})."
 }

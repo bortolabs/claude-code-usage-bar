@@ -373,5 +373,8 @@
   "confirma o risco": "bestätigt das Risiko",
   "No seu padrão de uso: ~{0}% no reset — {1}": "Nach deinem Nutzungsmuster: ~{0}% beim Reset — {1}",
   "Melhor horário p/ tarefa pesada: {0} {1}h": "Beste Zeit für schwere Arbeit: {0} {1} Uhr",
-  "Sua hora historicamente mais leve nas próximas 12h.": "Deine historisch leichteste Stunde in den nächsten 12 Std."
+  "Sua hora historicamente mais leve nas próximas 12h.": "Deine historisch leichteste Stunde in den nächsten 12 Std.",
+  "Ver release": "Release ansehen",
+  "Não avisar mais": "Nicht mehr melden",
+  "Claude Usage: versão {0} disponível (você está na {1}).": "Claude Usage: Version {0} verfügbar (Sie haben {1})."
 }

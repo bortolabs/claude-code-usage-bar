@@ -43,6 +43,7 @@ import {
 } from "./anomalies";
 import { runAiAdvice, setAiAdviceKey } from "./aiAdvice";
 import { fetchStatus, StatusResult, StatusData, hasIssue } from "./status";
+import { fetchLatestVersion, isNewer, RELEASES_URL } from "./updateCheck";
 import { initI18n, setLang, tr } from "./i18n";
 import { evaluateAdvice, suppressUnderBurnRate, Advice } from "./advisor";
 import { lightestUpcomingHour } from "./core/forecast";
@@ -985,6 +986,55 @@ export function activate(context: vscode.ExtensionContext) {
     // rebuild remonta o webview — a aba Config tem guard anti-re-render e só
     // assim o estado novo aparece na hora.
     viewProvider.rebuild();
+  };
+
+  // ── Aviso de versão nova (Open VSX) ───────────────────────────────────────
+  // Quem instalou pelo `.vsix` da GitHub Release (VS Code da Microsoft, onde o
+  // publisher está bloqueado) NUNCA recebe atualização automática nem aviso.
+  // Uma checagem por dia resolve isso; falha em silêncio se estiver offline.
+  const UPDATE_LAST_CHECK_KEY = "updateLastCheckMs";
+  const UPDATE_NOTIFIED_KEY = "updateNotifiedVersion";
+  const UPDATE_OPT_OUT_KEY = "updateNotifyOptOut";
+  const UPDATE_CHECK_INTERVAL_MS = 24 * 3600 * 1000;
+
+  const checkForUpdate = async () => {
+    if (!(cfg().get<boolean>("updateCheckEnabled") ?? true)) {
+      return;
+    }
+    if (context.globalState.get<boolean>(UPDATE_OPT_OUT_KEY) === true) {
+      return;
+    }
+    const last = context.globalState.get<number>(UPDATE_LAST_CHECK_KEY) ?? 0;
+    if (Date.now() - last < UPDATE_CHECK_INTERVAL_MS) {
+      return;
+    }
+    await context.globalState.update(UPDATE_LAST_CHECK_KEY, Date.now());
+    const current: string =
+      (context.extension &&
+        context.extension.packageJSON &&
+        context.extension.packageJSON.version) ||
+      "";
+    const latest = await fetchLatestVersion();
+    if (!latest || !isNewer(latest, current)) {
+      return;
+    }
+    // Não repete o aviso da MESMA versão a cada dia.
+    if (context.globalState.get<string>(UPDATE_NOTIFIED_KEY) === latest) {
+      return;
+    }
+    await context.globalState.update(UPDATE_NOTIFIED_KEY, latest);
+    const btnRelease = tr("Ver release");
+    const btnNever = tr("Não avisar mais");
+    const choice = await vscode.window.showInformationMessage(
+      tr("Claude Usage: versão {0} disponível (você está na {1}).", latest, current),
+      btnRelease,
+      btnNever
+    );
+    if (choice === btnRelease) {
+      vscode.env.openExternal(vscode.Uri.parse(RELEASES_URL));
+    } else if (choice === btnNever) {
+      await context.globalState.update(UPDATE_OPT_OUT_KEY, true);
+    }
   };
 
   const refreshOAuth = async () => {
@@ -2595,7 +2645,8 @@ export function activate(context: vscode.ExtensionContext) {
     alertCooldownMinutes: 15, colorByProjection: true, resetWarningMinutes: 10,
     blockSummaryEnabled: true, warnThreshold: 60, errorThreshold: 85,
     lowQuotaThreshold: 15, statusCheckEnabled: true, statusBadgeEnabled: true,
-    statusNotifyEnabled: true, statusRefreshSeconds: 300, exportStateEnabled: true,
+    statusNotifyEnabled: true, statusRefreshSeconds: 300, updateCheckEnabled: true,
+    exportStateEnabled: true,
     tooltipDetail: "full",
     advisorEnabled: true, advisorNotifyEnabled: false, advisorCooldownHours: 6,
     tokenGoalFiveHour: 0, tokenGoalDaily: 0,
@@ -2620,7 +2671,8 @@ export function activate(context: vscode.ExtensionContext) {
       "blockSummaryEnabled", "warnThreshold", "errorThreshold",
       "lowQuotaThreshold",
       "statusCheckEnabled", "statusBadgeEnabled", "statusNotifyEnabled",
-      "statusRefreshSeconds", "exportStateEnabled", "exportStatePath",
+      "statusRefreshSeconds", "updateCheckEnabled",
+      "exportStateEnabled", "exportStatePath",
       "advisorEnabled", "advisorNotifyEnabled", "advisorCooldownHours",
       "tokenGoalFiveHour", "tokenGoalDaily",
       "historyEnabled", "historyRetentionDays", "weeklySummaryEnabled",
@@ -3031,6 +3083,11 @@ export function activate(context: vscode.ExtensionContext) {
   ) {
     void requestOauthConsent(false);
   }
+
+  // Aviso de versão nova: adiado pra não competir com o startup, e sem `await` —
+  // se a rede estiver fora, `fetchLatestVersion` devolve null e nada acontece.
+  const updateTimer = setTimeout(() => void checkForUpdate(), 30_000);
+  context.subscriptions.push({ dispose: () => clearTimeout(updateTimer) });
 }
 
 export function deactivate() {

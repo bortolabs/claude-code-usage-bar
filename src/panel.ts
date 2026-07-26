@@ -266,6 +266,7 @@ function panelStrings() {
       statusBadgeEnabled: tr("Badge na status bar"),
       statusNotifyEnabled: tr("Notificar incidentes"),
       statusRefreshSeconds: tr("Atualizar status (s)"),
+      updateCheckEnabled: tr("Avisar sobre versão nova"),
       exportStateEnabled: tr("Gravar uso em arquivo JSON"),
       exportStatePath: tr("Caminho do arquivo (vazio = padrão)"),
       exportHelp: tr("JSON com seu uso atual (cota restante, fonte), atualizado sempre — pra um agente/script ler e, por ex., parar quando a cota ficar baixa."),
@@ -727,6 +728,7 @@ function panelHtml(opts?: {
       { key: 'statusBadgeEnabled', label: L.cfg.statusBadgeEnabled, type: 'bool' },
       { key: 'statusNotifyEnabled', label: L.cfg.statusNotifyEnabled, type: 'bool' },
       { key: 'statusRefreshSeconds', label: L.cfg.statusRefreshSeconds, type: 'number' },
+      { key: 'updateCheckEnabled', label: L.cfg.updateCheckEnabled, type: 'bool' },
     ]},
     { id: 'export', section: L.sec.export, help: L.cfg.exportHelp, items: [
       { key: 'exportStateEnabled', label: L.cfg.exportStateEnabled, type: 'bool' },

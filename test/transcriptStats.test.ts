@@ -29,12 +29,17 @@ const turn = (over: {
   isSidechain?: boolean;
   usage?: Record<string, number>;
   content?: unknown[];
+  /** Ids de deduplicação: só saem no JSON quando informados (transcripts antigos não têm). */
+  id?: string;
+  requestId?: string;
 }) =>
   line({
     timestamp: over.ts,
     cwd: over.cwd ?? "/Users/me/meu-projeto",
     isSidechain: over.isSidechain ?? false,
+    ...(over.requestId ? { requestId: over.requestId } : {}),
     message: {
+      ...(over.id ? { id: over.id } : {}),
       model: over.model ?? "claude-opus-4-8",
       usage: over.usage ?? {
         input_tokens: 1000,
@@ -43,6 +48,23 @@ const turn = (over: {
         cache_creation_input_tokens: 300,
       },
       content: over.content ?? [],
+    },
+  });
+
+/** Snapshot de streaming: mesmo turno, só o output cresce (input/cache constantes). */
+const snapshot = (ts: string, id: string, requestId: string, output: number, over: {
+  content?: unknown[];
+} = {}) =>
+  turn({
+    ts,
+    id,
+    requestId,
+    content: over.content,
+    usage: {
+      input_tokens: 1000,
+      output_tokens: output,
+      cache_read_input_tokens: 2000,
+      cache_creation_input_tokens: 300,
     },
   });
 
@@ -149,6 +171,87 @@ describe("readTranscriptStats", () => {
       "(built-in)",
       "commit-commands",
     ]);
+  });
+
+  // ── Deduplicação de snapshots de streaming ────────────────────────────────
+  // O Claude Code regrava o MESMO turno várias vezes enquanto ele é gerado
+  // (mesmo message.id + requestId, output_tokens crescendo). Sem dedup as
+  // quebras inflavam ~3x e contradiziam o número oficial do ccusage.
+
+  it("snapshots de streaming do mesmo turno contam UMA vez, com o output final", () => {
+    writeSession(
+      "-Users-me-meu-projeto",
+      "sessao-dedup",
+      snapshot(iso(0), "msg_1", "req_1", 1) +
+        snapshot(iso(0), "msg_1", "req_1", 10) +
+        snapshot(iso(0), "msg_1", "req_1", 500)
+    );
+    const s = readTranscriptStats(WIN_START, WIN_END);
+    expect(s.turns).toBe(1);
+    // Vale a ÚLTIMA linha (a completa): 1000 in + 500 out + 2000 cr + 300 cw.
+    expect(s.totalTokens).toBe(3800);
+    expect(s.tokenTotals.output).toBe(500);
+    expect(s.bySession[0].messages).toBe(1);
+  });
+
+  it("snapshots NÃO contíguos (intercalados com outros turnos) também colapsam", () => {
+    writeSession(
+      "-Users-me-meu-projeto",
+      "sessao-dedup-gap",
+      snapshot(iso(0), "msg_a", "req_a", 1) +
+        turn({ ts: iso(1), id: "msg_b", requestId: "req_b" }) +
+        turn({ ts: iso(2), id: "msg_c", requestId: "req_c" }) +
+        snapshot(iso(0), "msg_a", "req_a", 500)
+    );
+    const s = readTranscriptStats(WIN_START, WIN_END);
+    expect(s.turns).toBe(3);
+    expect(s.tokenTotals.output).toBe(500 + 500 + 500);
+  });
+
+  it("turnos sem message.id/requestId nunca são deduplicados", () => {
+    writeSession(
+      "-Users-me-meu-projeto",
+      "sessao-sem-id",
+      turn({ ts: iso(0) }) + turn({ ts: iso(0) })
+    );
+    const s = readTranscriptStats(WIN_START, WIN_END);
+    expect(s.turns).toBe(2);
+    expect(s.totalTokens).toBe(7600);
+  });
+
+  it("mesmo message.id com requestId diferente (retry) conta como dois turnos", () => {
+    writeSession(
+      "-Users-me-meu-projeto",
+      "sessao-retry",
+      turn({ ts: iso(0), id: "msg_x", requestId: "req_1" }) +
+        turn({ ts: iso(1), id: "msg_x", requestId: "req_2" })
+    );
+    const s = readTranscriptStats(WIN_START, WIN_END);
+    expect(s.turns).toBe(2);
+    expect(s.totalTokens).toBe(7600);
+  });
+
+  it("turno duplicado não infla os contadores de MCP/subagente", () => {
+    const content = [
+      { type: "tool_use", name: "mcp__supabase__execute_sql", input: {} },
+      { type: "tool_use", name: "Task", input: { subagent_type: "Explore" } },
+    ];
+    writeSession(
+      "-Users-me-meu-projeto",
+      "sessao-dedup-tools",
+      snapshot(iso(0), "msg_t", "req_t", 1, { content }) +
+        snapshot(iso(0), "msg_t", "req_t", 500, { content })
+    );
+    const s = readTranscriptStats(WIN_START, WIN_END);
+    expect(s.byMcpServer).toEqual([{ name: "supabase", calls: 1 }]);
+    expect(s.bySubagent).toEqual([{ name: "Explore", calls: 1 }]);
+  });
+
+  it("dedup é por arquivo: mesma chave em sessões distintas conta nas duas", () => {
+    writeSession("-Users-me-meu-projeto", "sessao-g1", turn({ ts: iso(0), id: "msg_s", requestId: "req_s" }));
+    writeSession("-Users-me-meu-projeto", "sessao-g2", turn({ ts: iso(0), id: "msg_s", requestId: "req_s" }));
+    const s = readTranscriptStats(WIN_START, WIN_END);
+    expect(s.turns).toBe(2);
   });
 
   it("subagents/agent-*.jsonl rola pra sessão-mãe", () => {

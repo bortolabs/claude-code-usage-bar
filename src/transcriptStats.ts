@@ -507,7 +507,36 @@ function sessionIdFor(full: string): string {
   return path.basename(full, ".jsonl");
 }
 
-/** Lê e processa UM arquivo (só no cache-miss), despachando cada turno pra onLine. */
+/**
+ * Chave de deduplicação de um turno (`message.id` + `requestId`), ou null quando o
+ * transcript não traz os dois ids — nesse caso o turno NUNCA é deduplicado (melhor
+ * contar de novo do que fundir turnos distintos sob uma chave vazia).
+ */
+function turnKey(o: any): string | null {
+  const id = o?.message?.id;
+  const rid = o?.requestId;
+  return typeof id === "string" && id && typeof rid === "string" && rid
+    ? id + "\u001f" + rid
+    : null;
+}
+
+/**
+ * Lê e processa UM arquivo (só no cache-miss), despachando cada turno pra onLine.
+ *
+ * DEDUPLICAÇÃO: o Claude Code grava SNAPSHOTS DE STREAMING do mesmo turno — várias
+ * linhas com o mesmo `message.id`+`requestId`, `input`/`cache_*` idênticos e
+ * `output_tokens` CRESCENDO até o valor final. Somar todas inflava as quebras em ~3x
+ * (contradizendo o número oficial do ccusage, que deduplica pela mesma chave).
+ *
+ * Fica valendo a ÚLTIMA ocorrência, que é a linha completa — ficar com a primeira
+ * perderia os tokens de output. Os snapshots não são necessariamente contíguos (há
+ * buracos de centenas de linhas), por isso a varredura em duas fases; e a dedup é
+ * POR ARQUIVO porque duplicata não cruza arquivo (medido em 40k turnos/30d).
+ *
+ * Como a linha superseded é descartada ANTES do dispatch, tudo que o `onLine` alimenta
+ * (totais, custo por modelo/projeto/branch/dia, contadores de MCP/subagente/skill e os
+ * sinais de anomalia) é corrigido de uma vez, sem precisar desfazer acumulação.
+ */
 function processFile(
   ref: FileRef,
   acc: Accum,
@@ -522,6 +551,10 @@ function processFile(
     return;
   }
   const sessionId = sessionIdFor(ref.full);
+  // Fase 1: parseia os turnos e anota, por chave, o índice da ÚLTIMA ocorrência.
+  const turns: any[] = [];
+  const keys: (string | null)[] = [];
+  const lastIdx = new Map<string, number>();
   for (const line of content.split("\n")) {
     // Fast-path: só linhas de turno (com usage) interessam.
     if (!line || line.indexOf('"usage"') === -1) {
@@ -533,7 +566,28 @@ function processFile(
     } catch {
       continue;
     }
-    onLine(acc, o, ref.dirName, sessionId, windowStartMs, windowEndMs, branchResolver);
+    const k = turnKey(o);
+    turns.push(o);
+    keys.push(k);
+    if (k) {
+      lastIdx.set(k, turns.length - 1);
+    }
+  }
+  // Fase 2: despacha na ordem original, pulando snapshots superados.
+  for (let i = 0; i < turns.length; i++) {
+    const k = keys[i];
+    if (k !== null && lastIdx.get(k) !== i) {
+      continue;
+    }
+    onLine(
+      acc,
+      turns[i],
+      ref.dirName,
+      sessionId,
+      windowStartMs,
+      windowEndMs,
+      branchResolver
+    );
   }
 }
 

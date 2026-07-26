@@ -2,7 +2,7 @@
   "name": "claude-code-usage-bar",
   "displayName": "Claude Code Usage & Status",
   "description": "%extension.description%",
-  "version": "0.40.0",
+  "version": "0.41.0",
   "publisher": "bortolabs",
   "sponsor": {
     "url": "https://github.com/sponsors/bortolabs"
@@ -440,6 +440,11 @@
           "default": 300,
           "minimum": 30,
           "description": "%config.statusRefreshSeconds.desc%"
+        },
+        "claudeUsageBar.updateCheckEnabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.updateCheckEnabled.desc%"
         },
         "claudeUsageBar.exportStateEnabled": {
           "type": "boolean",

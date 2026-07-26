@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.41.0
+
+### 🎯 Correção: as quebras de custo estavam infladas ~3x
+
+O card Custos mostrava "Hoje ~$45" (número oficial do ccusage) enquanto o card "Por branch",
+na mesma tela, somava ~$139. A regra da extensão sempre foi que a quebra local **atribui**
+o custo, mas nunca contradiz o número oficial — e ela estava contradizendo.
+
+- **A causa.** O Claude Code grava **snapshots de streaming** do mesmo turno no transcript:
+  várias linhas com o mesmo `message.id`+`requestId`, `input`/cache idênticos e
+  `output_tokens` crescendo até o valor final. A agregação somava cada snapshot como se
+  fosse um turno novo. Nos transcripts reais isso equivalia a **65% de tokens fantasma**.
+- **A correção.** Turnos repetidos passam a ser deduplicados por `message.id`+`requestId`,
+  ficando valendo a **última** ocorrência — a linha completa. Ficar com a primeira
+  perderia os tokens de output. Turnos sem esses ids (transcripts antigos) nunca são
+  deduplicados, e um mesmo `message.id` com `requestId` diferente (retry) segue contando
+  como duas cobranças, que é o que ele é.
+- **O que muda na prática.** Todos os números aproximados caem para o valor certo e passam
+  a bater com o ccusage: custo por modelo/projeto/branch/dia/hora/sessão, faixas de
+  contexto, composição por tipo de token, contadores de MCP/subagente/skill e os sinais
+  usados pelas anomalias e dicas. Numa medição de ponta a ponta, o dia fechou em **$59.93
+  contra os $60.21 do ccusage** — 0,5% de diferença, no lugar de 3x.
+
+### 🔔 Aviso de versão nova
+
+O publisher está bloqueado no VS Code Marketplace, então o release sai no **Open VSX** +
+`.vsix` na GitHub Release. O problema: o VS Code da Microsoft não consulta o Open VSX, e
+extensão instalada por `.vsix` é sideloaded — **nunca** atualiza sozinha nem avisa. Quem
+estava nesse caminho ficava preso na versão instalada sem saber que havia novidade.
+
+- Uma checagem por dia (no máximo) em `open-vsx.org` compara a versão publicada com a
+  instalada e, se houver uma nova, mostra uma notificação com "Ver release".
+- GET anônimo, sem token e sem telemetria; falha em silêncio se estiver offline e nunca
+  atrasa a ativação. Botão "Não avisar mais" e o setting **`updateCheckEnabled`** (aba
+  Config → Status) desligam de vez.
+
+Suíte de testes: 132 → **144**.
+
 ## 0.40.0
 
 ### 💸 Custo por branch/PR: quanto custou cada feature (#13)
