@@ -4,174 +4,176 @@
 [![Downloads](https://img.shields.io/open-vsx/dt/bortolabs/claude-code-usage-bar?label=downloads&color=2f81f7)](https://open-vsx.org/extension/bortolabs/claude-code-usage-bar)
 [![Release](https://img.shields.io/github/v/release/bortolabs/claude-code-usage-bar?label=release&color=4caf78)](https://github.com/bortolabs/claude-code-usage-bar/releases/latest)
 
-> 🎉 **1.300+ downloads** no Open VSX — obrigado a quem usa! 🙏
+**🌐 Language / Idioma:** **English** · [Português (Brasil)](https://github.com/bortolabs/claude-code-usage-bar/blob/master/README.pt-BR.md)
 
-> ⚠️ **Extensão da comunidade — não oficial.** Sem afiliação, endosso ou patrocínio da **Anthropic**.
-> "Claude" e "Claude Code" são marcas da Anthropic, usadas aqui apenas para referência/interoperabilidade.
-> _Community extension — **unofficial**. Not affiliated with, endorsed by, or sponsored by **Anthropic**.
-> "Claude" and "Claude Code" are trademarks of Anthropic, used here only for reference/interoperability._
+> 🎉 **1,300+ downloads** on Open VSX — thanks to everyone using it! 🙏
 
-Um indicador na **status bar do VSCode** que dá feedback visual constante do uso da sessão
-do [Claude Code](https://claude.com/claude-code) — um anel de progresso + número, sem você
-precisar parar pra rodar `/usage`.
+> ⚠️ **Community extension — unofficial.** Not affiliated with, endorsed by, or sponsored by **Anthropic**.
+> "Claude" and "Claude Code" are trademarks of Anthropic, used here only for reference/interoperability.
 
-## Apoiar o projeto
+A **VS Code status bar** indicator that gives you constant visual feedback on your
+[Claude Code](https://claude.com/claude-code) session usage — a progress ring + number,
+without stopping to run `/usage`.
 
-Esta extensão é **gratuita e open source**, mantida nas horas vagas. Se ela te poupa tempo (ou
-dinheiro de API 😄) e você quiser retribuir, qualquer café ajuda — **totalmente opcional, e nada
-fica atrás de paywall**.
+## Support the project
 
-[![GitHub Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-apoiar-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/bortolabs)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-apoiar-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/bortolabs)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-apoiar-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/bortolabs)
+This extension is **free and open source**, maintained in spare time. If it saves you time
+(or API money 😄) and you'd like to give back, any coffee helps — **entirely optional, and
+nothing is behind a paywall**.
 
-**Pix (Brasil):** `3a992bba-354b-406a-9d5a-40f9e18dab6f` (chave aleatória)
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-support-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/bortolabs)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/bortolabs)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/bortolabs)
 
-**Instale:**
-- **Open VSX** (VSCodium, Cursor, Windsurf e também VS Code): procure por **"Claude Code Usage & Status"** ou veja a [página no Open VSX](https://open-vsx.org/extension/bortolabs/claude-code-usage-bar).
-- **`.vsix` (qualquer VS Code):** baixe o arquivo da [última release no GitHub](https://github.com/bortolabs/claude-code-usage-bar/releases/latest) e instale com `code --install-extension <arquivo>.vsix` (ou *Extensions → ⋯ → Install from VSIX…*).
+**Pix (Brazil):** `3a992bba-354b-406a-9d5a-40f9e18dab6f` (random key)
 
-> ℹ️ A listagem no **VS Code Marketplace** está **temporariamente indisponível** (em revisão junto ao suporte da Microsoft). Use o **Open VSX** ou o **`.vsix`** acima enquanto isso.
+**Install:**
+- **Open VSX** (VSCodium, Cursor, Windsurf and also VS Code): search for **"Claude Code Usage & Status"** or see the [Open VSX page](https://open-vsx.org/extension/bortolabs/claude-code-usage-bar).
+- **`.vsix` (any VS Code):** download the file from the [latest GitHub release](https://github.com/bortolabs/claude-code-usage-bar/releases/latest) and install it with `code --install-extension <file>.vsix` (or *Extensions → ⋯ → Install from VSIX…*).
 
-**Idiomas / Languages:** 🇧🇷 **Português** (base), 🇺🇸 **English**, 🇪🇸 **Español**,
-🇫🇷 **Français**, 🇩🇪 **Deutsch**. Por padrão segue o idioma do VS Code, mas dá pra
-**forçar** um idioma pelas **bandeiras** na aba **Config → Idioma** (troca toda a UI do
-plugin na hora). Sem tradução para o idioma ativo, cai no português.
+> ℹ️ The **VS Code Marketplace** listing is **temporarily unavailable** (under review with Microsoft support). Use **Open VSX** or the **`.vsix`** above in the meantime.
 
-## Recursos por aba
+**Plugin UI languages:** 🇧🇷 **Português** (base), 🇺🇸 **English**, 🇪🇸 **Español**,
+🇫🇷 **Français**, 🇩🇪 **Deutsch**. It follows your VS Code language by default, but you can
+**force** a language with the **flags** under **Config → Language** (switches the whole
+plugin UI instantly). With no translation for the active language, it falls back to Portuguese.
 
-- **Status bar** (o indicador) — anel/percentual da **cota real da sessão de 5h** (igual ao `/usage`) + tempo até o reset; 4 estilos (anel/barra/número/ícone), cor por **projeção de estouro**, e um modo que mostra **custo** no lugar da cota.
-- **Aba Sessão** — cota 5h e **semana (7d)**, **cotas 7d por modelo (Sonnet/Opus)** com reset próprio, **contexto ao vivo** (% da janela do modelo), modelo em uso, **créditos extras** (se habilitados na conta), **metas de token** opcionais (5h/dia), **fonte de dados** ativa (oauth/statusline/ccusage) e o motivo do fallback; **alerta de burn rate** com **dica de ritmo** (quanto pausar/desacelerar pra não estourar antes do reset); **🧭 Copiloto de cota** — conselhos locais e contínuos (sem LLM): sugestão **Opus→Sonnet** quando a janela do Opus aperta, **o que ainda cabe até o reset** no ritmo atual e a **melhor janela** pra trabalho pesado.
-- **Aba Custos** — hoje/mês/projeção e **orçamento mensal** com alerta; **sparklines** de custo e tokens por dia; seletor de janela (5h/Hoje/7d/30d) e **quebras** por modelo/projeto/**tamanho de contexto** (com custo por turno); contagem de **MCP/subagentes**; **Dicas** heurísticas de economia (locais) e **export de uso em JSON** (pra agentes/scripts).
-- **Aba Status** — saúde da Anthropic ao vivo (`status.claude.com`): indicador geral, componentes, incidentes e resolvidos recentemente; **badge** na status bar e **notificação** de incidentes.
-- **Aba Config** — edita os settings de forma visual (seções colapsáveis, toggles, file pickers), **idioma por bandeiras** 🇧🇷🇺🇸🇪🇸🇫🇷🇩🇪 e os **limiares das Dicas** ajustáveis.
-- **Dashboard de analytics** (aba do editor, _Claude Usage: Abrir dashboard_) — **KPIs** (incl. **cache hit rate**), **composição de custo por tipo de token**, **gráfico ao longo do tempo** (empilhado, por hora/dia, com toggle), **insights** em linguagem natural, **comparativos** ("hoje vs média 7d", "semana vs anterior"), **heatmap semana × hora** de quando você mais usa (do **histórico local persistente**, que sobrevive à limpeza de transcripts), **tabelas** por modelo/período e **breakdowns** (modelo · projeto · sessão · contexto · skills · plugins · MCP · subagentes); janela **Hoje/Semana/Mês/Tudo**, **export `.html`**, **export CSV** das quebras e **AI advice** opcional — relatório de coaching por IA com **sua própria key** (uma **API key paga separada da assinatura**, ou um **LLM local grátis** / **free tier**; veja abaixo).
+## Features by tab
 
-> Tudo **local, sem rede e sem LLM** — exceto a cota real (`api/oauth/usage`), a aba **Status** e o **AI advice** (opt-in), que fazem chamadas externas.
+- **Status bar** (the indicator) — ring/percentage of the **real 5h session quota** (same as `/usage`) + time to reset; 4 styles (ring/bar/number/icon), color by **overrun projection**, and a mode that shows **cost** instead of quota.
+- **Session tab** — 5h and **weekly (7d)** quota, **7d quotas per model (Sonnet/Opus)** with their own reset, **live context** (% of the model's window), model in use, **extra credits** (if enabled on your account), optional **token goals** (5h/day), the active **data source** (oauth/statusline/ccusage) and why it fell back; **burn rate alert** with a **pace hint** (how long to pause/slow down to avoid running out before the reset); **🧭 Quota copilot** — local, continuous advice (no LLM): **Opus→Sonnet** suggestion when the Opus window gets tight, **what still fits before the reset** at your current pace, and the **best window** for heavy work.
+- **Costs tab** — today/month/projection and a **monthly budget** with alerts; **sparklines** of cost and tokens per day; window selector (5h/Today/7d/30d) and **breakdowns** by model/project/**context size** (with cost per turn); **MCP/subagent** call counts; heuristic (local) **saving tips** and a **usage export in JSON** (for agents/scripts).
+- **Status tab** — live Anthropic health (`status.claude.com`): overall indicator, components, active incidents and recently resolved ones; status bar **badge** and incident **notifications**.
+- **Config tab** — edit settings visually (collapsible sections, toggles, file pickers), **language via flags** 🇧🇷🇺🇸🇪🇸🇫🇷🇩🇪 and adjustable **tip thresholds**.
+- **Analytics dashboard** (editor tab, _Claude Usage: Open dashboard_) — **KPIs** (incl. **cache hit rate**), **cost composition by token type**, **chart over time** (stacked, hourly/daily, with a toggle), natural-language **insights**, **comparisons** ("today vs 7d average", "week vs previous"), a **week × hour heatmap** of when you use it most (from the **persistent local history**, which survives transcript cleanup), **tables** by model/period and **breakdowns** (model · project · session · context · skills · plugins · MCP · subagents); **Today/Week/Month/All** window, **`.html` export**, **CSV export** of the breakdowns and optional **AI advice** — an AI coaching report using **your own key** (a **paid API key, separate from your subscription**, or a **free local LLM** / **free tier**; see below).
+
+> Everything is **local, no network and no LLM** — except the real quota (`api/oauth/usage`), the **Status** tab and **AI advice** (opt-in), which make external calls.
 
 ## Screenshots
 
-A **status bar** (que dá nome ao plugin) aparece no rodapé de cada print — anel/percentual da cota da sessão de 5h e tempo até o reset, sempre à vista.
+The **status bar** (which gives the plugin its name) appears at the bottom of every shot — ring/percentage of the 5h session quota and time to reset, always in sight.
 
-Aba **Sessão** — anel da cota de 5h, barras de uso de tokens/tempo/semana, **contexto ao vivo**, modelo e fonte de dados. No topo, a **dica de ritmo** sugere quanto pausar (ou o quanto desacelerar) pra não estourar antes do reset:
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/01-sessao.png" width="340" alt="Aba Sessão: anel da cota de 5h, barras de uso de tokens, tempo e semana (7d), contexto ao vivo, modelo em uso, card 'Fonte de dados', e no topo a dica de ritmo do alerta de burn rate">
-</p>
-
-Aba **Custos** — hoje/mês/projeção, sparklines de custo e tokens por dia, seletor de janela (5h/Hoje/7d/30d) e quebras por modelo/projeto; mais abaixo, custo por **tamanho de contexto** (com custo por turno), contagem de **MCP/subagentes** e as **Dicas** heurísticas de economia:
+**Session** tab — 5h quota ring, token/time/week usage bars, **live context**, model and data source. At the top, the **pace hint** suggests how long to pause (or how much to slow down) to avoid running out before the reset:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/02-custos.png" width="340" alt="Aba Custos: hoje/mês/projeção, sparklines de custo e tokens por dia, seletor de janela 5h/Hoje/7d/30d, e custo por modelo/projeto">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/03-custos-insights.png" width="340" alt="Aba Custos (continuação): custo por tamanho de contexto com custo por turno, contagem de chamadas MCP e de subagentes, e Dicas heurísticas de economia">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/01-sessao.png" width="340" alt="Session tab: 5h quota ring, usage bars for tokens, time and week (7d), live context, model in use, 'Data source' card, and the burn rate pace hint at the top">
 </p>
 
-Aba **Status** (saúde da Anthropic ao vivo) e aba **Config** (seções colapsáveis, idioma com bandeiras e limiares das dicas ajustáveis):
+**Costs** tab — today/month/projection, sparklines of cost and tokens per day, window selector (5h/Today/7d/30d) and breakdowns by model/project; further down, cost by **context size** (with cost per turn), **MCP/subagent** counts and the heuristic **saving tips**:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/04-status.png" width="340" alt="Aba Status: status da Anthropic ao vivo — incidentes ativos, componentes e resolvidos recentemente">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/05-config.png" width="340" alt="Aba Config: seções colapsáveis, card de Idioma com bandeiras, e os limiares das Dicas de custo ajustáveis">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/02-custos.png" width="340" alt="Costs tab: today/month/projection, sparklines of cost and tokens per day, 5h/Today/7d/30d window selector, and cost by model/project">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/03-custos-insights.png" width="340" alt="Costs tab (continued): cost by context size with cost per turn, MCP and subagent call counts, and heuristic saving tips">
 </p>
 
-**Dashboard de analytics** (_Claude Usage: Abrir dashboard_) — abre numa **aba do editor** uma visão pensada em **métricas e dimensões**: cards de KPI (Custo, Mensagens, Input, Output, Cache miss/hit e **cache hit rate**), **composição de custo por tipo de token**, **gráfico ao longo do tempo** (barras empilhadas, por hora/dia, com toggle de métrica), **insights** em linguagem natural, **tabelas** por modelo/período e **breakdowns** em barras (modelo · projeto · sessão · contexto · skills · plugins · MCP · subagentes). Seletor de janela **Hoje/Semana/Mês/Tudo**. Dá pra **exportar um `.html` autocontido** (_Claude Usage: Exportar dashboard (HTML)_) e gerar um **relatório de coaching por IA** opcional (_AI advice_, BYO key):
+**Status** tab (live Anthropic health) and **Config** tab (collapsible sections, language flags and adjustable tip thresholds):
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/06-dashboard.png" width="900" alt="Dashboard de analytics numa aba do editor: cards de KPI (custo, mensagens, input, output, cache miss, cache hit, cache hit rate), barra de composição de custo por tipo de token, gráfico de barras empilhadas de uso ao longo do tempo, callouts de insights, tabelas por modelo e por período, e breakdowns em barras por modelo/projeto/sessão/contexto/skills/plugins/MCP/subagentes">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/04-status.png" width="340" alt="Status tab: live Anthropic status — active incidents, components and recently resolved">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/05-config.png" width="340" alt="Config tab: collapsible sections, Language card with flags, and adjustable cost tip thresholds">
 </p>
 
-### AI advice — qual key usar (incl. opções grátis)
+**Analytics dashboard** (_Claude Usage: Open dashboard_) — opens an **editor tab** with a view built around **metrics and dimensions**: KPI cards (Cost, Messages, Input, Output, Cache miss/hit and **cache hit rate**), **cost composition by token type**, **chart over time** (stacked bars, hourly/daily, with a metric toggle), natural-language **insights**, **tables** by model/period and bar **breakdowns** (model · project · session · context · skills · plugins · MCP · subagents). **Today/Week/Month/All** window selector. You can **export a self-contained `.html`** (_Claude Usage: Export dashboard (HTML)_) and generate an optional **AI coaching report** (_AI advice_, BYO key):
 
-O **AI advice** usa **sua própria API key** (BYO). **Não** usa a sua assinatura do Claude Code — é uma chamada de API à parte. A key fica no **SecretStorage**.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/bortolabs/claude-code-usage-bar/master/media/screenshots/06-dashboard.png" width="900" alt="Analytics dashboard in an editor tab: KPI cards (cost, messages, input, output, cache miss, cache hit, cache hit rate), cost composition bar by token type, stacked bar chart of usage over time, insight callouts, tables by model and by period, and bar breakdowns by model/project/session/context/skills/plugins/MCP/subagents">
+</p>
 
-**Passo-a-passo:**
+### AI advice — which key to use (incl. free options)
 
-1. Escolha um provedor abaixo e **obtenha a key** (ou instale o LLM local).
-2. Rode **_Claude Usage: Definir chave do AI advice_** e cole a key.
-3. Ajuste os settings `claudeUsageBar.aiAdviceApiStyle`, `aiAdviceEndpoint` e `aiAdviceModel` conforme a tabela.
-4. No dashboard, clique **✦ AI advice** (ou rode _Claude Usage: AI advice_).
+**AI advice** uses **your own API key** (BYO). It does **not** use your Claude Code
+subscription — it's a separate API call. The key is stored in **SecretStorage**.
 
-| Provedor | Onde pegar a key | `aiAdviceApiStyle` | `aiAdviceEndpoint` | `aiAdviceModel` (ex.) |
+**Step by step:**
+
+1. Pick a provider below and **get the key** (or install the local LLM).
+2. Run **_Claude Usage: Set AI advice key_** and paste the key.
+3. Adjust the `claudeUsageBar.aiAdviceApiStyle`, `aiAdviceEndpoint` and `aiAdviceModel` settings as per the table.
+4. In the dashboard, click **✦ AI advice** (or run _Claude Usage: AI advice_).
+
+| Provider | Where to get the key | `aiAdviceApiStyle` | `aiAdviceEndpoint` | `aiAdviceModel` (e.g.) |
 | --- | --- | --- | --- | --- |
-| **Ollama** (local, grátis, privado) | sem key — instale em [ollama.com](https://ollama.com) e `ollama pull llama3.1` (key = qualquer texto) | `openai` | `http://localhost:11434/v1/chat/completions` | `llama3.1` |
-| **LM Studio** (local, grátis) | sem key — baixe um modelo no app | `openai` | `http://localhost:1234/v1/chat/completions` | (o modelo carregado) |
-| **Google Gemini** (free tier) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `openai` | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` | `gemini-2.0-flash` |
+| **Ollama** (local, free, private) | no key — install from [ollama.com](https://ollama.com) and `ollama pull llama3.3` (key = any text) | `openai` | `http://localhost:11434/v1/chat/completions` | `llama3.3` |
+| **LM Studio** (local, free) | no key — download a model in the app | `openai` | `http://localhost:1234/v1/chat/completions` | (the loaded model) |
+| **Google Gemini** (free tier) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `openai` | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` | `gemini-flash-latest` |
 | **Groq** (free tier) | [console.groq.com/keys](https://console.groq.com/keys) | `openai` | `https://api.groq.com/openai/v1/chat/completions` | `llama-3.3-70b-versatile` |
-| **OpenRouter** (modelos `:free`) | [openrouter.ai/keys](https://openrouter.ai/keys) | `openai` | `https://openrouter.ai/api/v1/chat/completions` | `meta-llama/llama-3.3-70b-instruct:free` |
-| **Anthropic** (padrão, **pago**) | [console.anthropic.com](https://console.anthropic.com) | `anthropic` | (vazio = `/v1/messages`) | `claude-opus-4-8` |
+| **OpenRouter** (`:free` models) | [openrouter.ai/keys](https://openrouter.ai/keys) | `openai` | `https://openrouter.ai/api/v1/chat/completions` | `meta-llama/llama-3.3-70b-instruct:free` |
+| **Anthropic** (default, **paid**) | [console.anthropic.com](https://console.anthropic.com) | `anthropic` | (empty = `/v1/messages`) | `claude-opus-4-8` |
 
-> Modelos pequenos/locais dão conselhos mais simples; pra um relatório mais afiado, um modelo maior ajuda. **Local (Ollama/LM Studio) é o mais privado — os dados não saem da máquina.** De toda forma, o resto do plugin é 100% local; só o AI advice (opt-in) faz a chamada que você configurar.
+> Small/local models give simpler advice; for a sharper report, a bigger model helps. **Local (Ollama/LM Studio) is the most private — your data never leaves the machine.** Either way, the rest of the plugin is 100% local; only AI advice (opt-in) makes the call you configure.
 
-Mostra a **cota real da sessão** — o mesmo número do `/usage` — em **qualquer ambiente**
-(app, IDE ou terminal). O anel é o uso da sessão de 5h; a barra de tempo mostra quanto da
-janela já passou.
+It shows the **real session quota** — the same number as `/usage` — in **any environment**
+(app, IDE or terminal). The ring is the 5h session usage; the time bar shows how much of the
+window has already passed.
 
-| No anel | Exemplo |
+| In the ring | Example |
 | --- | --- |
-| **% de uso da sessão de 5h** (igual ao `/usage`) + tempo até resetar | `◕ 17% · reseta 4h20` |
+| **% of 5h session usage** (same as `/usage`) + time to reset | `◕ 17% · resets in 4h20` |
 
-Passe o mouse para ver o resumo; clique para abrir o painel com o breakdown completo
-(uso 5h/7d, tempo da sessão, custo equivalente, tokens, modelo, histórico).
+Hover for the summary; click to open the panel with the full breakdown
+(5h/7d usage, session time, equivalent cost, tokens, model, history).
 
-## Como funciona
+## How it works
 
-A extensão usa, em ordem de prioridade, a melhor fonte disponível:
+The extension uses the best available source, in priority order:
 
-1. **`api/oauth/usage`** (fonte primária) — o **mesmo endpoint que o `/usage` consulta**.
-   Dá a **cota real** da sessão de 5h e da semana (7d), com o `resets_at` oficial. Lê o
-   token OAuth localmente (env `CLAUDE_CODE_OAUTH_TOKEN`, ou `~/.claude/.credentials.json`,
-   ou Keychain no macOS) e chama o endpoint — o token só vai para `api.anthropic.com`.
-2. **statusline** (`~/.claude/usage-state.json`) — quando você roda o Claude Code no
-   terminal/TUI, ela expõe os mesmos limites; usada se o oauth não estiver disponível.
-3. **ccusage** (`ccusage blocks --active`) — deriva a sessão de 5h dos transcripts; usada
-   para a **barra de tempo** e como fallback do uso. Requer `npx`/`ccusage`.
+1. **`api/oauth/usage`** (primary source) — the **same endpoint `/usage` queries**.
+   Gives the **real quota** for the 5h session and the week (7d), with the official
+   `resets_at`. It reads the OAuth token locally (env `CLAUDE_CODE_OAUTH_TOKEN`, or
+   `~/.claude/.credentials.json`, or the macOS Keychain) and calls the endpoint — the token
+   only ever goes to `api.anthropic.com`.
+2. **statusline** (`~/.claude/usage-state.json`) — when you run Claude Code in the
+   terminal/TUI, it exposes the same limits; used when oauth isn't available.
+3. **ccusage** (`ccusage blocks --active`) — derives the 5h session from the transcripts;
+   used for the **time bar** and as a usage fallback. Requires `npx`/`ccusage`.
 
 ```
    api/oauth/usage          statusline (terminal)        transcripts (.jsonl)
-   (cota real 5h/7d)        ~/.claude/usage-state.json   ccusage blocks (tempo/fallback)
+   (real 5h/7d quota)       ~/.claude/usage-state.json   ccusage blocks (time/fallback)
         │                          │                            │
         └──────────────►  Claude Code Usage Bar (VSCode)  ◄─────┘
                  (oauth > statusline > ccusage)
 ```
 
-> O **anel** mostra a cota real (oauth); a **barra de tempo** vem do ccusage (janela real
-> ancorada no reset do oauth). Em **assinatura**, o custo em `$` é só "equivalente API"
-> (referência), não cobrança — veja a seção de custo abaixo.
+> The **ring** shows the real quota (oauth); the **time bar** comes from ccusage (real window
+> anchored on the oauth reset). On a **subscription**, the `$` cost is only an "API
+> equivalent" (a reference), not a charge — see the cost section below.
 
-## Instalação
+## Installation
 
-### 1. A extensão
+### 1. The extension
 
-- **Marketplace (recomendado):** no VSCode → `Extensions` → busque
-  **"Claude Code Usage & Status"** → `Install`. Ou pela
-  [página do Marketplace](https://marketplace.visualstudio.com/items?itemName=bortolabs.claude-code-usage-bar).
-- **Via VSIX:** baixe o `.vsix` em [Releases](https://github.com/bortolabs/claude-code-usage-bar/releases),
-  então no VSCode: `Extensions` → menu `…` → `Install from VSIX…`.
-- **Do código:** `npm install && npm run compile`, depois abra a pasta e tecle `F5`
+- **Marketplace (recommended):** in VS Code → `Extensions` → search for
+  **"Claude Code Usage & Status"** → `Install`. Or via the
+  [Marketplace page](https://marketplace.visualstudio.com/items?itemName=bortolabs.claude-code-usage-bar).
+- **Via VSIX:** download the `.vsix` from [Releases](https://github.com/bortolabs/claude-code-usage-bar/releases),
+  then in VS Code: `Extensions` → `…` menu → `Install from VSIX…`.
+- **From source:** `npm install && npm run compile`, then open the folder and hit `F5`
   (Extension Development Host).
 
-### 2. ccusage (fonte principal)
+### 2. ccusage (main source)
 
-A extensão chama o `ccusage` automaticamente via `npx`. Para evitar a latência do `npx`,
-instale global e aponte o setting `claudeUsageBar.ccusageCommand`:
+The extension calls `ccusage` automatically via `npx`. To avoid `npx` latency, install it
+globally and point the `claudeUsageBar.ccusageCommand` setting at it:
 
 ```bash
 npm i -g ccusage
-# depois, no settings.json:
+# then, in settings.json:
 # "claudeUsageBar.ccusageCommand": "ccusage blocks --active --json"
 ```
 
-### 3. A bridge na statusline (opcional — só pra ter os limites reais 5h/7d no terminal)
+### 3. The statusline bridge (optional — only to get the real 5h/7d limits in the terminal)
 
-Só necessária se você usa o Claude Code no **terminal** e quer os percentuais reais do
-plano (em vez do % de tempo). Há duas situações.
+Only needed if you use Claude Code in the **terminal** and want the plan's real percentages
+(instead of the % of time). There are two situations.
 
-**Se você JÁ tem uma statusline** (`statusLine` no seu `~/.claude/settings.json`),
-adicione este bloco ao seu script de statusline, **antes** do `printf`/`echo` final.
-Ele assume que o JSON do stdin está numa variável `input` (padrão dos scripts de
-statusline) e que `jq` está instalado:
+**If you ALREADY have a statusline** (`statusLine` in your `~/.claude/settings.json`), add
+this block to your statusline script, **before** the final `printf`/`echo`. It assumes the
+stdin JSON is in an `input` variable (the standard in statusline scripts) and that `jq` is
+installed:
 
 ```sh
-# --- bridge p/ Claude Code Usage Bar (VSCode): grava estado de uso ---
+# --- bridge for Claude Code Usage Bar (VSCode): writes usage state ---
 state_file="$HOME/.claude/usage-state.json"
 printf '%s' "$input" | jq -c '{
   ts: (now | floor),
@@ -190,12 +192,12 @@ printf '%s' "$input" | jq -c '{
   five_hour: (.rate_limits.five_hour // null),
   seven_day: (.rate_limits.seven_day // null)
 }' > "$state_file.tmp" 2>/dev/null && mv "$state_file.tmp" "$state_file" 2>/dev/null
-# --- fim bridge ---
+# --- end bridge ---
 ```
 
-**Se você NÃO tem statusline ainda**, copie o script pronto deste repositório
-([`scripts/usage-bridge-statusline.sh`](scripts/usage-bridge-statusline.sh)) para
-`~/.claude/` e aponte o `settings.json` para ele:
+**If you DON'T have a statusline yet**, copy the ready-made script from this repository
+([`scripts/usage-bridge-statusline.sh`](https://github.com/bortolabs/claude-code-usage-bar/blob/master/scripts/usage-bridge-statusline.sh))
+to `~/.claude/` and point `settings.json` at it:
 
 ```json
 {
@@ -206,167 +208,173 @@ printf '%s' "$input" | jq -c '{
 }
 ```
 
-> A escrita é atômica (`.tmp` + `mv`), então a extensão nunca lê o arquivo pela metade.
-> `jq` precisa estar disponível (`brew install jq` no macOS).
+> The write is atomic (`.tmp` + `mv`), so the extension never reads a half-written file.
+> `jq` must be available (`brew install jq` on macOS).
 
-### 4. Pronto
+### 4. Done
 
-Com o ccusage disponível, o indicador aparece assim que houver uma sessão ativa nos
-transcripts. Se você usa o terminal e configurou a bridge, os limites reais 5h/7d
-aparecem por cima quando estão frescos.
+With ccusage available, the indicator shows up as soon as there's an active session in the
+transcripts. If you use the terminal and configured the bridge, the real 5h/7d limits take
+over whenever they're fresh.
 
-## Visual: status bar + painel
+## Visuals: status bar + panel
 
-Você escolhe como ver:
+You choose how to see it:
 
-- **Na status bar** (sempre visível) — estilo configurável em `claudeUsageBar.barStyle`
-  ou pelos botões no painel:
-  - `ring` → `◕ 6% · 4h42` (padrão)
+- **In the status bar** (always visible) — style configurable via `claudeUsageBar.barStyle`
+  or the buttons in the panel:
+  - `ring` → `◕ 6% · 4h42` (default)
   - `bar` → `█░░░░ 6% · 4h42`
   - `number` → `6% · 4h42`
-  - `icon` → ícone + número
-- **Ícone na Activity Bar** (lateral esquerda) — abre o painel completo, organizado em
-  **4 abas** (a aba ativa é lembrada):
-  - **Sessão** — anel SVG + uso 5h/7d + tempo da sessão + **contexto ao vivo** (do transcript).
-  - **Custos** — hoje/mês/projeção + sparklines de custo/tokens por dia + quebras (modelo,
-    projeto, contexto, MCP/subagentes) com janela ajustável (5h/hoje/7d/30d) + **Dicas**.
-  - **Status** — status da Anthropic (`status.claude.com`): geral, componentes, incidentes
-    ativos e histórico. Avisa com badge ☁ na status bar e notificação quando há problema.
-  - **Config** — edite todos os settings por controles visuais (toggles, selects, números,
-    cor), com botões de comando e link para o `settings.json`.
-  Clicar no item da status bar (ou _Claude Usage: Abrir painel_) revela essa view.
-- **Dashboard (aba do editor)** — _Claude Usage: Abrir dashboard_ (ou o botão ⛶ no topo do
-  painel) abre **tudo de uma vez** num **grid amplo** com as seções expandidas, em vez das
-  abas estreitas. _Claude Usage: Exportar dashboard (HTML)_ (botão ⬇) gera um **`.html`
-  autocontido** (snapshot) pra abrir no navegador/compartilhar.
+  - `icon` → icon + number
+- **Activity Bar icon** (left side) — opens the full panel, organized in **4 tabs** (the
+  active tab is remembered):
+  - **Session** — SVG ring + 5h/7d usage + session time + **live context** (from the transcript).
+  - **Costs** — today/month/projection + cost/token sparklines per day + breakdowns (model,
+    project, context, MCP/subagents) with an adjustable window (5h/today/7d/30d) + **Tips**.
+  - **Status** — Anthropic status (`status.claude.com`): overall, components, active
+    incidents and history. Warns with a ☁ badge in the status bar and a notification on issues.
+  - **Config** — edit every setting with visual controls (toggles, selects, numbers, color),
+    with command buttons and a link to `settings.json`.
+  Clicking the status bar item (or _Claude Usage: Open panel_) reveals this view.
+- **Dashboard (editor tab)** — _Claude Usage: Open dashboard_ (or the ⛶ button at the top of
+  the panel) opens **everything at once** in a **wide grid** with sections expanded, instead
+  of the narrow tabs. _Claude Usage: Export dashboard (HTML)_ (the ⬇ button) generates a
+  **self-contained `.html`** (snapshot) to open in a browser or share.
 
-## Custo: assinatura vs API
+## Cost: subscription vs API
 
-O número em dólar do ccusage é o **equivalente em preço de API**. Se você tem **assinatura**
-(Pro/Max), isso **não é cobrança** — enquanto não estourar os limites do plano (5h/7d), o
-custo adicional é zero. Por isso, com `accountType: subscription` (ou `auto`), o `$` aparece
-só como referência ("~$X, sua assinatura cobre"), **sem teto e sem alerta de custo**. O foco
-fica em **tempo da sessão de 5h** e nos **limites do plano**.
+The dollar figure from ccusage is the **API-price equivalent**. If you have a **subscription**
+(Pro/Max), that is **not a charge** — as long as you stay within the plan limits (5h/7d), the
+extra cost is zero. That's why, with `accountType: subscription` (or `auto`), the `$` shows
+only as a reference ("~$X, your subscription covers it"), **with no cap and no cost alert**.
+The focus stays on the **5h session time** and the **plan limits**.
 
-Se você usa **API/pay-as-you-go**, defina `accountType: api` — aí o custo é real, com teto
-(`costCapUsd`) e alerta.
+If you use **API/pay-as-you-go**, set `accountType: api` — then the cost is real, with a cap
+(`costCapUsd`) and an alert.
 
-## Aba "Custos" & Dicas
+## "Costs" tab & Tips
 
-A aba **Custos** reúne o gasto num lugar só: **hoje / mês / projeção** (números do ccusage),
-**barra de orçamento** (`monthlyBudgetUsd`, só API) e quebras **por modelo**, **por projeto**
-(inclui o grupo "subagentes"), **por tamanho de contexto** e a **contagem** de chamadas por
-servidor **MCP** e por **subagente**. As quebras de custo vêm de uma **tabela de preços local**
-sobre os seus transcripts — **local, sem rede, sem LLM** — sempre rotuladas **"≈ aproximado ·
-tabela vX"**. O custo oficial continua sendo o do ccusage; a tabela só serve pra **atribuir**.
+The **Costs** tab gathers spending in one place: **today / month / projection** (ccusage
+numbers), a **budget bar** (`monthlyBudgetUsd`, API only) and breakdowns **by model**, **by
+project** (including the "subagents" group), **by context size** and the **count** of calls
+per **MCP** server and per **subagent**. The cost breakdowns come from a **local price table**
+applied to your transcripts — **local, no network, no LLM** — always labeled **"≈ approximate ·
+table vX"**. The official cost is still ccusage's; the table only serves to **attribute** it.
 
-O card **Dicas** sugere economia a partir desses números (ex.: contexto grande puxando o gasto
-→ `/compact`; muita releitura de cache; Opus concentrando o custo → Sonnet/Haiku para tarefas
-leves). Desligue toda essa análise (e a leitura de disco) com `insightsEnabled: false`.
+The **Tips** card suggests savings from those numbers (e.g. a large context driving spend
+→ `/compact`; heavy cache re-reads; Opus concentrating the cost → Sonnet/Haiku for light
+tasks). Turn off all of this analysis (and the disk reads) with `insightsEnabled: false`.
 
-## Alerta de burn rate
+## Burn rate alert
 
-A extensão avisa quando o **ritmo de gasto** projeta estourar antes do reset — algo que o
-`/usage` não mostra. Três gatilhos:
+The extension warns you when your **spending pace** projects an overrun before the reset —
+something `/usage` doesn't show. Three triggers:
 
-- **Projeção de custo** do bloco passa do teto (`costCapUsd`).
-- **Ritmo alto**: `$/h` acima de `burnRateMaxPerHour`.
-- **Limites do plano** (no terminal): projeção de 5h/7d atingir 100% antes do reset.
+- **Cost projection** for the block exceeds the cap (`costCapUsd`).
+- **High pace**: `$/h` above `burnRateMaxPerHour`.
+- **Plan limits** (in the terminal): the 5h/7d projection reaching 100% before the reset.
 
-Quando dispara: notificação do VSCode (com "Silenciar 1h"), ícone ⚠ e vermelho na status
-bar, e uma faixa no topo do painel. Desligue com `burnRateAlertEnabled: false`.
+When it fires: a VS Code notification (with "Mute for 1h"), a ⚠ icon and red in the status
+bar, and a banner at the top of the panel. Turn it off with `burnRateAlertEnabled: false`.
 
-## Alerta de cota baixa
+## Low quota alert
 
-Além do burn rate (que olha o **ritmo**), há um aviso simples por **cota restante**: quando
-sobra **menos que X%** (`lowQuotaThreshold`, padrão **15%**) na sessão de **5h** ou na semana
-de **7d**, a extensão notifica com **quanto resta** e, quando há reset, **em quanto tempo a
-janela vira** — com botões **"Abrir painel"** e **"Silenciar 1h"**.
+Beyond the burn rate (which watches the **pace**), there's a simple **remaining quota**
+warning: when **less than X%** is left (`lowQuotaThreshold`, default **15%**) in the **5h**
+session or the **7d** week, the extension notifies you with **how much is left** and, when
+there's a reset, **how long until the window turns over** — with **"Open panel"** and
+**"Mute for 1h"** buttons.
 
-- Avisa **1× por janela** e **re-arma sozinho** quando a cota se recupera.
-- Só dispara com **cota real** (oauth/usage ou statusline) — **nunca** no fallback ccusage,
-  pra não alarmar com número aproximado.
-- `lowQuotaThreshold: 0` desliga. Ideal pra quem **não** usa o [export de uso](#export-de-uso-para-agentesscripts)
-  (esse é o caminho recomendado pra automações/agentes).
+- Warns **once per window** and **re-arms itself** when the quota recovers.
+- Only fires with **real quota** (oauth/usage or statusline) — **never** on the ccusage
+  fallback, so it doesn't alarm you with an approximate number.
+- `lowQuotaThreshold: 0` disables it. Ideal for anyone **not** using the
+  [usage export](#usage-export-for-agentsscripts) (that's the recommended path for
+  automations/agents).
 
-> **Robustez do oauth/usage:** o endpoint tem **rate-limit próprio** e pode responder **429**
-> por **chamadas frequentes demais** — independe da sua cota ter estourado (é comum aparecer
-> "Quota reached" sem a cota cheia). Três defesas evitam isso: **uma chamada de cada vez**
-> (colapsa o burst de gatilhos no startup), **coalescência do foco** (alt-tab não refaz o
-> oauth se ele já está fresco — só as fontes locais atualizam) e **backoff exponencial gentil**
-> (1ª falha recua ~20s, escalando até 15 min só se o 429 persistir, voltando ao normal no
-> primeiro sucesso). A aba **Config → Fonte de dados** mostra o recuo em andamento.
+> **oauth/usage robustness:** the endpoint has **its own rate limit** and may answer **429**
+> for **too-frequent calls** — regardless of your quota being exhausted (it's common to see
+> "Quota reached" without a full quota). Three defenses avoid this: **one call at a time**
+> (collapsing the burst of startup triggers), **focus coalescing** (alt-tab doesn't redo the
+> oauth call if it's already fresh — only local sources refresh) and **gentle exponential
+> backoff** (the first failure backs off ~20s, escalating to 15 min only if the 429 persists,
+> returning to normal on the first success). The **Config → Data source** tab shows the
+> backoff in progress.
 
-## Uso
+## Usage
 
-- **Clique** no item → abre o painel com o anel SVG.
-- **Hover** → breakdown completo no tooltip.
-- Paleta de comandos:
-  - `Claude Usage: Abrir painel (anel SVG)`
-  - `Claude Usage: Abrir dashboard`
-  - `Claude Usage: Exportar dashboard (HTML)`
-  - `Claude Usage: Alternar estilo da status bar`
-  - `Claude Usage: Atualizar agora`
+- **Click** the item → opens the panel with the SVG ring.
+- **Hover** → full breakdown in the tooltip.
+- Command palette:
+  - `Claude Usage: Open panel (SVG ring)`
+  - `Claude Usage: Open dashboard`
+  - `Claude Usage: Export dashboard (HTML)`
+  - `Claude Usage: Toggle status bar style`
+  - `Claude Usage: Refresh now`
 
-## Configurações
+## Settings
 
-| Setting | Padrão | Descrição |
+> **Language** is not a `settings.json` key: switch it with the flags under **Config →
+> Language** (stored per machine, so the flags persist).
+
+| Setting | Default | Description |
 | --- | --- | --- |
-| `claudeUsageBar.language` | `auto` | Idioma do plugin: `auto` (segue o VS Code) ou `pt`/`en`/`es`/`fr`/`de`. Também ajustável pelas bandeiras em **Config → Idioma**. |
-| `claudeUsageBar.ccusageCommand` | `npx -y ccusage@latest blocks --active --json` | Comando do ccusage. Aponte p/ um binário global p/ evitar latência do npx. |
-| `claudeUsageBar.ccusageRefreshSeconds` | `60` | Frequência de atualização do ccusage. |
-| `claudeUsageBar.useOAuthUsage` | `true` | Usa `api/oauth/usage` (cota real, igual ao `/usage`) como fonte primária. |
-| `claudeUsageBar.oauthRefreshSeconds` | `60` | Frequência de consulta ao endpoint oauth/usage. |
-| `claudeUsageBar.accountType` | `auto` | `subscription` (custo = referência, sem teto/alerta) ou `api` (custo real). `auto` = assinatura. |
-| `claudeUsageBar.mode` | `auto` | `auto` decide a fonte; `subscriber` força limites 5h/7d; `cost` força custo. |
-| `claudeUsageBar.barStyle` | `ring` | Estilo na status bar: `ring`, `bar`, `number` ou `icon`. |
-| `claudeUsageBar.statusBarValue` | `quota` | O que o número mostra: `quota` (cota/tempo), `today` (custo de hoje `$`) ou `session` (custo do bloco 5h `$`). |
-| `claudeUsageBar.costCapUsd` | `5` | Teto de custo (USD) p/ colorir o indicador. `0` desativa. |
-| `claudeUsageBar.monthlyBudgetUsd` | `0` | Orçamento mensal (USD). `>0` liga a barra de orçamento e o alerta (mês/projeção). `0` desativa. |
-| `claudeUsageBar.monthlyBudgetAlertEnabled` | `true` | Alerta de orçamento mensal. Desligado por padrão em assinatura. |
-| `claudeUsageBar.insightsEnabled` | `true` | Analisa os transcripts locais p/ o custo por modelo. Desligue p/ pular a leitura de disco. |
-| `claudeUsageBar.costWindow` | `5h` | Janela das **quebras** na aba Custos: `5h`/`today`/`7d`/`30d` (também ajustável pelo seletor na aba). |
-| `claudeUsageBar.tipsContextBigPct` | `25` | Dica de contexto: avisa quando turnos `>150k` somam ≥ esta % do custo. |
-| `claudeUsageBar.tipsCacheReadPct` | `70` | Dica de cache: avisa quando a releitura (cache-read) passa desta % do input. |
-| `claudeUsageBar.tipsOpusPct` | `70` | Dica de modelo: avisa quando o Opus concentra ≥ esta % do custo. |
-| `claudeUsageBar.tipsMcpCalls` | `40` | Dica de MCP: avisa quando um servidor MCP passa deste nº de chamadas. |
-| `claudeUsageBar.tipsSubagentPct` | `40` | Dica de subagentes: avisa quando somam ≥ esta % do custo. |
-| `claudeUsageBar.stateFilePath` | `~/.claude/usage-state.json` | Caminho do arquivo da statusline. |
-| `claudeUsageBar.warnThreshold` | `60` | % a partir do qual fica amarelo. |
-| `claudeUsageBar.errorThreshold` | `85` | % a partir do qual fica vermelho. |
-| `claudeUsageBar.alignment` | `right` | Lado da status bar (`right`/`left`). |
-| `claudeUsageBar.priority` | `100` | Prioridade do item. |
-| `claudeUsageBar.colorByProjection` | `true` | Colorir pela projeção de estouro (pior entre atual e projeção). |
-| `claudeUsageBar.intenseTokensPerMin` | `50000` | Ritmo tokens/min = 100% na cor por projeção (assinatura no app). |
-| `claudeUsageBar.sessionTokenCap` | `0` | Teto de tokens por sessão de 5h (ex: `150000000`). Projeta o estouro de tokens no ritmo atual. `0` desativa. |
-| `claudeUsageBar.resetWarningMinutes` | `10` | Avisa quando faltar este tempo pro reset da sessão de 5h. `0` desativa. |
-| `claudeUsageBar.lowQuotaThreshold` | `15` | Avisa quando restar menos que esta % de cota (5h ou 7d), só com cota real. `0` desativa. |
-| `claudeUsageBar.burnRateAlertEnabled` | `true` | Liga/desliga o alerta de burn rate (projeção de estouro). |
-| `claudeUsageBar.burnRateMaxPerHour` | `20` | Alerta de ritmo: `$/h` acima disso dispara (em assinatura, só se definido). |
-| `claudeUsageBar.alertCooldownMinutes` | `15` | Tempo mínimo entre notificações de alerta. |
-| `claudeUsageBar.ringTheme` | `semaforo` | Cor do anel: `semaforo`, `claude` (laranja), `mono`/`custom` (cor própria). Crítico sempre vermelho. |
-| `claudeUsageBar.ringColor` | `#4caf78` | Cor hex usada quando `ringTheme` é `mono`/`custom`. |
-| `claudeUsageBar.blockSummaryEnabled` | `true` | Mostra resumo do consumo quando a sessão de 5h fecha. |
-| `claudeUsageBar.statusCheckEnabled` | `true` | Monitora o status da Anthropic (`status.claude.com`) e mostra a aba Status. |
-| `claudeUsageBar.statusBadgeEnabled` | `true` | Badge ☁ na status bar quando há incidente. |
-| `claudeUsageBar.statusNotifyEnabled` | `true` | Notifica (1× por incidente) novos problemas no ecossistema Anthropic. |
-| `claudeUsageBar.statusRefreshSeconds` | `300` | Frequência de consulta ao status.claude.com. |
-| `claudeUsageBar.staleAfterSeconds` | `900` | Janela em que o dado da statusline é considerado fresco. |
-| `claudeUsageBar.exportStateEnabled` | `true` | Gravar o arquivo de uso para agentes/scripts. |
-| `claudeUsageBar.exportStatePath` | `""` | Caminho do export (vazio = `~/.claude/usage-bar.json`). |
+| `claudeUsageBar.ccusageCommand` | `npx -y ccusage@latest blocks --active --json` | ccusage command. Point it at a global binary to avoid npx latency. |
+| `claudeUsageBar.ccusageRefreshSeconds` | `60` | How often ccusage refreshes. |
+| `claudeUsageBar.useOAuthUsage` | `true` | Use `api/oauth/usage` (real quota, same as `/usage`) as the primary source. |
+| `claudeUsageBar.oauthRefreshSeconds` | `60` | How often the oauth/usage endpoint is queried. |
+| `claudeUsageBar.accountType` | `auto` | `subscription` (cost = reference, no cap/alert) or `api` (real cost). `auto` = subscription. |
+| `claudeUsageBar.mode` | `auto` | `auto` picks the source; `subscriber` forces 5h/7d limits; `cost` forces cost. |
+| `claudeUsageBar.barStyle` | `ring` | Status bar style: `ring`, `bar`, `number` or `icon`. |
+| `claudeUsageBar.statusBarValue` | `quota` | What the number shows: `quota` (quota/time), `today` (today's cost `$`) or `session` (5h block cost `$`). |
+| `claudeUsageBar.costCapUsd` | `5` | Cost cap (USD) used to color the indicator. `0` disables it. |
+| `claudeUsageBar.monthlyBudgetUsd` | `0` | Monthly budget (USD). `>0` enables the budget bar and the alert (month/projection). `0` disables it. |
+| `claudeUsageBar.monthlyBudgetAlertEnabled` | `true` | Monthly budget alert. Off by default on a subscription. |
+| `claudeUsageBar.insightsEnabled` | `true` | Analyze local transcripts for cost per model. Turn off to skip the disk reads. |
+| `claudeUsageBar.costWindow` | `5h` | Window for the **breakdowns** in the Costs tab: `5h`/`today`/`7d`/`30d` (also adjustable via the selector in the tab). |
+| `claudeUsageBar.tipsContextBigPct` | `25` | Context tip: warns when turns `>150k` account for ≥ this % of the cost. |
+| `claudeUsageBar.tipsCacheReadPct` | `70` | Cache tip: warns when re-reads (cache-read) exceed this % of the input. |
+| `claudeUsageBar.tipsOpusPct` | `70` | Model tip: warns when Opus concentrates ≥ this % of the cost. |
+| `claudeUsageBar.tipsMcpCalls` | `40` | MCP tip: warns when an MCP server exceeds this number of calls. |
+| `claudeUsageBar.tipsSubagentPct` | `40` | Subagent tip: warns when they add up to ≥ this % of the cost. |
+| `claudeUsageBar.stateFilePath` | `~/.claude/usage-state.json` | Path to the statusline file. |
+| `claudeUsageBar.warnThreshold` | `60` | % from which it turns yellow. |
+| `claudeUsageBar.errorThreshold` | `85` | % from which it turns red. |
+| `claudeUsageBar.alignment` | `right` | Status bar side (`right`/`left`). |
+| `claudeUsageBar.priority` | `100` | Item priority. |
+| `claudeUsageBar.colorByProjection` | `true` | Color by overrun projection (worst of current and projected). |
+| `claudeUsageBar.intenseTokensPerMin` | `50000` | Tokens/min pace that counts as 100% in the projection color (subscription in the app). |
+| `claudeUsageBar.sessionTokenCap` | `0` | Token cap per 5h session (e.g. `150000000`). Projects the token overrun at the current pace. `0` disables it. |
+| `claudeUsageBar.resetWarningMinutes` | `10` | Warns when this much time is left before the 5h session reset. `0` disables it. |
+| `claudeUsageBar.lowQuotaThreshold` | `15` | Warns when less than this % of quota is left (5h or 7d), real quota only. `0` disables it. |
+| `claudeUsageBar.burnRateAlertEnabled` | `true` | Enables/disables the burn rate alert (overrun projection). |
+| `claudeUsageBar.burnRateMaxPerHour` | `20` | Pace alert: `$/h` above this fires (on a subscription, only if set). |
+| `claudeUsageBar.alertCooldownMinutes` | `15` | Minimum time between alert notifications. |
+| `claudeUsageBar.ringTheme` | `semaforo` | Ring color: `semaforo` (traffic light), `claude` (orange), `mono`/`custom` (your own color). Critical is always red. |
+| `claudeUsageBar.ringColor` | `#4caf78` | Hex color used when `ringTheme` is `mono`/`custom`. |
+| `claudeUsageBar.blockSummaryEnabled` | `true` | Shows a consumption summary when the 5h session closes. |
+| `claudeUsageBar.statusCheckEnabled` | `true` | Monitors Anthropic status (`status.claude.com`) and shows the Status tab. |
+| `claudeUsageBar.statusBadgeEnabled` | `true` | ☁ badge in the status bar during an incident. |
+| `claudeUsageBar.statusNotifyEnabled` | `true` | Notifies (once per incident) about new issues in the Anthropic ecosystem. |
+| `claudeUsageBar.statusRefreshSeconds` | `300` | How often status.claude.com is queried. |
+| `claudeUsageBar.updateCheckEnabled` | `true` | Notifies when a new version is published on Open VSX (checks at most once a day). Especially useful if you installed from the `.vsix`, which never auto-updates. |
+| `claudeUsageBar.staleAfterSeconds` | `900` | Window during which statusline data is considered fresh. |
+| `claudeUsageBar.exportStateEnabled` | `true` | Write the usage file for agents/scripts. |
+| `claudeUsageBar.exportStatePath` | `""` | Export path (empty = `~/.claude/usage-bar.json`). |
 
-## Export de uso (para agentes/scripts)
+## Usage export (for agents/scripts)
 
-O plugin grava um **JSON local** com o uso atual a cada atualização, para **automações**
-lerem — por exemplo, um **agente em auto-mode** que deve **parar/avisar** quando a cota
-restante ficar baixa. Vem **ligado por padrão** em **`~/.claude/usage-bar.json`** (caminho
-cross-platform; no Windows resolve em `C:\Users\<você>\.claude\usage-bar.json`). Desligue ou
-troque o caminho na aba **Config → Exportar uso**.
+The plugin writes a **local JSON** with the current usage on every refresh, for
+**automations** to read — for example, an **agent in auto-mode** that should **stop/warn**
+when the remaining quota gets low. It's **on by default** at **`~/.claude/usage-bar.json`**
+(a cross-platform path; on Windows it resolves to `C:\Users\<you>\.claude\usage-bar.json`).
+Turn it off or change the path under **Config → Export usage**.
 
-> Escrita **atômica** (`.tmp` + rename), **sem token** e **sem envio externo** — é um arquivo
-> só local com o seu uso.
+> **Atomic** write (`.tmp` + rename), **no token** and **no external sending** — it's a
+> local-only file with your usage.
 
-Formato (`v: 2`):
+Format (`v: 2`):
 
 ```json
 {
@@ -387,71 +395,70 @@ Formato (`v: 2`):
     { "model": "Opus 4.8", "tokens": 62118770, "costUSD": 98.65, "approximate": true }
   ],
   "byProject": [
-    { "project": "meu-app", "tokens": 41200000, "costUSD": 64.10, "approximate": true }
+    { "project": "my-app", "tokens": 41200000, "costUSD": 64.10, "approximate": true }
   ],
   "byBranch": [
-    { "branch": "feat/login", "project": "meu-app", "tokens": 18300000, "costUSD": 28.40, "approximate": true }
+    { "branch": "feat/login", "project": "my-app", "tokens": 18300000, "costUSD": 28.40, "approximate": true }
   ]
 }
 ```
 
-- **`trustworthy`** só é `true` quando a fonte é **cota real** (`source` = `oauth` ou
-  `statusline`). No fallback `ccusage` (que é **% de tempo**, não cota) vem `false` e os
-  campos de cota ficam `null` — **nunca** confie no "remaining" quando `trustworthy` for `false`.
-- **`remainingPct`** = quanto ainda resta da janela (0–100). **`resetsAt`** = epoch ms.
-- **`today`/`month`** vêm do **ccusage** (custo oficial). **`byModel`** é **`approximate`**
-  (atribuição por uma tabela de preços local) — bom p/ proporção entre modelos, não p/ fatura.
-  Campos novos da `v2`; os da `v1` seguem iguais.
-- **`byProject`/`byBranch`** também são **`approximate`**. O `byBranch` cruza o horário de
-  cada turno com os checkouts do git (`git reflog`) do repo — responde "quanto custou a
-  feature/PR X", mas a atribuição é por tempo (duas janelas em branches diferentes ao
-  mesmo tempo se misturam).
+- **`trustworthy`** is only `true` when the source is a **real quota** (`source` = `oauth` or
+  `statusline`). On the `ccusage` fallback (which is **% of time**, not quota) it comes as
+  `false` and the quota fields are `null` — **never** trust "remaining" when `trustworthy` is `false`.
+- **`remainingPct`** = how much of the window is left (0–100). **`resetsAt`** = epoch ms.
+- **`today`/`month`** come from **ccusage** (official cost). **`byModel`** is **`approximate`**
+  (attributed via a local price table) — good for the ratio between models, not for billing.
+  These are `v2` fields; the `v1` ones are unchanged.
+- **`byProject`/`byBranch`** are **`approximate`** too. `byBranch` cross-references each turn's
+  timestamp with the repo's git checkouts (`git reflog`) — it answers "how much did feature/PR X
+  cost", but the attribution is time-based (two windows on different branches at the same time
+  get mixed).
 
-Exemplo de loop com critério de parada (Python):
+Example loop with a stop condition (Python):
 
 ```python
 import json, time, os
 
 PATH = os.path.expanduser("~/.claude/usage-bar.json")
 
-def cota_ok(minimo=15):
+def quota_ok(minimum=15):
     try:
         d = json.load(open(PATH))
     except FileNotFoundError:
-        return True  # sem dado ainda → não bloqueia
+        return True  # no data yet → don't block
     if not d.get("trustworthy"):
-        return True  # fonte aproximada → não decide pela cota
+        return True  # approximate source → don't decide on quota
     fh = d.get("fiveHour") or {}
-    return fh.get("remainingPct", 100) >= minimo
+    return fh.get("remainingPct", 100) >= minimum
 
-while cota_ok(minimo=15):
-    rodar_proximo_passo_do_agente()
+while quota_ok(minimum=15):
+    run_next_agent_step()
     time.sleep(2)
-print("Cota 5h abaixo do mínimo — pausando o auto-mode.")
+print("5h quota below the minimum — pausing auto-mode.")
 ```
 
-## Limitações
+## Limitations
 
-- A status bar nativa do VSCode renderiza apenas texto + ícones (codicons), não SVG
-  arbitrário. O "círculo" é o glifo de anel que mais se aproxima (`○ ◔ ◑ ◕ ●`).
-- Em contas com assinatura, os campos `rate_limits` só aparecem **após a primeira resposta
-  da API** na sessão — até lá, o indicador mostra o custo/contexto como nas contas API.
-- Mostra a última sessão que escreveu o estado; várias sessões simultâneas compartilham
-  o mesmo arquivo.
+- The native VS Code status bar renders only text + icons (codicons), not arbitrary SVG. The
+  "circle" is the closest ring glyph (`○ ◔ ◑ ◕ ●`).
+- On subscription accounts, the `rate_limits` fields only appear **after the first API
+  response** in the session — until then, the indicator shows cost/context like API accounts do.
+- **Context** and **model** belong to the window's project (the lookup is restricted to that
+  workspace's transcripts). The **quota** and the **5h block cost**, however, are account-wide —
+  they can't be split per project. Two windows on the same project show its most recent session.
+- The **JSON export** is a single file: with two windows on different projects, each one writes
+  **its own** project's context to the same path, alternately. Use `exportStatePath` with
+  distinct paths per workspace if you consume the export across multiple projects.
 
-## Aviso / Disclaimer
+## Notice / Disclaimer
 
-Esta é uma **extensão independente, mantida pela comunidade**. **Não é oficial** e **não tem
-qualquer afiliação, parceria, endosso ou patrocínio da Anthropic.** "Anthropic", "Claude" e
-"Claude Code" são marcas de seus respectivos donos; são citadas aqui apenas para descrever a
-interoperabilidade da ferramenta com o Claude Code. A extensão lê dados de uso **localmente**
-na sua máquina e não coleta nem envia seus dados para o autor.
-
-_This is an **independent, community-maintained** extension. It is **unofficial** and has **no
+This is an **independent, community-maintained** extension. It is **unofficial** and has **no
 affiliation, partnership, endorsement, or sponsorship from Anthropic.** "Anthropic", "Claude",
 and "Claude Code" are trademarks of their respective owners, referenced here only to describe
-interoperability with Claude Code._
+interoperability with Claude Code. The extension reads usage data **locally** on your machine
+and does not collect or send your data to the author.
 
-## Licença
+## License
 
-MIT — veja [LICENSE](LICENSE).
+MIT — see [LICENSE](https://github.com/bortolabs/claude-code-usage-bar/blob/master/LICENSE).
