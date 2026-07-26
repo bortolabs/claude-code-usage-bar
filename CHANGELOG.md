@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.41.1
+
+### 🌍 README em inglês (e uma versão em português)
+
+O Open VSX é mundial e a página da extensão renderiza o `README.md` que vem **dentro do
+pacote** — então ele passa a ser em **inglês**, para alcançar mais gente. O conteúdo em
+português vira **[`README.pt-BR.md`](https://github.com/bortolabs/claude-code-usage-bar/blob/master/README.pt-BR.md)**,
+linkado no topo dos dois (o histórico do arquivo foi preservado). Esta versão existe
+justamente para levar o README novo à página do Open VSX: sem publicar, ele não chega lá.
+
+Correções de documentação encontradas no caminho: os presets do AI advice estavam
+desatualizados (`llama3.1`/`gemini-2.0-flash` → `llama3.3`/`gemini-flash-latest`), faltava o
+setting `updateCheckEnabled`, a seção de limitações ainda descrevia o comportamento anterior
+ao contexto por projeto, e `claudeUsageBar.language` era documentado como setting **sem
+existir** no manifesto — o idioma vem das bandeiras em **Config → Idioma**.
+
+Sem mudança de código: o comportamento da 0.41.1 é idêntico ao da 0.41.0.
+
 ## 0.41.0
 
 ### 🎯 Correção: as quebras de custo estavam infladas ~3x

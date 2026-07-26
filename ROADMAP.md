@@ -76,6 +76,10 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | **Previsão estatística de fim-de-cota** (#12) | Motor puro `core/forecast.ts`: projeção da janela 5h ponderada pela curva histórica de uso (heatmap semana×hora), não linear; refina o alerta de burn rate ("no seu padrão: ~X%") e sugere a hora mais leve p/ tarefa pesada. Local, sem LLM | 0.38.0 |
 | **Card "Contexto" na aba Sessão** | Card dedicado com uso da janela do último turno — usado/janela (`142.5k / 1M`) + % + espaço livre + barra; fiel ao topo do `/context` (soma input+cache). Motor puro `contextFromUsage`; tokens/janela também no export JSON | 0.39.0 |
 | **Custo por branch/PR** (#13) | Cruza timestamp dos turnos com `git reflog` (checkouts): custo ≈ por branch/tarefa. Card "Por branch" na aba Custos + breakdown no dashboard + `byProject`/`byBranch` no export JSON | 0.40.0 |
+| **Dedup de turnos (correção)** | Transcripts gravam snapshots de streaming do mesmo turno (`message.id`+`requestId`, output crescendo); somar todos inflava as quebras ~3x. Fica valendo a última ocorrência — o total passa a bater com o ccusage (0,5%) | 0.41.0 |
+| **Contexto por projeto (multi-janela)** | A busca do turno atual é restrita aos transcripts do workspace da janela; antes, 2 janelas em projetos distintos mostravam o mesmo contexto. Sem transcript do projeto, o card some em vez de mostrar o de outro | 0.41.0 |
+| **Aviso de versão nova** | Checagem diária no Open VSX (`updateCheckEnabled`, opt-out): quem instala pelo `.vsix` não recebe atualização automática nem aviso | 0.41.0 |
+| **README em inglês + pt-BR** | `README.md` passa a ser em inglês (é o que o Open VSX renderiza, do pacote) e o conteúdo em português vira `README.pt-BR.md`, linkados entre si | 0.41.1 |
 
 ## 💡 Próximas ideias
 
