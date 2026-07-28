@@ -89,6 +89,20 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | 11 | **Auto-piloto de cota (ações reais)** | Fecha o loop: quando a cota 5h/7d cai, troca de modelo (Opus→Sonnet) e/ou pausa via hook `Stop`, revertendo no reset. "Modo economia" com 1 clique. Escrita segura de settings/hooks, com opt-in explícito | Médio-alto | ⚠️ precisa consentimento + reversão garantida |
 | 14 | **Benchmark anônimo comunitário** | Percentil opt-in e anonimizado vs comunidade ("top 15% do plano Max"). Só percentis agregados, zero conteúdo de prompt. Vantagem de rede | Alto | ⚠️ exige backend + política de privacidade |
 
+## 🔧 Pendências achadas na validação em app (26/07, S8)
+
+Rodar as features de verdade no app revelou o que a leitura de código não pega. Nenhuma
+destas é urgente; todas são pequenas e independentes.
+
+| Onde | O quê | Por quê incomoda |
+| --- | --- | --- |
+| `aiAdvice.ts` | Progresso **não cancelável** (`withProgress` sem `cancellable`) | Endpoint local pode segurar até **10min** sem o usuário ter como desistir — só resta esperar |
+| `aiAdvice.ts` | Exige chave de API mesmo em endpoint **local** | Ollama/LM Studio não usam chave; o usuário precisa inventar uma string para destravar o comando |
+| `extension.ts` | `updateLastCheckMs` é gravado **antes** do fetch | Estar offline no momento da checagem consome a janela inteira de 24h — só tenta de novo amanhã |
+| `extension.ts` | `updateNotifiedVersion` é gravado **antes** de mostrar a notificação | Fechar o aviso sem escolher = nunca mais ver aquela versão anunciada |
+| aba Config | `tooltipDetail` e `dashboardWindow` não estão no `SETTINGS_SCHEMA` | Declarados no manifesto e documentados nos READMEs, mas invisíveis na tela de Config |
+| — | Notificação de **versão nova** ainda não vista em app | Instalada == publicada; valida sozinha no próximo release (é só não atualizar na hora) |
+
 ## 🌐 Externo / operacional (fora do código)
 
 - **VS Code Marketplace:** publisher `bortolabs` em revisão pela Microsoft. Enquanto isso, a
