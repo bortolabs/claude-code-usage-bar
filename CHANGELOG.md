@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.41.2
+
+### 🐛 Correção: a aba Config não mostrava nenhum setting do AI advice
+
+Quem tinha o AI advice apontado para um provedor (Gemini, Ollama, LM Studio…) via a aba
+Config exibir **endpoint e modelo em branco** e o estilo da API como `anthropic` — não
+importa o que estivesse no `settings.json`. Os cinco campos eram desenhados pelo painel, mas
+nunca entravam na lista que o `collectSettings` envia ao webview: ele recebia `undefined` e
+caía nos valores de fábrica.
+
+Pior que a tela errada: como o painel **grava campo a campo**, encostar num desses campos em
+branco escrevia o vazio por cima da configuração real. O bug estava no ar desde a 0.31.0,
+quando o AI advice nasceu.
+
+A partir desta versão, `test/settingsDocs.test.ts` cruza **o que a aba Config desenha** com
+**o que ela recebe** — um campo novo que entre no painel sem entrar no `collectSettings`
+quebra a CI em vez de virar tela errada silenciosa.
+
+Também corrigido: um endpoint local em **IPv6** (`http://[::1]:11434/…`) recebia o timeout de
+2min do remoto em vez dos 10min do local, porque `URL.hostname` devolve `[::1]` **com
+colchetes** e a comparação era contra `::1` puro. Geração local sem streaming pode levar
+minutos legitimamente — era exatamente o caso que o timeout longo existe para cobrir.
+
+Sem mudança no comportamento do resto do plugin.
+
 ## 0.41.1
 
 ### 🌍 README em inglês (e uma versão em português)

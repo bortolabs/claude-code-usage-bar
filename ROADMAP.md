@@ -89,7 +89,7 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | 11 | **Auto-piloto de cota (ações reais)** | Fecha o loop: quando a cota 5h/7d cai, troca de modelo (Opus→Sonnet) e/ou pausa via hook `Stop`, revertendo no reset. "Modo economia" com 1 clique. Escrita segura de settings/hooks, com opt-in explícito | Médio-alto | ⚠️ precisa consentimento + reversão garantida |
 | 14 | **Benchmark anônimo comunitário** | Percentil opt-in e anonimizado vs comunidade ("top 15% do plano Max"). Só percentis agregados, zero conteúdo de prompt. Vantagem de rede | Alto | ⚠️ exige backend + política de privacidade |
 
-## 🔧 Pendências achadas na validação em app (26/07, S8)
+## 🔧 Pendências achadas na validação em app (28/07, S8)
 
 Rodar as features de verdade no app revelou o que a leitura de código não pega. Nenhuma
 destas é urgente; todas são pequenas e independentes.
