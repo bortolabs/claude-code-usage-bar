@@ -53,6 +53,20 @@ export function isNewer(latest: string | null, current: string): boolean {
 }
 
 /**
+ * Extrai o campo `version` do corpo devolvido pelo Open VSX. NUNCA lança: qualquer formato
+ * inesperado (JSON inválido, `version` ausente ou não-string, body vazio) vira `null`, que
+ * o chamador trata como "não sei a versão" e segue calado.
+ */
+export function parseLatestVersion(body: string): string | null {
+  try {
+    const v = JSON.parse(body)?.version;
+    return typeof v === "string" && v ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Busca a última versão publicada no Open VSX. NUNCA lança: devolve `null` em qualquer
  * falha (offline, timeout, JSON inválido, HTTP != 2xx) — é um aviso opcional, não pode
  * atrapalhar a ativação da extensão.
@@ -83,14 +97,7 @@ export function fetchLatestVersion(timeoutMs = 8000): Promise<string | null> {
           }
           let body = "";
           res.on("data", (c) => (body += c));
-          res.on("end", () => {
-            try {
-              const v = JSON.parse(body)?.version;
-              finish(typeof v === "string" && v ? v : null);
-            } catch {
-              finish(null);
-            }
-          });
+          res.on("end", () => finish(parseLatestVersion(body)));
           res.on("error", () => finish(null));
         }
       );

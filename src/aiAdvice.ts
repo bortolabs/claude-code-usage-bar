@@ -224,6 +224,22 @@ function buildPrompt(d: DashboardData, prompts: string[]): { system: string; use
   return { system, user };
 }
 
+/**
+ * Timeout do request ao LLM, em ms. **Local ganha 10min, remoto 2min.**
+ *
+ * POR QUE a diferença: a chamada não usa streaming, então nada chega até o modelo terminar
+ * de gerar — e um modelo grande no LM Studio/Ollama pode levar vários minutos legitimamente.
+ * Remoto segue em 2min, porque lá a lentidão é falha, não geração.
+ *
+ * Cuidado com o IPv6: `new URL("http://[::1]:11434/").hostname` devolve `"[::1]"` **com os
+ * colchetes** — por isso as duas formas estão na lista. IP de LAN (`192.168.x.x`) é
+ * deliberadamente "remoto": o timeout longo existe para geração na própria máquina.
+ */
+export function pickRequestTimeoutMs(url: URL): number {
+  const isLocal = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);
+  return isLocal ? 600000 : 120000;
+}
+
 /** Chamada HTTP ao endpoint do LLM. Retorna o texto da resposta. */
 function callLLM(cfg: AiAdviceConfig, apiKey: string, system: string, user: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -262,10 +278,6 @@ function callLLM(cfg: AiAdviceConfig, apiKey: string, system: string, user: stri
     }
     // http p/ endpoints locais (Ollama/LM Studio em localhost), https p/ o resto.
     const lib = url.protocol === "http:" ? http : https;
-    // Timeout maior p/ endpoint local: a chamada não usa streaming, então nada chega
-    // até o modelo terminar de gerar — e um modelo grande no LM Studio/Ollama pode
-    // levar vários minutos legitimamente. Remoto segue em 2min (lá a lentidão é falha).
-    const isLocal = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
     const req = lib.request(
       {
         method: "POST",
@@ -273,7 +285,7 @@ function callLLM(cfg: AiAdviceConfig, apiKey: string, system: string, user: stri
         port: url.port || (url.protocol === "http:" ? 80 : 443),
         path: url.pathname + url.search,
         headers,
-        timeout: isLocal ? 600000 : 120000,
+        timeout: pickRequestTimeoutMs(url),
       },
       (res) => {
         const chunks: Buffer[] = [];

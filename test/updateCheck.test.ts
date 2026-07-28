@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareVersions, isNewer } from "../src/updateCheck";
+import { compareVersions, isNewer, parseLatestVersion } from "../src/updateCheck";
 
 describe("compareVersions", () => {
   it("compara major/minor/patch", () => {
@@ -35,5 +35,35 @@ describe("isNewer", () => {
     expect(isNewer(null, "0.40.0")).toBe(false);
     expect(isNewer("", "0.40.0")).toBe(false);
     expect(isNewer("0.41.0", "")).toBe(false);
+  });
+});
+
+describe("parseLatestVersion", () => {
+  it("lê `version` do payload do Open VSX", () => {
+    // Recorte do corpo real de GET /api/bortolabs/claude-code-usage-bar/latest
+    // (só os campos que importam aqui; o payload completo tem ~18 chaves).
+    const body = JSON.stringify({
+      namespace: "bortolabs",
+      name: "claude-code-usage-bar",
+      version: "0.41.1",
+      versionAlias: ["latest"],
+      preRelease: false,
+      downloadCount: 1337,
+    });
+    expect(parseLatestVersion(body)).toBe("0.41.1");
+  });
+
+  it("nunca lança: formato ruim vira null", () => {
+    expect(parseLatestVersion("<html>502 Bad Gateway</html>")).toBeNull();
+    expect(parseLatestVersion("")).toBeNull();
+    expect(parseLatestVersion("{}")).toBeNull();
+    expect(parseLatestVersion("null")).toBeNull();
+  });
+
+  it("`version` não-string ou vazia vira null (não vira aviso bizarro)", () => {
+    expect(parseLatestVersion(JSON.stringify({ version: 41 }))).toBeNull();
+    expect(parseLatestVersion(JSON.stringify({ version: "" }))).toBeNull();
+    expect(parseLatestVersion(JSON.stringify({ version: null }))).toBeNull();
+    expect(parseLatestVersion(JSON.stringify({ version: ["0.41.1"] }))).toBeNull();
   });
 });

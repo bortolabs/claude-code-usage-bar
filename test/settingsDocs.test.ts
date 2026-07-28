@@ -61,3 +61,47 @@ describe("documentação dos settings", () => {
     }
   });
 });
+
+/** Chaves que a aba Config **renderiza** (SETTINGS_SCHEMA do painel). */
+function renderedKeys(): string[] {
+  const src = fs.readFileSync(path.join(ROOT, "src", "panel.ts"), "utf8");
+  const start = src.indexOf("const SETTINGS_SCHEMA = [");
+  const end = src.indexOf("\n  ];", start);
+  return [...src.slice(start, end).matchAll(/\{ key: '([^']+)'/g)].map((m) => m[1]);
+}
+
+/** Chaves que o `collectSettings` **envia** para o webview. */
+function collectedKeys(): string[] {
+  const src = fs.readFileSync(path.join(ROOT, "src", "extension.ts"), "utf8");
+  const block = /const collectSettings = \(\)[\s\S]*?const keys = \[([\s\S]*?)\];/.exec(src);
+  return [...(block?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+}
+
+/**
+ * Trava o par render↔coleta da aba Config (passos 3 e 4 da checklist do CLAUDE.md).
+ *
+ * Contexto: os 5 settings do AI advice eram desenhados na aba Config mas não
+ * entravam no `collectSettings` — o webview recebia `undefined` e mostrava campo
+ * vazio + estilo "anthropic" mesmo com o endpoint configurado no `settings.json`.
+ * O painel mentia sobre o estado, e mexer num campo em branco sobrescrevia a
+ * configuração real. Falha silenciosa: nada quebra, só a tela fica errada.
+ */
+describe("aba Config: render × coleta", () => {
+  it("todo campo renderizado tem valor coletado", () => {
+    const missing = renderedKeys().filter((k) => !collectedKeys().includes(k));
+    expect(missing, "campos que apareceriam vazios na aba Config").toEqual([]);
+  });
+
+  it("todo campo renderizado tem default declarado no manifesto", () => {
+    // Sem isso, `c.get(k)` devolve undefined e o campo cai no fallback do painel.
+    const known = manifestKeys();
+    const ghosts = renderedKeys().filter((k) => !known.includes(k));
+    expect(ghosts, "campos da aba Config sem setting no package.json").toEqual([]);
+  });
+
+  it("o schema do painel não está vazio (guarda contra regex que parou de casar)", () => {
+    // Os dois testes acima passariam de graça se a extração devolvesse [].
+    expect(renderedKeys().length).toBeGreaterThan(50);
+    expect(collectedKeys().length).toBeGreaterThan(50);
+  });
+});

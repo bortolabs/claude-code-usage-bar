@@ -2667,6 +2667,8 @@ export function activate(context: vscode.ExtensionContext) {
     advisorEnabled: true, advisorNotifyEnabled: false, advisorCooldownHours: 6,
     tokenGoalFiveHour: 0, tokenGoalDaily: 0,
     historyEnabled: true, historyRetentionDays: 365, weeklySummaryEnabled: false,
+    aiAdviceApiStyle: "anthropic", aiAdviceEndpoint: "", aiAdviceModel: "",
+    aiAdvicePromptWindowDays: 30, aiAdviceMaxPrompts: 40,
   };
 
   // Coleta os valores atuais dos settings p/ preencher a aba Config.
@@ -2692,6 +2694,11 @@ export function activate(context: vscode.ExtensionContext) {
       "advisorEnabled", "advisorNotifyEnabled", "advisorCooldownHours",
       "tokenGoalFiveHour", "tokenGoalDaily",
       "historyEnabled", "historyRetentionDays", "weeklySummaryEnabled",
+      // AI advice: a aba Config renderiza estes 5 campos (SETTINGS_SCHEMA do
+      // panel.ts). Sem eles aqui, o webview recebia `undefined` e mostrava campo
+      // vazio + estilo "anthropic" mesmo com endpoint/modelo configurados.
+      "aiAdviceApiStyle", "aiAdviceEndpoint", "aiAdviceModel",
+      "aiAdvicePromptWindowDays", "aiAdviceMaxPrompts",
     ];
     const c = cfg();
     const out: Record<string, unknown> = {};
