@@ -86,6 +86,7 @@
   "cmd.aiAdvice.title": "Claude Usage: AI advice (coaching report)",
   "cmd.setAiAdviceKey.title": "Claude Usage: Set AI advice key",
   "cmd.oauthConsent.title": "Claude Usage: Token access (consent)",
+  "cmd.checkUpdate.title": "Claude Usage: Check for update now",
   "config.dashboardWindow.desc": "Analytics dashboard window (Today/Week/Month/All).",
   "config.aiAdviceEndpoint.desc": "AI advice endpoint (empty = Anthropic /v1/messages).",
   "config.aiAdviceModel.desc": "AI advice model (empty = claude-opus-4-8).",

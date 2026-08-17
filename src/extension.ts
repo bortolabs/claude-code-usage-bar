@@ -43,7 +43,12 @@ import {
 } from "./anomalies";
 import { runAiAdvice, setAiAdviceKey } from "./aiAdvice";
 import { fetchStatus, StatusResult, StatusData, hasIssue } from "./status";
-import { fetchLatestVersion, isNewer, RELEASES_URL } from "./updateCheck";
+import {
+  fetchLatestVersion,
+  RELEASES_URL,
+  runUpdateCheck,
+  type UpdateCheckOutcome,
+} from "./updateCheck";
 import { initI18n, setLang, tr } from "./i18n";
 import { evaluateAdvice, suppressUnderBurnRate, Advice } from "./advisor";
 import { lightestUpcomingHour } from "./core/forecast";
@@ -1004,49 +1009,81 @@ export function activate(context: vscode.ExtensionContext) {
   // Quem instalou pelo `.vsix` da GitHub Release (VS Code da Microsoft, onde o
   // publisher está bloqueado) NUNCA recebe atualização automática nem aviso.
   // Uma checagem por dia resolve isso; falha em silêncio se estiver offline.
-  const UPDATE_LAST_CHECK_KEY = "updateLastCheckMs";
-  const UPDATE_NOTIFIED_KEY = "updateNotifiedVersion";
-  const UPDATE_OPT_OUT_KEY = "updateNotifyOptOut";
-  const UPDATE_CHECK_INTERVAL_MS = 24 * 3600 * 1000;
-
-  const checkForUpdate = async () => {
+  // A lógica (quando checar, o que gravar e QUANDO gravar) mora em `runUpdateCheck`,
+  // no `updateCheck.ts`, com estas dependências injetadas — aqui fica só a ponte com
+  // as APIs do vscode.
+  // `force` = pedido na mão pela paleta de comandos. Não fura o `updateCheckEnabled`:
+  // desligar o setting é opt-out explícito de rede, e o comando responde dizendo isso
+  // em vez de fazer a chamada assim mesmo.
+  const checkForUpdate = async (
+    force = false
+  ): Promise<UpdateCheckOutcome | "disabled"> => {
     if (!(cfg().get<boolean>("updateCheckEnabled") ?? true)) {
-      return;
+      return "disabled";
     }
-    if (context.globalState.get<boolean>(UPDATE_OPT_OUT_KEY) === true) {
-      return;
-    }
-    const last = context.globalState.get<number>(UPDATE_LAST_CHECK_KEY) ?? 0;
-    if (Date.now() - last < UPDATE_CHECK_INTERVAL_MS) {
-      return;
-    }
-    await context.globalState.update(UPDATE_LAST_CHECK_KEY, Date.now());
     const current: string =
       (context.extension &&
         context.extension.packageJSON &&
         context.extension.packageJSON.version) ||
       "";
-    const latest = await fetchLatestVersion();
-    if (!latest || !isNewer(latest, current)) {
-      return;
-    }
-    // Não repete o aviso da MESMA versão a cada dia.
-    if (context.globalState.get<string>(UPDATE_NOTIFIED_KEY) === latest) {
-      return;
-    }
-    await context.globalState.update(UPDATE_NOTIFIED_KEY, latest);
-    const btnRelease = tr("Ver release");
-    const btnNever = tr("Não avisar mais");
-    const choice = await vscode.window.showInformationMessage(
-      tr("Claude Usage: versão {0} disponível (você está na {1}).", latest, current),
-      btnRelease,
-      btnNever
+    return await runUpdateCheck(
+      current,
+      {
+        now: () => Date.now(),
+        getState: <T,>(key: string) => context.globalState.get<T>(key),
+        setState: async (key, value) => {
+          await context.globalState.update(key, value);
+        },
+        fetchLatest: () => fetchLatestVersion(),
+        showNotice: async (latest, cur) => {
+          const btnRelease = tr("Ver release");
+          const btnNever = tr("Não avisar mais");
+          const choice = await vscode.window.showInformationMessage(
+            tr("Claude Usage: versão {0} disponível (você está na {1}).", latest, cur),
+            btnRelease,
+            btnNever
+          );
+          return choice === btnRelease
+            ? "release"
+            : choice === btnNever
+              ? "never"
+              : "dismissed";
+        },
+        openReleases: () => {
+          void vscode.env.openExternal(vscode.Uri.parse(RELEASES_URL));
+        },
+      },
+      { force }
     );
-    if (choice === btnRelease) {
-      vscode.env.openExternal(vscode.Uri.parse(RELEASES_URL));
-    } else if (choice === btnNever) {
-      await context.globalState.update(UPDATE_OPT_OUT_KEY, true);
+  };
+
+  /**
+   * Checagem pedida na mão. Diferente da automática, esta NUNCA pode ser silenciosa:
+   * quem rodou o comando espera uma resposta, inclusive "está tudo em dia".
+   */
+  const checkForUpdateInteractive = async () => {
+    const current: string =
+      (context.extension &&
+        context.extension.packageJSON &&
+        context.extension.packageJSON.version) ||
+      "";
+    const outcome = await checkForUpdate(true);
+    if (outcome === "disabled") {
+      vscode.window.showInformationMessage(
+        tr(
+          "Claude Usage: a checagem de versão está desligada (setting `updateCheckEnabled`)."
+        )
+      );
+    } else if (outcome === "fetch-failed") {
+      vscode.window.showInformationMessage(
+        tr("Claude Usage: não foi possível verificar (sem rede, ou Open VSX fora do ar).")
+      );
+    } else if (outcome === "up-to-date") {
+      vscode.window.showInformationMessage(
+        tr("Claude Usage: você já está na versão mais recente ({0}).", current)
+      );
     }
+    // Nos demais casos o próprio aviso de versão nova já apareceu na tela.
   };
 
   const refreshOAuth = async () => {
@@ -2674,7 +2711,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Coleta os valores atuais dos settings p/ preencher a aba Config.
   const collectSettings = (): Record<string, unknown> => {
     const keys = [
-      "ringTheme", "ringColor", "barStyle", "statusBarValue", "alignment",
+      "ringTheme", "ringColor", "barStyle", "statusBarValue", "tooltipDetail", "alignment",
       "priority", "useOAuthUsage", "oauthRefreshSeconds", "ccusageCommand",
       "ccusageRefreshSeconds", "stateFilePath", "staleAfterSeconds",
       "accountType", "mode", "costCapUsd", "monthlyBudgetUsd",
@@ -2755,6 +2792,9 @@ export function activate(context: vscode.ExtensionContext) {
           : tr("Claude Usage: alerta de burn rate DESLIGADO 🔕.")
       );
     }),
+    vscode.commands.registerCommand("claudeUsageBar.checkUpdate", () =>
+      checkForUpdateInteractive()
+    ),
     vscode.commands.registerCommand("claudeUsageBar.openState", async () => {
       try {
         const doc = await vscode.workspace.openTextDocument(

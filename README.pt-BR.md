@@ -86,13 +86,16 @@ O **AI advice** usa **sua própria API key** (BYO). **Não** usa a sua assinatur
 **Passo-a-passo:**
 
 1. Escolha um provedor abaixo e **obtenha a key** (ou instale o LLM local).
-2. Rode **_Claude Usage: Definir chave do AI advice_** e cole a key.
+2. Rode **_Claude Usage: Definir chave do AI advice_** e cole a key. **Pule este passo em
+   endpoint local** (`localhost`, `127.0.0.1`, `[::1]`): ali não é preciso key nenhuma. Se
+   você configurar uma mesmo assim, ela continua sendo enviada — para servidor local com
+   auth ligado.
 3. Ajuste os settings `claudeUsageBar.aiAdviceApiStyle`, `aiAdviceEndpoint` e `aiAdviceModel` conforme a tabela.
 4. No dashboard, clique **✦ AI advice** (ou rode _Claude Usage: AI advice_).
 
 | Provedor | Onde pegar a key | `aiAdviceApiStyle` | `aiAdviceEndpoint` | `aiAdviceModel` (ex.) |
 | --- | --- | --- | --- | --- |
-| **Ollama** (local, grátis, privado) | sem key — instale em [ollama.com](https://ollama.com) e `ollama pull llama3.3` (key = qualquer texto) | `openai` | `http://localhost:11434/v1/chat/completions` | `llama3.3` |
+| **Ollama** (local, grátis, privado) | sem key — instale em [ollama.com](https://ollama.com) e `ollama pull llama3.3` | `openai` | `http://localhost:11434/v1/chat/completions` | `llama3.3` |
 | **LM Studio** (local, grátis) | sem key — baixe um modelo no app | `openai` | `http://localhost:1234/v1/chat/completions` | (o modelo carregado) |
 | **Google Gemini** (free tier) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `openai` | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` | `gemini-flash-latest` |
 | **Groq** (free tier) | [console.groq.com/keys](https://console.groq.com/keys) | `openai` | `https://api.groq.com/openai/v1/chat/completions` | `llama-3.3-70b-versatile` |
@@ -307,6 +310,8 @@ janela vira** — com botões **"Abrir painel"** e **"Silenciar 1h"**.
   - `Claude Usage: Exportar dashboard (HTML)`
   - `Claude Usage: Alternar estilo da status bar`
   - `Claude Usage: Atualizar agora`
+  - `Claude Usage: Verificar atualização agora` — pergunta ao Open VSX na hora, em vez de
+    esperar a checagem diária. Serve porque instalação por `.vsix` nunca se atualiza sozinha.
 
 ## Configurações
 

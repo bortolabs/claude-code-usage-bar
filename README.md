@@ -85,13 +85,15 @@ subscription — it's a separate API call. The key is stored in **SecretStorage*
 **Step by step:**
 
 1. Pick a provider below and **get the key** (or install the local LLM).
-2. Run **_Claude Usage: Set AI advice key_** and paste the key.
+2. Run **_Claude Usage: Set AI advice key_** and paste the key. **Skip this for a local
+   endpoint** (`localhost`, `127.0.0.1`, `[::1]`): no key is required there. If you do set
+   one, it is still sent — for a local server with auth enabled.
 3. Adjust the `claudeUsageBar.aiAdviceApiStyle`, `aiAdviceEndpoint` and `aiAdviceModel` settings as per the table.
 4. In the dashboard, click **✦ AI advice** (or run _Claude Usage: AI advice_).
 
 | Provider | Where to get the key | `aiAdviceApiStyle` | `aiAdviceEndpoint` | `aiAdviceModel` (e.g.) |
 | --- | --- | --- | --- | --- |
-| **Ollama** (local, free, private) | no key — install from [ollama.com](https://ollama.com) and `ollama pull llama3.3` (key = any text) | `openai` | `http://localhost:11434/v1/chat/completions` | `llama3.3` |
+| **Ollama** (local, free, private) | no key needed — install from [ollama.com](https://ollama.com) and `ollama pull llama3.3` | `openai` | `http://localhost:11434/v1/chat/completions` | `llama3.3` |
 | **LM Studio** (local, free) | no key — download a model in the app | `openai` | `http://localhost:1234/v1/chat/completions` | (the loaded model) |
 | **Google Gemini** (free tier) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `openai` | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` | `gemini-flash-latest` |
 | **Groq** (free tier) | [console.groq.com/keys](https://console.groq.com/keys) | `openai` | `https://api.groq.com/openai/v1/chat/completions` | `llama-3.3-70b-versatile` |
@@ -310,6 +312,8 @@ there's a reset, **how long until the window turns over** — with **"Open panel
   - `Claude Usage: Export dashboard (HTML)`
   - `Claude Usage: Toggle status bar style`
   - `Claude Usage: Refresh now`
+  - `Claude Usage: Check for update now` — asks Open VSX right away, instead of waiting for
+    the once-a-day check. Useful because a `.vsix` install never auto-updates.
 
 ## Settings
 

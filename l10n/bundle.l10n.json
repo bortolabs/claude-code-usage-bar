@@ -376,5 +376,10 @@
   "Sua hora historicamente mais leve nas próximas 12h.": "Sua hora historicamente mais leve nas próximas 12h.",
   "Ver release": "Ver release",
   "Não avisar mais": "Não avisar mais",
-  "Claude Usage: versão {0} disponível (você está na {1}).": "Claude Usage: versão {0} disponível (você está na {1})."
+  "Claude Usage: versão {0} disponível (você está na {1}).": "Claude Usage: versão {0} disponível (você está na {1}).",
+  "Claude Usage: você já está na versão mais recente ({0}).": "Claude Usage: você já está na versão mais recente ({0}).",
+  "Claude Usage: não foi possível verificar (sem rede, ou Open VSX fora do ar).": "Claude Usage: não foi possível verificar (sem rede, ou Open VSX fora do ar).",
+  "Claude Usage: a checagem de versão está desligada (setting `updateCheckEnabled`).": "Claude Usage: a checagem de versão está desligada (setting `updateCheckEnabled`).",
+  "AI advice cancelado.": "AI advice cancelado.",
+  "Detalhe do tooltip (hover)": "Detalhe do tooltip (hover)"
 }

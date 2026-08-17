@@ -80,6 +80,8 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | **Contexto por projeto (multi-janela)** | A busca do turno atual é restrita aos transcripts do workspace da janela; antes, 2 janelas em projetos distintos mostravam o mesmo contexto. Sem transcript do projeto, o card some em vez de mostrar o de outro | 0.41.0 |
 | **Aviso de versão nova** | Checagem diária no Open VSX (`updateCheckEnabled`, opt-out): quem instala pelo `.vsix` não recebe atualização automática nem aviso | 0.41.0 |
 | **README em inglês + pt-BR** | `README.md` passa a ser em inglês (é o que o Open VSX renderiza, do pacote) e o conteúdo em português vira `README.pt-BR.md`, linkados entre si | 0.41.1 |
+| **Verificar atualização agora** | Comando que pergunta ao Open VSX na hora, em vez de esperar a checagem diária; sempre responde (versão nova / já está na última / não deu para verificar). Junto: o aviso deixa de ser gravado antes de aparecer, então um toast perdido volta em vez de sumir para sempre | 0.42.0 |
+| **AI advice local sem atrito** | Progresso cancelável (cancelar derruba a conexão, não só a barra) e chave de API dispensada em endpoint local — Ollama/LM Studio não autenticam nada | 0.42.0 |
 
 ## 💡 Próximas ideias
 
@@ -89,19 +91,19 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | 11 | **Auto-piloto de cota (ações reais)** | Fecha o loop: quando a cota 5h/7d cai, troca de modelo (Opus→Sonnet) e/ou pausa via hook `Stop`, revertendo no reset. "Modo economia" com 1 clique. Escrita segura de settings/hooks, com opt-in explícito | Médio-alto | ⚠️ precisa consentimento + reversão garantida |
 | 14 | **Benchmark anônimo comunitário** | Percentil opt-in e anonimizado vs comunidade ("top 15% do plano Max"). Só percentis agregados, zero conteúdo de prompt. Vantagem de rede | Alto | ⚠️ exige backend + política de privacidade |
 
-## 🔧 Pendências achadas na validação em app (28/07, S8)
+## 🔧 Validação em app
 
-Rodar as features de verdade no app revelou o que a leitura de código não pega. Nenhuma
-destas é urgente; todas são pequenas e independentes.
+As 5 pendências de código achadas rodando o plugin na S8 (28/07) foram **todas corrigidas na
+0.42.0** — progresso cancelável, chave opcional em local, as duas ordens de gravação da
+checagem de versão e o `tooltipDetail` na aba Config. Duas viraram trava de CI, para não
+voltarem em silêncio.
 
-| Onde | O quê | Por quê incomoda |
-| --- | --- | --- |
-| `aiAdvice.ts` | Progresso **não cancelável** (`withProgress` sem `cancellable`) | Endpoint local pode segurar até **10min** sem o usuário ter como desistir — só resta esperar |
-| `aiAdvice.ts` | Exige chave de API mesmo em endpoint **local** | Ollama/LM Studio não usam chave; o usuário precisa inventar uma string para destravar o comando |
-| `extension.ts` | `updateLastCheckMs` é gravado **antes** do fetch | Estar offline no momento da checagem consome a janela inteira de 24h — só tenta de novo amanhã |
-| `extension.ts` | `updateNotifiedVersion` é gravado **antes** de mostrar a notificação | Fechar o aviso sem escolher = nunca mais ver aquela versão anunciada |
-| aba Config | `tooltipDetail` e `dashboardWindow` não estão no `SETTINGS_SCHEMA` | Declarados no manifesto e documentados nos READMEs, mas invisíveis na tela de Config |
-| — | Notificação de **versão nova** ainda não vista em app | Instalada == publicada; valida sozinha no próximo release (é só não atualizar na hora) |
+O que continua **aberto** é validação, não código:
+
+| O quê | Estado |
+| --- | --- |
+| Notificação de versão nova **vista na tela** | O `globalState` provou que o fluxo rodou (`updateNotifiedVersion = 0.41.2`), mas o toast se perdeu — era exatamente o bug corrigido. Com a 0.42.0, é rodar `Verificar atualização agora` |
+| Features da 0.42.0 **rodando no app** | Comando novo, cancelamento do AI advice (o mais arriscado: mexe em socket e promise), chave opcional local e o campo `tooltipDetail`. Até aqui, só teste e compilador |
 
 ## 🌐 Externo / operacional (fora do código)
 

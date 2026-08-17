@@ -1,5 +1,62 @@
 # Changelog
 
+## 0.42.0
+
+### 🔔 O aviso de versão nova tinha uma chance só — e ela se perdia
+
+Quem instala pelo `.vsix` (VS Code da Microsoft, onde o publisher está bloqueado) nunca
+recebe atualização automática: a extensão é sideloaded, e o VS Code não consulta o Open VSX.
+A checagem diária de versão existe justamente para cobrir esse buraco — mas ela avisava
+**uma vez por versão**, e marcava "já avisei" **antes** de o aviso chegar à tela. Bastava a
+janela ser recarregada, ou você estar em outro app, para aquele toast se perder de vez: a
+versão ficava marcada como anunciada e o aviso nunca mais voltava.
+
+Agora a marca só é gravada se você **responder** (abrir a release ou pedir para não avisar
+mais). Fechar sem escolher deixa o aviso voltar na próxima checagem, que é o comportamento
+que se esperava desde sempre.
+
+O mesmo erro de ordem afetava o carimbo da checagem: ele era gravado **antes** da consulta,
+então estar sem rede naquele instante consumia a janela inteira de 24h e só se tentava de
+novo no dia seguinte. O carimbo passou para depois da consulta, e uma falha agora reagenda
+em **1 hora** em vez de um dia.
+
+### ✨ Comando "Verificar atualização agora"
+
+Não dá mais para depender da janela de 24h: o comando pergunta ao Open VSX na hora e
+**sempre responde** — versão nova (com o botão da release), você já está na mais recente, ou
+não deu para verificar. Ele ignora as guardas da checagem automática (intervalo, "não avisar
+mais", "já avisei"), porque quem clicou quer uma resposta agora. O que ele **não** ignora é o
+setting `updateCheckEnabled`: desligar a checagem é opt-out explícito de rede, e o comando
+diz isso em vez de fazer a chamada assim mesmo.
+
+### 🤖 AI advice com LLM local: dá para cancelar, e não pede chave
+
+Endpoint local tem timeout de 10 minutos (geração sem streaming leva o que leva) — e até
+agora não havia como desistir no meio. O progresso virou **cancelável**, e cancelar derruba a
+conexão de verdade: sem isso, o botão só esconderia a barra enquanto a requisição seguia
+viva. Cancelamento também deixou de aparecer como erro vermelho — é escolha sua, não falha.
+
+E **endpoint local não pede mais chave de API**. Ollama e LM Studio não autenticam nada;
+exigir a chave obrigava a inventar uma string qualquer só para destravar o comando. Se você
+tiver uma chave configurada, ela continua sendo enviada (para um servidor local com auth
+ligado). Sem chave, nenhum header de autenticação é enviado — mandar um `Bearer` vazio faz
+servidor estrito responder 401 em vez de simplesmente ignorar.
+
+### ⚙️ `tooltipDetail` apareceu na aba Config
+
+O setting que alterna o tooltip entre completo e enxuto estava no manifesto e documentado nos
+READMEs, mas não era desenhado na aba Config — só dava para mudá-lo editando o `settings.json`
+na mão. Agora está lá, na seção Aparência.
+
+Os outros três settings ausentes da aba (`barStyle`, `costWindow`, `dashboardWindow`)
+continuam fora **de propósito**: os três já têm controle próprio na interface (os botões de
+estilo e os seletores de janela da aba Custos e do dashboard), e um campo a mais criaria dois
+controles para o mesmo valor. A exceção agora está escrita, com motivo, dentro do teste.
+
+Este release adiciona travas de CI para os três casos acima: um setting do manifesto que não
+apareça na aba Config (nem esteja na lista de exceções justificadas) quebra a suíte, assim
+como as duas ordens de gravação corrigidas aqui. Suíte de testes: **167 → 192**.
+
 ## 0.41.2
 
 ### 🐛 Correção: a aba Config não mostrava nenhum setting do AI advice

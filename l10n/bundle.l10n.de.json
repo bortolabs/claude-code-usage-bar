@@ -376,5 +376,10 @@
   "Sua hora historicamente mais leve nas próximas 12h.": "Deine historisch leichteste Stunde in den nächsten 12 Std.",
   "Ver release": "Release ansehen",
   "Não avisar mais": "Nicht mehr melden",
-  "Claude Usage: versão {0} disponível (você está na {1}).": "Claude Usage: Version {0} verfügbar (Sie haben {1})."
+  "Claude Usage: versão {0} disponível (você está na {1}).": "Claude Usage: Version {0} verfügbar (Sie haben {1}).",
+  "Claude Usage: você já está na versão mais recente ({0}).": "Claude Usage: Sie haben bereits die neueste Version ({0}).",
+  "Claude Usage: não foi possível verificar (sem rede, ou Open VSX fora do ar).": "Claude Usage: Prüfung nicht möglich (kein Netzwerk oder Open VSX nicht erreichbar).",
+  "Claude Usage: a checagem de versão está desligada (setting `updateCheckEnabled`).": "Claude Usage: Die Versionsprüfung ist deaktiviert (Einstellung `updateCheckEnabled`).",
+  "AI advice cancelado.": "AI advice abgebrochen.",
+  "Detalhe do tooltip (hover)": "Tooltip-Detailgrad (Hover)"
 }

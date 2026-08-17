@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { pickRequestTimeoutMs } from "../src/aiAdvice";
+import {
+  buildAuthHeaders,
+  CancelledError,
+  isCancellation,
+  pickRequestTimeoutMs,
+  requiresApiKey,
+} from "../src/aiAdvice";
 
 /**
  * O timeout do request ao LLM é a única coisa entre "modelo local demorando o que ele
@@ -35,5 +41,63 @@ describe("pickRequestTimeoutMs", () => {
     // por rede e cai nos 2min; se um dia isso incomodar, vira setting — não regra implícita.
     expect(t("http://192.168.1.50:11434/v1/chat/completions")).toBe(120000);
     expect(t("http://meu-mac.local:11434/v1/chat/completions")).toBe(120000);
+  });
+});
+
+describe("requiresApiKey", () => {
+  it("endpoint local dispensa a chave (Ollama/LM Studio não autenticam)", () => {
+    expect(requiresApiKey("http://127.0.0.1:11434/v1/chat/completions")).toBe(false);
+    expect(requiresApiKey("http://localhost:1234/v1/chat/completions")).toBe(false);
+    expect(requiresApiKey("http://[::1]:11434/v1/chat/completions")).toBe(false);
+  });
+
+  it("endpoint remoto continua exigindo chave", () => {
+    expect(requiresApiKey("https://api.anthropic.com/v1/messages")).toBe(true);
+    expect(requiresApiKey("http://192.168.1.50:11434/v1/chat/completions")).toBe(true);
+  });
+
+  it("endpoint inválido ou vazio exige chave (no escuro, o padrão é o remoto)", () => {
+    expect(requiresApiKey("")).toBe(true);
+    expect(requiresApiKey("nem-url")).toBe(true);
+  });
+});
+
+describe("buildAuthHeaders", () => {
+  it("com chave, manda o header do estilo certo", () => {
+    expect(buildAuthHeaders("anthropic", "sk-ant-123")).toEqual({
+      "anthropic-version": "2023-06-01",
+      "x-api-key": "sk-ant-123",
+    });
+    expect(buildAuthHeaders("openai", "sk-123")).toEqual({
+      authorization: "Bearer sk-123",
+    });
+  });
+
+  it("sem chave, NENHUM header de auth — nada de `Bearer ` vazio", () => {
+    // Servidor estrito responde 401 a um Bearer vazio em vez de ignorar o header.
+    expect(buildAuthHeaders("openai", "")).toEqual({});
+    expect(buildAuthHeaders("anthropic", "")).toEqual({
+      "anthropic-version": "2023-06-01",
+    });
+  });
+
+  it("`anthropic-version` é protocolo, não auth: vai mesmo sem chave", () => {
+    expect(buildAuthHeaders("anthropic", "")["anthropic-version"]).toBe("2023-06-01");
+  });
+});
+
+describe("isCancellation", () => {
+  it("separa cancelamento do usuário de falha de verdade", () => {
+    expect(isCancellation(new CancelledError())).toBe(true);
+    expect(isCancellation(new Error("timeout"))).toBe(false);
+    expect(isCancellation(new Error("HTTP 500: ..."))).toBe(false);
+    expect(isCancellation(undefined)).toBe(false);
+  });
+
+  it("sobrevive ao erro que volta do `req.destroy` (só o name preservado)", () => {
+    // O destroy propaga o erro pelo evento 'error'; dependendo do caminho, o que chega
+    // pode ser um objeto sem a cadeia de protótipos — por isso o fallback pelo `name`.
+    const cru = Object.assign(new Error("cancelled"), { name: "CancelledError" });
+    expect(isCancellation(cru)).toBe(true);
   });
 });

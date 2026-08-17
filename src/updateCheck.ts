@@ -66,6 +66,132 @@ export function parseLatestVersion(body: string): string | null {
   }
 }
 
+/** Chaves no `globalState` (compartilhado entre as janelas abertas). */
+export const UPDATE_LAST_CHECK_KEY = "updateLastCheckMs";
+export const UPDATE_LAST_FAILED_KEY = "updateLastCheckFailed";
+export const UPDATE_NOTIFIED_KEY = "updateNotifiedVersion";
+export const UPDATE_OPT_OUT_KEY = "updateNotifyOptOut";
+
+/** Intervalo normal entre checagens. */
+export const UPDATE_CHECK_INTERVAL_MS = 24 * 3600 * 1000;
+/**
+ * Intervalo depois de uma checagem que FALHOU (offline, timeout). Curto de propósito:
+ * estar sem rede na hora não pode custar a janela inteira de 24h. Mas não é zero —
+ * a checagem roda a cada ativação (uma por janela do VS Code), e sem um piso um
+ * usuário offline com várias janelas marteleria o Open VSX a cada reload.
+ */
+export const UPDATE_RETRY_INTERVAL_MS = 3600 * 1000;
+
+/** Está na hora de checar de novo? */
+export function isCheckDue(
+  lastCheckMs: number | undefined,
+  lastCheckFailed: boolean,
+  now: number
+): boolean {
+  const elapsed = now - (lastCheckMs ?? 0);
+  // Relógio andou pra trás (fuso, NTP): não dá pra confiar no carimbo, checa.
+  if (elapsed < 0) {
+    return true;
+  }
+  return (
+    elapsed >= (lastCheckFailed ? UPDATE_RETRY_INTERVAL_MS : UPDATE_CHECK_INTERVAL_MS)
+  );
+}
+
+/** O que o usuário fez com o aviso. `dismissed` = fechou/ignorou, sem escolher nada. */
+export type UpdateNoticeChoice = "release" | "never" | "dismissed";
+
+/** Tudo que o fluxo precisa do mundo externo — injetado para poder ser testado. */
+export interface UpdateCheckDeps {
+  now: () => number;
+  getState: <T>(key: string) => T | undefined;
+  setState: (key: string, value: unknown) => Promise<void>;
+  fetchLatest: () => Promise<string | null>;
+  /** Mostra o aviso e resolve com a escolha do usuário. */
+  showNotice: (latest: string, current: string) => Promise<UpdateNoticeChoice>;
+  openReleases: () => void;
+}
+
+/** Por onde o fluxo saiu — existe para o teste (e para depuração), não para a UI. */
+export type UpdateCheckOutcome =
+  | "opt-out"
+  | "not-due"
+  | "fetch-failed"
+  | "up-to-date"
+  | "already-notified"
+  | "notified-dismissed"
+  | "notified-release"
+  | "notified-never";
+
+/**
+ * Fluxo completo da checagem de versão nova.
+ *
+ * As duas gravações de estado acontecem **depois** do que elas registram, e isso é o
+ * ponto do desenho — na versão anterior as duas eram feitas antes, e cada uma
+ * transformava um contratempo em silêncio permanente:
+ *
+ * - `updateLastCheckMs` era carimbado antes do fetch: estar offline naquele segundo
+ *   consumia as 24h inteiras, e só se tentava de novo no dia seguinte;
+ * - `updateNotifiedVersion` era gravado antes de `showInformationMessage`: como o aviso
+ *   só aparece uma vez por versão, um toast perdido (janela recarregada, usuário em
+ *   outro app, notificação recolhida no sininho e limpa) queimava a **única** chance
+ *   de saber daquela versão — para sempre.
+ *
+ * `force` é a checagem pedida na mão pelo usuário (comando da paleta): fura as três
+ * guardas que existem só para a checagem automática não incomodar — intervalo,
+ * opt-out e "já avisei desta versão". Quem clicou no comando quer uma resposta agora,
+ * qualquer que seja; o chamador usa o `UpdateCheckOutcome` para dar essa resposta.
+ * O que `force` **não** muda é a regra de gravação: continua só marcando a versão
+ * como avisada se o usuário responder.
+ */
+export async function runUpdateCheck(
+  current: string,
+  deps: UpdateCheckDeps,
+  opts: { force?: boolean } = {}
+): Promise<UpdateCheckOutcome> {
+  const force = opts.force === true;
+  if (!force && deps.getState<boolean>(UPDATE_OPT_OUT_KEY) === true) {
+    return "opt-out";
+  }
+  const due =
+    force ||
+    isCheckDue(
+      deps.getState<number>(UPDATE_LAST_CHECK_KEY),
+      deps.getState<boolean>(UPDATE_LAST_FAILED_KEY) === true,
+      deps.now()
+    );
+  if (!due) {
+    return "not-due";
+  }
+
+  const latest = await deps.fetchLatest();
+  await deps.setState(UPDATE_LAST_CHECK_KEY, deps.now());
+  await deps.setState(UPDATE_LAST_FAILED_KEY, latest === null);
+  if (latest === null) {
+    return "fetch-failed";
+  }
+  if (!isNewer(latest, current)) {
+    return "up-to-date";
+  }
+  // Não repete o aviso da MESMA versão que o usuário já respondeu.
+  if (!force && deps.getState<string>(UPDATE_NOTIFIED_KEY) === latest) {
+    return "already-notified";
+  }
+
+  const choice = await deps.showNotice(latest, current);
+  // Fechou sem escolher: não grava nada, o aviso volta na próxima janela de checagem.
+  if (choice === "dismissed") {
+    return "notified-dismissed";
+  }
+  await deps.setState(UPDATE_NOTIFIED_KEY, latest);
+  if (choice === "release") {
+    deps.openReleases();
+    return "notified-release";
+  }
+  await deps.setState(UPDATE_OPT_OUT_KEY, true);
+  return "notified-never";
+}
+
 /**
  * Busca a última versão publicada no Open VSX. NUNCA lança: devolve `null` em qualquer
  * falha (offline, timeout, JSON inválido, HTTP != 2xx) — é um aviso opcional, não pode

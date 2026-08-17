@@ -104,4 +104,38 @@ describe("aba Config: render × coleta", () => {
     expect(renderedKeys().length).toBeGreaterThan(50);
     expect(collectedKeys().length).toBeGreaterThan(50);
   });
+
+  /**
+   * Settings que de propósito NÃO viram campo na aba Config. Ficar de fora é uma
+   * decisão, e ela precisa estar escrita — senão a exceção vira desculpa e a próxima
+   * ausência (que é bug) passa junto.
+   */
+  const FORA_DA_ABA_CONFIG: Record<string, string> = {
+    barStyle: "já editável ali pelos botões visuais de estilo (`extra: 'style'`)",
+    costWindow: "estado do seletor de janela da aba Custos, gravado ao escolher",
+    dashboardWindow: "estado do seletor de janela do dashboard, gravado ao escolher",
+  };
+
+  it("todo setting do manifesto aparece na aba Config (ou está na lista de exceções)", () => {
+    // Era o buraco: `tooltipDetail` estava no manifesto e nos READMEs, mas não no
+    // SETTINGS_SCHEMA — só dava para mudar editando o `settings.json` na mão.
+    const invisiveis = manifestKeys().filter(
+      (k) => !renderedKeys().includes(k) && !(k in FORA_DA_ABA_CONFIG),
+    );
+    expect(invisiveis, "settings que ninguém acha pela UI").toEqual([]);
+  });
+
+  it("a lista de exceções não guarda setting que já não existe", () => {
+    const known = manifestKeys();
+    const mortos = Object.keys(FORA_DA_ABA_CONFIG).filter((k) => !known.includes(k));
+    expect(mortos, "exceções obsoletas").toEqual([]);
+  });
+
+  it("exceção não vale para setting que a aba Config renderiza", () => {
+    // Se um dia um deles virar campo de verdade, a exceção some junto.
+    const contraditorios = Object.keys(FORA_DA_ABA_CONFIG).filter((k) =>
+      renderedKeys().includes(k),
+    );
+    expect(contraditorios, "estão na aba Config E na lista de exceções").toEqual([]);
+  });
 });

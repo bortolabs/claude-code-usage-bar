@@ -235,14 +235,95 @@ function buildPrompt(d: DashboardData, prompts: string[]): { system: string; use
  * colchetes** — por isso as duas formas estão na lista. IP de LAN (`192.168.x.x`) é
  * deliberadamente "remoto": o timeout longo existe para geração na própria máquina.
  */
-export function pickRequestTimeoutMs(url: URL): number {
-  const isLocal = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);
-  return isLocal ? 600000 : 120000;
+export function isLocalEndpoint(url: URL): boolean {
+  return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);
 }
 
-/** Chamada HTTP ao endpoint do LLM. Retorna o texto da resposta. */
-function callLLM(cfg: AiAdviceConfig, apiKey: string, system: string, user: string): Promise<string> {
-  return new Promise((resolve, reject) => {
+export function pickRequestTimeoutMs(url: URL): number {
+  return isLocalEndpoint(url) ? 600000 : 120000;
+}
+
+/**
+ * O endpoint configurado exige chave de API?
+ *
+ * Ollama e LM Studio não autenticam nada — exigir chave ali obrigava o usuário a
+ * inventar uma string qualquer só para destravar o comando. Endpoint local dispensa.
+ * Endpoint inválido/vazio responde `true` de propósito: no escuro, o padrão seguro é
+ * o do provedor remoto.
+ */
+export function requiresApiKey(endpoint: string): boolean {
+  try {
+    return !isLocalEndpoint(new URL(endpoint));
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Headers de autenticação. Sem chave (só acontece em endpoint local), nenhum header de
+ * auth é enviado — mandar `Bearer ` vazio faz servidor estrito responder 401 em vez de
+ * simplesmente ignorar. `anthropic-version` fica de fora dessa regra: é protocolo, não
+ * autenticação, e vale mesmo para um proxy local no estilo anthropic.
+ */
+export function buildAuthHeaders(
+  style: AiAdviceConfig["style"],
+  apiKey: string
+): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (style === "anthropic") {
+    headers["anthropic-version"] = "2023-06-01";
+    if (apiKey) {
+      headers["x-api-key"] = apiKey;
+    }
+  } else if (apiKey) {
+    headers["authorization"] = "Bearer " + apiKey;
+  }
+  return headers;
+}
+
+/** Erro que marca "o usuário cancelou" — o chamador trata diferente de falha. */
+export class CancelledError extends Error {
+  constructor() {
+    super("cancelled");
+    this.name = "CancelledError";
+  }
+}
+
+/** Cancelamento do usuário, ou falha de verdade? */
+export function isCancellation(e: unknown): boolean {
+  return e instanceof CancelledError || (e as Error)?.name === "CancelledError";
+}
+
+/**
+ * Chamada HTTP ao endpoint do LLM. Retorna o texto da resposta.
+ *
+ * `token` derruba o socket na hora do cancelamento. Sem isso, cancelar o progresso só
+ * escondia a barra: a requisição seguia viva, e num endpoint local ela pode segurar até
+ * 10min (o timeout longo) antes de morrer sozinha.
+ */
+function callLLM(
+  cfg: AiAdviceConfig,
+  apiKey: string,
+  system: string,
+  user: string,
+  token?: vscode.CancellationToken
+): Promise<string> {
+  return new Promise((resolveRaw, rejectRaw) => {
+    // Toda saída passa por aqui para soltar o listener de cancelamento — inclusive as
+    // que acontecem lá dentro dos handlers da resposta.
+    let sub: vscode.Disposable | undefined;
+    const resolve = (v: string) => {
+      sub?.dispose();
+      resolveRaw(v);
+    };
+    const reject = (e: Error) => {
+      sub?.dispose();
+      rejectRaw(e);
+    };
+    if (token?.isCancellationRequested) {
+      reject(new CancelledError());
+      return;
+    }
     let url: URL;
     try {
       url = new URL(cfg.endpoint);
@@ -269,13 +350,8 @@ function callLLM(cfg: AiAdviceConfig, apiKey: string, system: string, user: stri
     const headers: Record<string, string> = {
       "content-type": "application/json",
       "content-length": String(Buffer.byteLength(body)),
+      ...buildAuthHeaders(cfg.style, apiKey),
     };
-    if (isAnthropic) {
-      headers["x-api-key"] = apiKey;
-      headers["anthropic-version"] = "2023-06-01";
-    } else {
-      headers["authorization"] = "Bearer " + apiKey;
-    }
     // http p/ endpoints locais (Ollama/LM Studio em localhost), https p/ o resto.
     const lib = url.protocol === "http:" ? http : https;
     const req = lib.request(
@@ -322,6 +398,9 @@ function callLLM(cfg: AiAdviceConfig, apiKey: string, system: string, user: stri
         });
       }
     );
+    // Derruba o socket quando o usuário cancela; o `error` que vem do destroy carrega
+    // o CancelledError, então o chamador distingue cancelamento de falha.
+    sub = token?.onCancellationRequested(() => req.destroy(new CancelledError()));
     req.on("error", reject);
     req.on("timeout", () => req.destroy(new Error("timeout")));
     req.write(body);
@@ -340,7 +419,9 @@ export async function runAiAdvice(
   }
   const cfg = readConfig();
   let apiKey = await context.secrets.get(SECRET_KEY);
-  if (!apiKey) {
+  // Chave configurada continua sendo usada em qualquer endpoint (tem quem rode LM Studio
+  // com auth ligado). O que muda é ela deixar de ser OBRIGATÓRIA quando o endpoint é local.
+  if (!apiKey && requiresApiKey(cfg.endpoint)) {
     const set = await vscode.window.showInformationMessage(
       tr("O AI advice precisa de uma chave de API (BYO). Configurar agora?"),
       tr("Configurar chave")
@@ -371,16 +452,25 @@ export async function runAiAdvice(
   const { system, user } = buildPrompt(data, prompts);
 
   await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: tr("Gerando AI advice…") },
-    async () => {
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: tr("Gerando AI advice…"),
+      cancellable: true,
+    },
+    async (_progress, token) => {
       try {
-        const md = await callLLM(cfg, apiKey as string, system, user);
+        const md = await callLLM(cfg, apiKey ?? "", system, user, token);
         const doc = await vscode.workspace.openTextDocument({
           language: "markdown",
           content: md,
         });
         await vscode.window.showTextDocument(doc, { preview: false });
       } catch (e) {
+        // Cancelar é escolha do usuário, não erro: aviso curto, sem cara de falha.
+        if (isCancellation(e)) {
+          vscode.window.showInformationMessage(tr("AI advice cancelado."));
+          return;
+        }
         vscode.window.showErrorMessage(
           tr("Falha no AI advice: {0}", String((e as Error)?.message ?? e))
         );
