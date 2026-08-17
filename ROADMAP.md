@@ -102,8 +102,9 @@ O que continua **aberto** é validação, não código:
 
 | O quê | Estado |
 | --- | --- |
-| Notificação de versão nova **vista na tela** | O `globalState` provou que o fluxo rodou (`updateNotifiedVersion = 0.41.2`), mas o toast se perdeu — era exatamente o bug corrigido. Com a 0.42.0, é rodar `Verificar atualização agora` |
-| Features da 0.42.0 **rodando no app** | Comando novo, cancelamento do AI advice (o mais arriscado: mexe em socket e promise), chave opcional local e o campo `tooltipDetail`. Até aqui, só teste e compilador |
+| ~~Notificação de versão nova **vista na tela**~~ | ✅ **fechado (17/08)** — `Verificar atualização agora` respondeu _"você já está na versão mais recente (0.42.0)"_ na 0.42.0 instalada. Pendência arrastada desde a S6 |
+| Cancelamento do AI advice + chave opcional local | Os dois se validam na mesma execução com Ollama. O cancelamento é o mais arriscado da release: mexe em socket e ciclo de promise, e teste unitário não prova que o botão derruba a conexão |
+| Campo `tooltipDetail` na aba Config | Conferir que aparece **com valor**, não em branco — campo em branco era o sintoma do bug da 0.41.2 |
 
 ## 🌐 Externo / operacional (fora do código)
 
