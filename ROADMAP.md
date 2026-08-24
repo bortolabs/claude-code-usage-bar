@@ -98,13 +98,21 @@ As 5 pendências de código achadas rodando o plugin na S8 (28/07) foram **todas
 checagem de versão e o `tooltipDetail` na aba Config. Duas viraram trava de CI, para não
 voltarem em silêncio.
 
-O que continua **aberto** é validação, não código:
+A **validação em app fechou em 23/08** (S10). O que a destravou foi trocar o modelo real por um
+**stub HTTP local** que segura o socket e loga a desconexão do cliente: a prova do cancelamento
+está no log do servidor, não na tela.
 
 | O quê | Estado |
 | --- | --- |
 | ~~Notificação de versão nova **vista na tela**~~ | ✅ **fechado (17/08)** — `Verificar atualização agora` respondeu _"você já está na versão mais recente (0.42.0)"_ na 0.42.0 instalada. Pendência arrastada desde a S6 |
-| Cancelamento do AI advice + chave opcional local | Os dois se validam na mesma execução com Ollama. O cancelamento é o mais arriscado da release: mexe em socket e ciclo de promise, e teste unitário não prova que o botão derruba a conexão |
-| Campo `tooltipDetail` na aba Config | Conferir que aparece **com valor**, não em branco — campo em branco era o sintoma do bug da 0.41.2 |
+| ~~Cancelamento do AI advice~~ | ✅ **fechado (23/08)** — cancelado aos 12,2s, o stub registrou o FIN no mesmo instante, ainda com 108s de espera pela frente; a tela mostrou _"AI advice cancelado."_, não erro. Antes da 0.42.0 a requisição sobreviveria até os 600s |
+| ~~Chave em endpoint local~~ | ✅ **fechado (23/08)** — `authorization` chegou **presente** ao endpoint `127.0.0.1` (a regressão do LM Studio com auth). O caminho **sem chave** ficou com a cobertura unitária de `test/aiAdvice.test.ts`: provar em app exigiria apagar a chave real do cofre, que o SecretStorage não devolve |
+| ~~Campo `tooltipDetail` na aba Config~~ | ✅ **fechado (23/08)** — aparece **com valor** (`full`, o default), o oposto do sintoma da 0.41.2 |
+
+Achado lateral (backlog, cosmético): os `<select>` da aba Config exibem o **valor cru** da opção
+(`full`, `semaforo`, `quota`, `right`) em vez de um rótulo traduzido — o `SETTINGS_SCHEMA` de
+`panel.ts` traduz só o rótulo à esquerda. Hoje é **consistente** entre todos os enums, então só
+vale mexer atacando todos de uma vez.
 
 ## 🌐 Externo / operacional (fora do código)
 
