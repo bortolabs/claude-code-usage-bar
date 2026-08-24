@@ -109,9 +109,22 @@ jobs:
           files: ${{ steps.ver.outputs.vsix }}
 
       # Open VSX (registro independente da Microsoft) — caminho de publicação vivo.
+      # O namespace só precisa ser criado UMA vez. De lá pra cá, todo release
+      # recebe "Namespace already exists" com exit 1 — erro esperado, que antes
+      # pintava um ##[error] vermelho no log de toda publicação. Um vermelho que
+      # sempre aparece é um vermelho que ninguém lê no dia em que for real, então
+      # aqui ele vira ::notice::. Falha de verdade (PAT inválido, Open VSX fora)
+      # não se perde: quebra no passo de publish abaixo, que é o guardião.
       - name: Garante namespace no Open VSX
-        continue-on-error: true
-        run: npx --yes ovsx create-namespace bortolabs -p "$OVSX_PAT"
+        run: |
+          if out=$(npx --yes ovsx create-namespace bortolabs -p "$OVSX_PAT" 2>&1); then
+            echo "$out"
+          elif echo "$out" | grep -qi "already exists"; then
+            echo "::notice::Namespace 'bortolabs' já existia — nada a fazer."
+          else
+            echo "$out"
+            echo "::warning::create-namespace falhou por motivo inesperado. Se for o PAT ou o Open VSX, o passo de publish abaixo quebra com detalhe."
+          fi
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
 
