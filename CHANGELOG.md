@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.43.0
+
+### 🌐 Os dropdowns da aba Config falavam em código
+
+Abrir a aba Config e escolher o tema do anel queria dizer decidir entre
+`semaforo`, `claude`, `mono` e `custom`. O mesmo no detalhe do tooltip
+(`compact`/`full`), no valor da status bar (`quota`/`today`/`session`), no
+alinhamento (`right`/`left`), no tipo de conta, no modo e no estilo da API: o
+rótulo à esquerda da linha sempre foi traduzido, mas a opção dentro do dropdown
+mostrava o identificador cru que vai para o `settings.json` — em qualquer um dos
+5 idiomas.
+
+Os 7 dropdowns agora exibem texto de gente, e trocam de idioma na hora junto com
+as bandeiras, como o resto do painel. Onde o valor era ambíguo o rótulo traz uma
+dica curta em vez de exigir que você adivinhe: **Assinante (cota)**, **Custo
+(US$)**, **Semáforo (verde→vermelho)**, **Compacto (o essencial)**. Nomes de
+produto continuam como são — API, Anthropic, OpenAI.
+
+### 🧹 Manutenção
+
+Os 101 placeholders do manifesto foram auditados contra os 5 arquivos de
+tradução: uma descrição órfã (sobra de quando o idioma era um setting, hoje é o
+card de bandeiras) foi removida, e o resto estava saudável. A auditoria virou
+teste, junto com uma comparação entre as opções que o painel oferece e os valores
+que o manifesto aceita — um dropdown que oferece valor recusado pelo VS Code
+falha em silêncio, com a escrita descartada e nenhum erro na tela.
+
 ## 0.42.0
 
 ### 🔔 O aviso de versão nova tinha uma chance só — e ela se perdia
