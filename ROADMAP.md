@@ -123,6 +123,11 @@ manifesto.
   publicação no Marketplace falha de propósito (passo `continue-on-error`) e a instalação no
   VS Code é via **`.vsix` da Release** do GitHub. Depende do appeal junto à Microsoft.
 - **Open VSX:** ✅ ativo (namespace `bortolabs`), publicação automática a cada release.
+- **Ruído do `create-namespace` na CI:** ✅ **fechado (06/09)** — confirmado no run da 0.43.0
+  ([34064719854](https://github.com/bortolabs/claude-code-usage-bar/actions/runs/34064719854)):
+  o passo saiu como `::notice::Namespace 'bortolabs' já existia — nada a fazer.` e o run inteiro
+  terminou com **zero** `##[error]`. Antes da correção da S10, todo release pintava um vermelho
+  ali — e um vermelho que sempre aparece é um vermelho que ninguém lê no dia em que for real.
 
 ## Notas técnicas
 
