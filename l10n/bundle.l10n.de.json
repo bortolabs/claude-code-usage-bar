@@ -381,5 +381,19 @@
   "Claude Usage: não foi possível verificar (sem rede, ou Open VSX fora do ar).": "Claude Usage: Prüfung nicht möglich (kein Netzwerk oder Open VSX nicht erreichbar).",
   "Claude Usage: a checagem de versão está desligada (setting `updateCheckEnabled`).": "Claude Usage: Die Versionsprüfung ist deaktiviert (Einstellung `updateCheckEnabled`).",
   "AI advice cancelado.": "AI advice abgebrochen.",
-  "Detalhe do tooltip (hover)": "Tooltip-Detailgrad (Hover)"
+  "Detalhe do tooltip (hover)": "Tooltip-Detailgrad (Hover)",
+  "Semáforo (verde→vermelho)": "Ampel (grün→rot)",
+  "Claude (roxo)": "Claude (lila)",
+  "Mono (uma cor)": "Mono (eine Farbe)",
+  "Personalizado (cor abaixo)": "Benutzerdefiniert (Farbe unten)",
+  "Cota (do plano)": "Kontingent (Tarif)",
+  "Hoje (custo)": "Heute (Kosten)",
+  "Compacto (o essencial)": "Kompakt (das Wesentliche)",
+  "Completo (tudo)": "Vollständig (alles)",
+  "Direita": "Rechts",
+  "Esquerda": "Links",
+  "Automático (detecta)": "Automatisch (erkennt)",
+  "Assinatura": "Abonnement",
+  "Assinante (cota)": "Abonnent (Kontingent)",
+  "Custo (US$)": "Kosten (US$)"
 }

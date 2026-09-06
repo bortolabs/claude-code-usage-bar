@@ -381,5 +381,19 @@
   "Claude Usage: não foi possível verificar (sem rede, ou Open VSX fora do ar).": "Claude Usage: could not check (no network, or Open VSX is down).",
   "Claude Usage: a checagem de versão está desligada (setting `updateCheckEnabled`).": "Claude Usage: the version check is turned off (`updateCheckEnabled` setting).",
   "AI advice cancelado.": "AI advice cancelled.",
-  "Detalhe do tooltip (hover)": "Tooltip detail (hover)"
+  "Detalhe do tooltip (hover)": "Tooltip detail (hover)",
+  "Semáforo (verde→vermelho)": "Traffic light (green→red)",
+  "Claude (roxo)": "Claude (purple)",
+  "Mono (uma cor)": "Mono (one color)",
+  "Personalizado (cor abaixo)": "Custom (color below)",
+  "Cota (do plano)": "Quota (plan)",
+  "Hoje (custo)": "Today (cost)",
+  "Compacto (o essencial)": "Compact (essentials)",
+  "Completo (tudo)": "Full (everything)",
+  "Direita": "Right",
+  "Esquerda": "Left",
+  "Automático (detecta)": "Automatic (detects)",
+  "Assinatura": "Subscription",
+  "Assinante (cota)": "Subscriber (quota)",
+  "Custo (US$)": "Cost (US$)"
 }

@@ -278,6 +278,45 @@ function panelStrings() {
       aiAdvicePromptWindowDays: tr("Amostra de prompts: janela (dias)"),
       aiAdviceMaxPrompts: tr("Amostra de prompts: máximo"),
     },
+    // Rótulos das opções dos <select> da aba Config. Mesmo padrão de `comp`/
+    // `indicator`: mapa valor → texto, com fallback para o valor cru no render.
+    // Aninhado por setting de propósito — `auto` aparece em dois settings e não
+    // pode ficar preso ao mesmo texto se um deles mudar de sentido.
+    enumOpt: {
+      ringTheme: {
+        semaforo: tr("Semáforo (verde→vermelho)"),
+        claude: tr("Claude (roxo)"),
+        mono: tr("Mono (uma cor)"),
+        custom: tr("Personalizado (cor abaixo)"),
+      },
+      statusBarValue: {
+        quota: tr("Cota (do plano)"),
+        today: tr("Hoje (custo)"),
+        session: tr("Sessão"),
+      },
+      tooltipDetail: {
+        compact: tr("Compacto (o essencial)"),
+        full: tr("Completo (tudo)"),
+      },
+      alignment: {
+        right: tr("Direita"),
+        left: tr("Esquerda"),
+      },
+      accountType: {
+        auto: tr("Automático (detecta)"),
+        subscription: tr("Assinatura"),
+        api: "API", // nome próprio: igual nos 5 idiomas, não passa por tr()
+      },
+      mode: {
+        auto: tr("Automático (detecta)"),
+        subscriber: tr("Assinante (cota)"),
+        cost: tr("Custo (US$)"),
+      },
+      aiAdviceApiStyle: {
+        anthropic: "Anthropic", // idem: nomes de produto
+        openai: "OpenAI",
+      },
+    },
     srcTitle: tr("Fonte de dados"),
     srcActive: tr("Fonte ativa"),
     cmdsTitle: tr("Comandos"),
@@ -1157,8 +1196,11 @@ function panelHtml(opts?: {
         } else if (it.type === 'number') {
           ctrl = '<input type="number" data-key="' + it.key + '" value="' + esc(val) + '">';
         } else if (it.type === 'enum') {
+          // O valor da <option> é o literal que vai para o settings.json; o texto
+          // é o rótulo traduzido. Sem rótulo, cai no valor cru (como era antes).
+          const rot = L.enumOpt[it.key] || {};
           ctrl = '<select data-key="' + it.key + '">' + it.options.map(function(o){
-            return '<option value="' + o + '"' + (o === val ? ' selected' : '') + '>' + o + '</option>';
+            return '<option value="' + o + '"' + (o === val ? ' selected' : '') + '>' + esc(rot[o] || o) + '</option>';
           }).join('') + '</select>';
         } else if (it.type === 'color') {
           const hex = (typeof val === 'string' && /^#[0-9a-fA-F]{6}$/.test(val)) ? val : '#4caf78';

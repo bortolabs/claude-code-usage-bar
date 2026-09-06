@@ -109,10 +109,13 @@ está no log do servidor, não na tela.
 | ~~Chave em endpoint local~~ | ✅ **fechado (23/08)** — `authorization` chegou **presente** ao endpoint `127.0.0.1` (a regressão do LM Studio com auth). O caminho **sem chave** ficou com a cobertura unitária de `test/aiAdvice.test.ts`: provar em app exigiria apagar a chave real do cofre, que o SecretStorage não devolve |
 | ~~Campo `tooltipDetail` na aba Config~~ | ✅ **fechado (23/08)** — aparece **com valor** (`full`, o default), o oposto do sintoma da 0.41.2 |
 
-Achado lateral (backlog, cosmético): os `<select>` da aba Config exibem o **valor cru** da opção
-(`full`, `semaforo`, `quota`, `right`) em vez de um rótulo traduzido — o `SETTINGS_SCHEMA` de
-`panel.ts` traduz só o rótulo à esquerda. Hoje é **consistente** entre todos os enums, então só
-vale mexer atacando todos de uma vez.
+~~Achado lateral (backlog, cosmético): os `<select>` da aba Config exibem o **valor cru** da opção~~
+✅ **fechado (06/09)** — os 7 selects da aba Config passaram a exibir rótulo traduzido, atacando
+todos de uma vez como o achado previa. O render de `type: 'enum'` consulta o mapa `L.enumOpt`
+(mesmo padrão de `L.comp`/`L.indicator`, com fallback para o valor cru), e os rótulos trazem uma
+dica curta onde o valor era ambíguo — `Assinante (cota)`, `Semáforo (verde→vermelho)`. Travado por
+`test/settingsDocs.test.ts`, que também passou a comparar as `options` do painel com o `enum` do
+manifesto.
 
 ## 🌐 Externo / operacional (fora do código)
 

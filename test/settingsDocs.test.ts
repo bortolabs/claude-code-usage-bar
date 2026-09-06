@@ -197,3 +197,94 @@ describe("manifesto × package.nls", () => {
     expect(manifestPlaceholders().size).toBeGreaterThan(90);
   });
 });
+
+/** Pares `key → options` dos itens `type: 'enum'` do SETTINGS_SCHEMA do painel. */
+function schemaEnums(): Record<string, string[]> {
+  const src = fs.readFileSync(path.join(ROOT, "src", "panel.ts"), "utf8");
+  const out: Record<string, string[]> = {};
+  const re = /\{ key: '([^']+)',[^}]*?type: 'enum', options: \[([^\]]*)\]/g;
+  for (const m of src.matchAll(re)) {
+    out[m[1]] = [...m[2].matchAll(/'([^']*)'/g)].map((o) => o[1]);
+  }
+  return out;
+}
+
+/** Rótulos traduzidos das opções, do bloco `enumOpt` do objeto `loc`. */
+function enumLabels(): Record<string, string[]> {
+  const src = fs.readFileSync(path.join(ROOT, "src", "panel.ts"), "utf8");
+  const abre = "enumOpt: {";
+  const start = src.indexOf(abre);
+  if (start < 0) return {};
+  const end = src.indexOf("\n    },", start);
+  const out: Record<string, string[]> = {};
+  // Pular o cabeçalho `enumOpt: {`: sem isso a regex abaixo o casa como se fosse
+  // um setting, e os nomes dos settings viram "valores" dele.
+  // Comentários saem antes da extração: `// nome próprio: ...` casaria a regex
+  // de valores abaixo e viraria um rótulo fantasma.
+  const inner = src.slice(start + abre.length, end).replace(/\/\/[^\n]*/g, "");
+  // Um sub-bloco por setting: `ringTheme: { semaforo: tr("..."), ... },`
+  for (const m of inner.matchAll(/(\w+): \{([^}]*)\}/g)) {
+    out[m[1]] = [...m[2].matchAll(/(\w+):/g)].map((o) => o[1]);
+  }
+  return out;
+}
+
+/** Valores aceitos por cada setting de enum, segundo o manifesto. */
+function manifestEnums(): Record<string, string[]> {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
+  const props = pkg.contributes.configuration.properties as Record<string, { enum?: string[] }>;
+  const out: Record<string, string[]> = {};
+  for (const [k, v] of Object.entries(props)) {
+    if (v.enum) out[k.replace(/^claudeUsageBar\./, "")] = v.enum;
+  }
+  return out;
+}
+
+/**
+ * Trava os rótulos dos `<select>` da aba Config.
+ *
+ * Contexto: até aqui o render de `type: 'enum'` usava o mesmo literal como valor
+ * E como texto da `<option>`, então a tela mostrava `semaforo`, `full`, `quota`,
+ * `right` — identificador de código, em qualquer idioma. O rótulo à esquerda da
+ * linha sempre passou por `tr()`; a opção dentro do dropdown, não.
+ */
+describe("aba Config: opções dos selects", () => {
+  it("toda opção de enum tem rótulo traduzido", () => {
+    const labels = enumLabels();
+    const crus: string[] = [];
+    for (const [key, options] of Object.entries(schemaEnums())) {
+      for (const o of options) {
+        if (!(labels[key] ?? []).includes(o)) crus.push(`${key}.${o}`);
+      }
+    }
+    expect(crus, "apareceriam como valor cru no dropdown").toEqual([]);
+  });
+
+  it("o painel oferece exatamente os valores que o manifesto aceita", () => {
+    // Drift real: o manifesto ganha um valor novo e o dropdown nunca o oferece —
+    // ou oferece um que o manifesto rejeita, e o VS Code descarta a escrita.
+    const manifesto = manifestEnums();
+    for (const [key, options] of Object.entries(schemaEnums())) {
+      expect(options.slice().sort(), `options de ${key} divergem do manifesto`).toEqual(
+        (manifesto[key] ?? []).slice().sort(),
+      );
+    }
+  });
+
+  it("enumOpt não guarda setting ou valor que o schema não usa", () => {
+    const schema = schemaEnums();
+    const mortos: string[] = [];
+    for (const [key, values] of Object.entries(enumLabels())) {
+      for (const v of values) {
+        if (!(schema[key] ?? []).includes(v)) mortos.push(`${key}.${v}`);
+      }
+    }
+    expect(mortos, "rótulos órfãos (setting ou valor que sumiu do schema)").toEqual([]);
+  });
+
+  it("as extrações não voltaram vazias (guarda contra regex que parou de casar)", () => {
+    // Os três acima passariam de graça com um objeto vazio.
+    expect(Object.keys(schemaEnums()).length).toBeGreaterThan(5);
+    expect(Object.keys(enumLabels()).length).toBeGreaterThan(5);
+  });
+});
