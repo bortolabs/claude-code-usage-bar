@@ -631,6 +631,10 @@ function panelHtml(opts?: {
     border: 1px solid var(--vscode-input-border, #444); border-radius: 5px;
     padding: 3px 6px; max-width: 150px;
   }
+  /* Os rótulos traduzidos das opções são bem mais longos que os valores crus que
+     ficavam aqui antes ("Benutzerdefiniert (Farbe unten)" vs "custom"), e em
+     alemão estouram os 150px da regra acima. O texto completo fica no title. */
+  .cfg-ctrl select { max-width: 190px; }
   .cfg-ctrl input[type=number] { width: 80px; }
   .cfg-ctrl input[type=color] { width: 34px; height: 24px; padding: 0; border: none; background: none; cursor: pointer; }
   .cfg-ctrl input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }
@@ -1199,7 +1203,7 @@ function panelHtml(opts?: {
           // O valor da <option> é o literal que vai para o settings.json; o texto
           // é o rótulo traduzido. Sem rótulo, cai no valor cru (como era antes).
           const rot = L.enumOpt[it.key] || {};
-          ctrl = '<select data-key="' + it.key + '">' + it.options.map(function(o){
+          ctrl = '<select data-key="' + it.key + '" title="' + esc(rot[val] || val) + '">' + it.options.map(function(o){
             return '<option value="' + o + '"' + (o === val ? ' selected' : '') + '>' + esc(rot[o] || o) + '</option>';
           }).join('') + '</select>';
         } else if (it.type === 'color') {
