@@ -139,3 +139,61 @@ describe("aba Config: render × coleta", () => {
     expect(contraditorios, "estão na aba Config E na lista de exceções").toEqual([]);
   });
 });
+
+/** Placeholders `%chave%` usados em qualquer lugar do manifesto. */
+function manifestPlaceholders(): Set<string> {
+  // De propósito lê o `package.json` como TEXTO: placeholder também aparece em
+  // `contributes.commands`, `menus` e na `description` da extensão — não só em
+  // `configuration.properties`.
+  const raw = fs.readFileSync(path.join(ROOT, "package.json"), "utf8");
+  return new Set([...raw.matchAll(/"%([^%"]+)%"/g)].map((m) => m[1]));
+}
+
+/** Chaves declaradas num bundle do manifesto. */
+function nlsKeys(file: string): string[] {
+  return Object.keys(JSON.parse(fs.readFileSync(path.join(ROOT, file), "utf8")));
+}
+
+const NLS = [
+  "package.nls.json",
+  "package.nls.en.json",
+  "package.nls.es.json",
+  "package.nls.fr.json",
+  "package.nls.de.json",
+];
+
+/**
+ * Trava o passo 2 da checklist "adicionar um setting: 5 lugares" do CLAUDE.md.
+ *
+ * Contexto: `config.language.desc` sobreviveu nos 5 bundles depois que o idioma
+ * deixou de ser setting do manifesto e virou `globalState` + as bandeiras da aba
+ * Config — texto morto que ninguém vê, porque o VS Code só resolve `%chave%`
+ * vinda do manifesto. O erro no sentido contrário é pior: placeholder sem chave
+ * aparece como `%literal%` cru na tela de Settings, e só no idioma esquecido.
+ */
+describe("manifesto × package.nls", () => {
+  it.each(NLS)("%s tem chave para todo placeholder do manifesto", (file) => {
+    const keys = nlsKeys(file);
+    const missing = [...manifestPlaceholders()].filter((p) => !keys.includes(p));
+    expect(missing, "apareceriam como %literal% cru na tela de Settings").toEqual([]);
+  });
+
+  it.each(NLS)("%s não guarda chave órfã", (file) => {
+    const used = manifestPlaceholders();
+    const orfas = nlsKeys(file).filter((k) => !used.has(k));
+    expect(orfas, "traduções que o manifesto não usa").toEqual([]);
+  });
+
+  it("os 5 bundles declaram exatamente as mesmas chaves", () => {
+    // Traduzir 4 de 5 é o erro provável — some justamente no idioma esquecido.
+    const base = nlsKeys("package.nls.json").sort();
+    for (const file of NLS.slice(1)) {
+      expect(nlsKeys(file).sort(), `chaves de ${file} divergem do bundle pt`).toEqual(base);
+    }
+  });
+
+  it("a extração de placeholders não voltou vazia (guarda contra regex que parou de casar)", () => {
+    // Os três acima passariam de graça com um Set vazio.
+    expect(manifestPlaceholders().size).toBeGreaterThan(90);
+  });
+});

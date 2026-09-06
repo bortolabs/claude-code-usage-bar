@@ -79,7 +79,6 @@
   "config.anomalyMcpCallsMax.desc": "Anomalia de MCP: avisa quando um servidor MCP é chamado **mais que** este número de vezes na janela. Padrão 60 (acima da dica, que é 40).",
   "config.anomalyCtxInflatedTurns.desc": "Anomalia de contexto: avisa quando há **pelo menos** este número de turnos com contexto acima de 200k. Padrão 3.",
   "config.anomalyToolLoopK.desc": "Anomalia de loop: avisa quando a **mesma chamada de tool** se repete este número de vezes seguidas num turno. Padrão 5.",
-  "config.language.desc": "Idioma do plugin (painel, status bar, alertas). `auto` (padrão) segue o idioma do VS Code; ou force `pt`/`en`/`es`/`fr`/`de`. Dá pra trocar pelas bandeiras na aba **Config → Idioma**. Obs.: os rótulos desta tela de Settings seguem o idioma do VS Code.",
   "cmd.openDashboard.title": "Claude Usage: Abrir dashboard",
   "cmd.exportDashboardHtml.title": "Claude Usage: Exportar dashboard (HTML)",
   "cmd.exportCsv.title": "Claude Usage: Exportar CSV (quebras de uso)",

@@ -79,7 +79,6 @@
   "config.anomalyMcpCallsMax.desc": "MCP anomaly: warns when an MCP server is called **more than** this many times in the window. Default 60 (above the tip, which is 40).",
   "config.anomalyCtxInflatedTurns.desc": "Context anomaly: warns when there are **at least** this many turns with context above 200k. Default 3.",
   "config.anomalyToolLoopK.desc": "Loop anomaly: warns when the **same tool call** repeats this many times in a row within a turn. Default 5.",
-  "config.language.desc": "Plugin language (panel, status bar, alerts). `auto` (default) follows the VS Code language; or force `pt`/`en`/`es`/`fr`/`de`. Switch via the flags in **Config → Idioma**. Note: the labels on this Settings screen follow the VS Code language.",
   "cmd.openDashboard.title": "Claude Usage: Open dashboard",
   "cmd.exportDashboardHtml.title": "Claude Usage: Export dashboard (HTML)",
   "cmd.exportCsv.title": "Claude Usage: Export CSV (usage breakdowns)",

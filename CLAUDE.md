@@ -55,7 +55,8 @@ Esquecer um deles produz um setting que existe mas não aparece (ou aparece vazi
 Config — ou que ninguém descobre, porque não está documentado:
 
 1. `package.json` → `contributes.configuration.properties` (com `%config.<key>.desc%`)
-2. `package.nls.json` + as 4 traduções → texto de `config.<key>.desc`
+2. `package.nls.json` + as 4 traduções → texto de `config.<key>.desc`. `test/settingsDocs.test.ts`
+   também trava este passo: placeholder sem chave (ou chave órfã) quebra a CI
 3. `panel.ts` → rótulo em `L.cfg.<key>` **e** o item na seção correspondente da aba Config
 4. `extension.ts` → `SETTING_DEFAULTS` **e** a lista de chaves em `collectSettings`
 5. `README.md` **e** `README.pt-BR.md` → linha na tabela do grupo correspondente. Os grupos
