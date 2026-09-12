@@ -621,9 +621,12 @@ function panelHtml(opts?: {
   details.cardc:not([open]) > summary { margin-bottom: 0; }
   details.cardc[open] > .cfg-summary::before { transform: rotate(90deg); }
   .cfg-help-line { font-size: 11px; color: var(--vscode-descriptionForeground); line-height: 1.45; margin: 0 0 8px; }
-  .cfg-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 7px 0; }
-  .cfg-label { font-size: 12px; color: var(--vscode-foreground); flex: 1 1 auto; }
-  .cfg-ctrl { flex: 0 0 auto; }
+  /* flex-wrap: quando o rótulo e o controle não cabem lado a lado (barra lateral
+     estreita + rótulo longo), o controle desce para a própria linha em vez de
+     espremer o texto. Só dispara nos <select>, que são os controles largos. */
+  .cfg-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 7px 0; }
+  .cfg-label { font-size: 12px; color: var(--vscode-foreground); flex: 1 1 auto; min-width: 0; }
+  .cfg-ctrl { flex: 0 0 auto; max-width: 100%; }
   .cfg-ctrl input[type=number], .cfg-ctrl input[type=text], .cfg-ctrl select {
     font-family: var(--vscode-font-family); font-size: 12px;
     background: var(--vscode-input-background, #2a2a2a);
@@ -632,9 +635,14 @@ function panelHtml(opts?: {
     padding: 3px 6px; max-width: 150px;
   }
   /* Os rótulos traduzidos das opções são bem mais longos que os valores crus que
-     ficavam aqui antes ("Benutzerdefiniert (Farbe unten)" vs "custom"), e em
-     alemão estouram os 150px da regra acima. O texto completo fica no title. */
-  .cfg-ctrl select { max-width: 190px; }
+     ficavam aqui antes ("Personnalisé (couleur ci-dessous)" vs "custom"), e
+     estouram os 150px da regra acima. Cap fixo em px não resolve: os 190px da
+     0.43.0 foram medidos no alemão, mas o francês é 2 caracteres maior e
+     continuava cortado — e o próximo idioma pode ser maior ainda. O <select>
+     nativo já se dimensiona pela opção mais larga; aqui só deixamos de impedir,
+     limitando na largura da linha (com o wrap do .cfg-row cuidando do estreito).
+     O texto completo continua no title. */
+  .cfg-ctrl select { max-width: 100%; }
   .cfg-ctrl input[type=number] { width: 80px; }
   .cfg-ctrl input[type=color] { width: 34px; height: 24px; padding: 0; border: none; background: none; cursor: pointer; }
   .cfg-ctrl input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }

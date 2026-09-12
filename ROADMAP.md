@@ -115,7 +115,30 @@ todos de uma vez como o achado previa. O render de `type: 'enum'` consulta o map
 (mesmo padrão de `L.comp`/`L.indicator`, com fallback para o valor cru), e os rótulos trazem uma
 dica curta onde o valor era ambíguo — `Assinante (cota)`, `Semáforo (verde→vermelho)`. Travado por
 `test/settingsDocs.test.ts`, que também passou a comparar as `options` do painel com o `enum` do
-manifesto.
+manifesto. **Complemento na 0.43.1 (12/09):** o rótulo traduzido ainda era cortado, porque o cap de
+190px foi medido no alemão e o francês (`Personnalisé (couleur ci-dessous)`, 33 chars) é maior.
+O cap fixo saiu: o `<select>` se dimensiona pela opção mais longa e a `.cfg-row` ganhou
+`flex-wrap` — em barra estreita o controle desce para a própria linha em vez de espremer.
+
+## 🐞 Bugs abertos (reportados por usuários)
+
+| # | O quê | Estado |
+| --- | --- | --- |
+| [32](https://github.com/bortolabs/claude-code-usage-bar/issues/32) | **Crash do extension host (exit code 5)** no Antigravity IDE (fork do VS Code), macOS ARM, v0.43.0. ~4-5s após a ativação, em loop; após 3 crashes a IDE desativa o host inteiro e leva todas as extensões junto (inclusive o `vscode.git`). Confirmado por Extension Bisect | 🔍 **triagem feita (12/09)**, aguardando o reporter |
+
+Descartados com evidência (não refazer): Keychain (`exec`, fora do processo), módulo nativo
+(`dependencies: {}`), janela em epoch 0 (o fallback de "5h" é `now - 5h`), OOM do ccusage
+(`maxBuffer` de 8MB), loop de `ready` no webview (`render()` faz `postMessage`, não re-seta o
+HTML). **Suspeito:** o caminho síncrono `refreshCcusage → refreshStats → readTranscriptStats`,
+que aterrissa exatamente nos +4-5s — `readdirSync`/`statSync` recursivos, `readFileSync` +
+`JSON.parse` por linha e **`execFileSync` de git na thread do extension host**. Buraco na
+teoria: host bloqueado costuma virar "unresponsive", não `crashed with code 5`. O teste A/B
+pedido ao reporter é `insightsEnabled: false`, gate único desse caminho.
+
+**Três defeitos reais achados na triagem**, independentes do crash: o `execFileSync` de git na
+thread do host (`branchTimeline.ts:107`); `buildBranchResolver()` como default de parâmetro, que
+recria o resolver a cada refresh e joga a memoização fora (`extension.ts:944`); e
+`onReady = refreshAll` sem throttle, ao contrário do irmão `onVisible` (`extension.ts:464`).
 
 ## 🌐 Externo / operacional (fora do código)
 

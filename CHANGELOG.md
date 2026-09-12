@@ -1,6 +1,21 @@
 # Changelog
 
-## 0.43.0
+## 0.43.1
+
+### 📐 Os dropdowns traduzidos ainda cortavam o texto
+
+A 0.43.0 fez os dropdowns da aba Config falarem a sua língua, e junto veio um
+detalhe que passou: rótulo traduzido é bem mais comprido que o identificador cru
+que ficava ali antes, e a largura máxima do campo foi medida no alemão. O
+francês é dois caracteres maior — `Personnalisé (couleur ci-dessous)` chegava à
+tela sem o final.
+
+A largura fixa era o problema, não o número: qualquer valor escolhido hoje
+quebraria no próximo idioma. Agora o dropdown se dimensiona pela própria opção
+mais longa, como um campo nativo faz, e a linha tem permissão para quebrar — com
+a barra lateral estreita o campo desce para a linha de baixo e ocupa a largura
+toda, em vez de espremer o texto. Vale para os cinco idiomas e para qualquer
+largura de painel.
 
 ### 🌐 Os dropdowns da aba Config falavam em código
 
