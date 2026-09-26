@@ -12,6 +12,11 @@ export interface CurrentTurn {
   /** Janela de contexto do modelo (tokens), ou null se desconhecido. */
   contextWindow: number | null;
   /**
+   * Nome da sessão de onde o turno veio (`/rename` ou o título gerado pelo Claude
+   * Code), ou null. Com 2 chats no mesmo projeto, é o que diz de QUAL deles é o número.
+   */
+  sessionTitle: string | null;
+  /**
    * A busca foi RESTRITA ao(s) projeto(s) do workspace? Quando true, um retorno
    * vazio significa "este projeto não tem transcript" — e quem consome NÃO deve
    * cair em fontes globais (statusline), sob pena de exibir o número de outro
@@ -25,7 +30,15 @@ const EMPTY: Omit<CurrentTurn, "scoped"> = {
   contextPct: null,
   contextTokens: null,
   contextWindow: null,
+  sessionTitle: null,
 };
+
+/** Quantos candidatos (por mtime) disputam o "turno mais recente" dentro do projeto. */
+const MAX_CANDIDATES = 3;
+/** Bytes lidos do fim do arquivo para achar o último turno (senão cai na leitura inteira). */
+const TAIL_BYTES = 512 * 1024;
+/** Bytes lidos do começo do arquivo para achar a `cwd` de origem da sessão. */
+const HEAD_BYTES = 256 * 1024;
 
 /**
  * Nome da pasta de transcript correspondente a um caminho de workspace. O Claude
@@ -33,7 +46,7 @@ const EMPTY: Omit<CurrentTurn, "scoped"> = {
  * alfanumérico do `cwd` por `-` (`/Users/me/meu-app` → `-Users-me-meu-app`).
  *
  * O mapeamento é LOSSY (`my-app` e `my.app` geram o mesmo slug), por isso quem usa
- * confere depois a `cwd` gravada dentro do arquivo escolhido.
+ * confere depois a `cwd` de origem gravada no começo do arquivo.
  */
 export function projectSlug(fsPath: string): string {
   return fsPath.replace(/[^A-Za-z0-9]/g, "-");
@@ -61,7 +74,11 @@ export function readCurrentTurn(workspacePaths?: string[]): CurrentTurn {
       return { ...(turn ?? EMPTY), scoped: true };
     }
     const latest = mostRecentJsonl(root);
-    return { ...(latest ? lastTurnInFile(latest) : EMPTY), scoped: false };
+    if (!latest) {
+      return { ...EMPTY, scoped: false };
+    }
+    const { ts: _ts, ...turn } = lastTurnInFile(latest);
+    return { ...turn, sessionTitle: sessionTitleOf(latest), scoped: false };
   } catch {
     return { ...EMPTY, scoped: (workspacePaths ?? []).length > 0 };
   }
@@ -69,9 +86,16 @@ export function readCurrentTurn(workspacePaths?: string[]): CurrentTurn {
 
 /**
  * Turno mais recente entre os projetos do workspace (multi-root: pega a sessão mais
- * recente entre todas as pastas). Percorre os candidatos do mais novo pro mais velho
- * e aceita o primeiro cuja `cwd` case com o workspace — assim uma colisão de slug
- * não faz a janela exibir o contexto do projeto errado.
+ * recente entre todas as pastas).
+ *
+ * Dois cuidados, ambos achados com várias sessões abertas no mesmo projeto:
+ * - A conferência anti-colisão de slug usa a `cwd` de ORIGEM da sessão (a do começo
+ *   do arquivo, que é a que define a pasta), não a do último turno: o Claude Code
+ *   grava a `cwd` do momento, e um `cd` para subpasta ou `/tmp` descartava a sessão
+ *   ativa — o card caía numa sessão parada, com outro contexto.
+ * - `mtime` não é sinal de turno: o Claude Code anexa metadados (`cost-state`,
+ *   `bridge-session`, `last-prompt`…) a sessões ociosas. O mtime só pré-seleciona os
+ *   `MAX_CANDIDATES` mais novos; entre eles vence o de `timestamp` de turno maior.
  */
 function mostRecentInProjects(
   root: string,
@@ -97,17 +121,105 @@ function mostRecentInProjects(
     }
   }
   candidates.sort((a, b) => b.mtime - a.mtime);
+  let best: (TurnInFile & { file: string }) | null = null;
+  let accepted = 0;
   for (const c of candidates) {
-    const turn = lastTurnInFile(c.file);
+    if (accepted >= MAX_CANDIDATES) {
+      break;
+    }
     // `cwd` ausente (formato antigo) não invalida: o slug já apontou pra cá.
-    if (turn.cwd && !wanted.has(turn.cwd)) {
+    const origin = originCwd(c.file);
+    if (origin && !wanted.has(origin)) {
       continue;
     }
-    if (turn.model !== null || turn.contextTokens !== null) {
-      return turn;
+    const turn = lastTurnInFile(c.file);
+    if (turn.model === null && turn.contextTokens === null) {
+      continue;
+    }
+    accepted++;
+    // Sem timestamp (formato antigo) em algum dos dois, fica a ordem do mtime.
+    if (!best || (turn.ts !== null && best.ts !== null && turn.ts > best.ts)) {
+      best = { ...turn, file: c.file };
+    }
+  }
+  if (!best) {
+    return null;
+  }
+  const { ts: _ts, file, ...turn } = best;
+  return { ...turn, sessionTitle: sessionTitleOf(file) };
+}
+
+/** Lê até `bytes` do arquivo a partir de `start` (clampado ao tamanho). */
+function readSlice(file: string, start: number, bytes: number): string {
+  const fd = fs.openSync(file, "r");
+  try {
+    const size = fs.fstatSync(fd).size;
+    const from = Math.max(0, Math.min(start, size));
+    const len = Math.min(bytes, size - from);
+    const buf = Buffer.alloc(len);
+    fs.readSync(fd, buf, 0, len, from);
+    return buf.toString("utf8");
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/** `cwd` da sessão ao nascer: a primeira gravada no arquivo (ou null). */
+function originCwd(file: string): string | null {
+  let head: string;
+  try {
+    head = readSlice(file, 0, HEAD_BYTES);
+  } catch {
+    return null;
+  }
+  // A última linha do trecho pode estar cortada: o JSON.parse falha e ela é pulada.
+  for (const line of head.split("\n")) {
+    if (!line || line.indexOf('"cwd"') === -1) {
+      continue;
+    }
+    try {
+      const o = JSON.parse(line);
+      if (typeof o?.cwd === "string" && o.cwd) {
+        return o.cwd;
+      }
+    } catch {
+      // linha inválida — segue
     }
   }
   return null;
+}
+
+/**
+ * Nome da sessão: o `/rename` mais recente (`custom-title`) vence o título gerado
+ * (`ai-title`). Lê o arquivo inteiro — o `custom-title` pode estar em qualquer lugar —
+ * por isso só é chamado para o arquivo já escolhido.
+ */
+function sessionTitleOf(file: string): string | null {
+  let content: string;
+  try {
+    content = fs.readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+  let custom: string | null = null;
+  let ai: string | null = null;
+  for (const line of content.split("\n")) {
+    const isCustom = line.indexOf('"custom-title"') !== -1;
+    if (!isCustom && line.indexOf('"ai-title"') === -1) {
+      continue;
+    }
+    try {
+      const o = JSON.parse(line);
+      if (o?.type === "custom-title" && typeof o.customTitle === "string" && o.customTitle.trim()) {
+        custom = o.customTitle.trim();
+      } else if (o?.type === "ai-title" && typeof o.aiTitle === "string" && o.aiTitle.trim()) {
+        ai = o.aiTitle.trim();
+      }
+    } catch {
+      // linha inválida — segue
+    }
+  }
+  return custom ?? ai;
 }
 
 /** Janela de contexto (tokens) por modelo. Haiku = 200k; demais 4.x = 1M. */
@@ -196,30 +308,62 @@ function mostRecentJsonl(root: string): string | null {
   return best?.file ?? null;
 }
 
-/** Igual ao CurrentTurn, mais a `cwd` do turno (p/ conferir o projeto). */
-interface TurnInFile extends Omit<CurrentTurn, "scoped"> {
-  /** `cwd` gravada no transcript, quando presente. */
-  cwd: string | null;
+/** Igual ao CurrentTurn (sem título), mais o instante do turno (p/ desempatar sessões). */
+interface TurnInFile extends Omit<CurrentTurn, "scoped" | "sessionTitle"> {
+  /** `timestamp` (epoch ms) do turno de onde veio o contexto, quando presente. */
+  ts: number | null;
+}
+
+const EMPTY_TURN: TurnInFile = {
+  model: null,
+  contextPct: null,
+  contextTokens: null,
+  contextWindow: null,
+  ts: null,
+};
+
+/**
+ * Último modelo válido + contexto do último turno da CONVERSA PRINCIPAL (ignora
+ * sidechains/subagentes). Lê primeiro só o fim do arquivo (`TAIL_BYTES`) — os
+ * transcripts passam de MBs e isto roda a cada refresh, na thread do host — e cai na
+ * leitura inteira quando o trecho não tem turno com contexto.
+ */
+function lastTurnInFile(file: string): TurnInFile {
+  let size: number;
+  try {
+    size = fs.statSync(file).size;
+  } catch {
+    return EMPTY_TURN;
+  }
+  if (size > TAIL_BYTES) {
+    try {
+      const tail = scanTurn(readSlice(file, size - TAIL_BYTES, TAIL_BYTES));
+      if (tail.contextTokens !== null) {
+        return tail;
+      }
+    } catch {
+      // cai na leitura inteira
+    }
+  }
+  try {
+    return scanTurn(fs.readFileSync(file, "utf8"));
+  } catch {
+    return EMPTY_TURN;
+  }
 }
 
 /**
- * Lê o arquivo de trás pra frente e retorna o último modelo válido + a % de
- * contexto do último turno da CONVERSA PRINCIPAL (ignora sidechains/subagentes).
- * Modelo e contexto podem vir de linhas diferentes; para no primeiro de cada.
+ * Varre o texto de trás pra frente. Modelo e contexto podem vir de linhas
+ * diferentes; para no primeiro de cada. Uma linha cortada (começo de um trecho
+ * lido pelo fim) falha no JSON.parse e é pulada.
  */
-function lastTurnInFile(file: string): TurnInFile {
-  let content: string;
-  try {
-    content = fs.readFileSync(file, "utf8");
-  } catch {
-    return { ...EMPTY, cwd: null };
-  }
+function scanTurn(content: string): TurnInFile {
   const lines = content.trimEnd().split("\n");
   let model: string | null = null;
   let contextPct: number | null = null;
   let contextTokens: number | null = null;
   let contextWindow: number | null = null;
-  let cwd: string | null = null;
+  let ts: number | null = null;
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i];
     if (!line || line.indexOf('"model"') === -1) {
@@ -236,9 +380,6 @@ function lastTurnInFile(file: string): TurnInFile {
     if (!valid) {
       continue;
     }
-    if (cwd === null && typeof o?.cwd === "string" && o.cwd) {
-      cwd = o.cwd;
-    }
     if (model === null) {
       model = m;
     }
@@ -251,12 +392,14 @@ function lastTurnInFile(file: string): TurnInFile {
           contextPct = c.pct;
           contextTokens = c.tokens;
           contextWindow = c.window;
+          const t = typeof o?.timestamp === "string" ? Date.parse(o.timestamp) : NaN;
+          ts = Number.isFinite(t) ? t : null;
         }
       }
     }
-    if (model !== null && contextPct !== null && cwd !== null) {
+    if (model !== null && contextPct !== null) {
       break;
     }
   }
-  return { model, contextPct, contextTokens, contextWindow, cwd };
+  return { model, contextPct, contextTokens, contextWindow, ts };
 }

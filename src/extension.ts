@@ -19,6 +19,7 @@ import {
 } from "./ccusage";
 import { evaluateAlerts, AlertResult } from "./alerts";
 import { readCurrentTurn, prettyModel } from "./transcript";
+import { sharedBranchResolver } from "./branchTimeline";
 import {
   fetchOAuthUsage,
   OAuthUsageResult,
@@ -384,6 +385,8 @@ export function activate(context: vscode.ExtensionContext) {
   // Alimentam o card "Contexto" (usado/janela). null = sem dado fresco do transcript.
   let currentContextTokens: number | null = null;
   let currentContextWindow: number | null = null;
+  // Nome da sessão de onde veio o contexto acima (`/rename` ou título gerado).
+  let currentSessionTitle: string | null = null;
   // A leitura acima foi restrita ao projeto desta janela? Se sim, NÃO caímos na
   // statusline (arquivo único da máquina) quando o projeto não tem sessão — seria
   // exibir o contexto de outro projeto, exatamente o que o escopo evita.
@@ -441,8 +444,11 @@ export function activate(context: vscode.ExtensionContext) {
 
   // View ancorada na Activity Bar (sidebar esquerda).
   const viewProvider = new UsageViewProvider();
-  // Recarrega TODAS as fontes (statusline, ccusage, diário, oauth, status).
+  // Recarrega TODAS as fontes (statusline, ccusage, diário, oauth, status). Carimba
+  // o throttle do autoRefresh: todo refresh completo conta, venha de onde vier.
+  let lastAutoRefreshMs = 0;
   const refreshAll = () => {
+    lastAutoRefreshMs = Date.now();
     readState();
     refreshCcusage();
     refreshDaily();
@@ -452,16 +458,18 @@ export function activate(context: vscode.ExtensionContext) {
   // Auto-refresh por foco/visibilidade, com throttle p/ não martelar (focar a
   // janela e revelar a view costumam disparar quase juntos). Evita o "dado
   // velho" ao reabrir o VS Code ou ao acordar de sleep — refaz o fetch na hora.
-  let lastAutoRefreshMs = 0;
-  const autoRefresh = () => {
-    const now = Date.now();
-    if (now - lastAutoRefreshMs < 3000) {
+  const autoRefresh = (minGapMs = 3000) => {
+    if (Date.now() - lastAutoRefreshMs < minGapMs) {
       return;
     }
-    lastAutoRefreshMs = now;
     refreshAll();
   };
-  viewProvider.onReady = refreshAll;
+  // No `ready` o provider já reenvia o último estado; o refresh é só p/ o dado
+  // ficar fresco. Janela maior porque, na ativação, a webview pode levar mais de
+  // 3s para montar — e o refresh da ativação acabou de rodar (evita 2-3 ccusage
+  // e varreduras de transcripts em rajada).
+  const READY_REFRESH_GAP_MS = 15_000;
+  viewProvider.onReady = () => autoRefresh(READY_REFRESH_GAP_MS);
   viewProvider.onVisible = autoRefresh;
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -657,6 +665,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (turn.contextTokens != null || turn.scoped) {
       currentContextTokens = turn.contextTokens;
       currentContextWindow = turn.contextWindow;
+      currentSessionTitle = turn.sessionTitle;
     }
     contextScoped = turn.scoped;
     render();
@@ -731,7 +740,9 @@ export function activate(context: vscode.ExtensionContext) {
     }
     try {
       const start = startOfLocalDay() - windowDays * 86_400_000;
-      const s = readTranscriptStats(start);
+      // Histórico só usa byDay/byHour: sem resolver de branch, o backfill de 90
+      // dias não aciona git para cada cwd já visto.
+      const s = readTranscriptStats(start, Date.now(), 8, null);
       let snaps = snapshotsFromStats(s.byDay, s.byHour);
       if (backfill) {
         const existing = new Set(history.readAll().map((d) => d.date));
@@ -950,6 +961,12 @@ export function activate(context: vscode.ExtensionContext) {
     }
     render();
   };
+
+  // O git do custo por branch responde depois (assíncrono): quando traz novidade,
+  // refaz a agregação para o card "Por branch" (e o dashboard) se preencherem.
+  context.subscriptions.push({
+    dispose: sharedBranchResolver().onUpdate?.(() => refreshStats()) ?? (() => {}),
+  });
 
   const refreshCcusage = async () => {
     const cmd =
@@ -1431,9 +1448,12 @@ export function activate(context: vscode.ExtensionContext) {
     // transcript ao vivo; senão a statusline (usado = input+output, janela = size).
     let ctxTokens: number | null = null;
     let ctxWindow: number | null = null;
+    // Só o transcript sabe de qual sessão é o número; a statusline não.
+    let ctxTitle: string | null = null;
     if (currentContextTokens != null && currentContextWindow) {
       ctxTokens = currentContextTokens;
       ctxWindow = currentContextWindow;
+      ctxTitle = currentSessionTitle;
     } else if (ctxFallback && s?.context?.size && s.context.size > 0) {
       const used = (s.context.input ?? 0) + (s.context.output ?? 0);
       if (used > 0) {
@@ -2100,6 +2120,7 @@ export function activate(context: vscode.ExtensionContext) {
       ctxPct,
       ctxTokens,
       ctxWindow,
+      ctxTitle,
       cost,
       costCap,
       isSub,
@@ -2161,6 +2182,7 @@ export function activate(context: vscode.ExtensionContext) {
     ctxPct: number | null;
     ctxTokens: number | null;
     ctxWindow: number | null;
+    ctxTitle: string | null;
     cost: number;
     costCap: number;
     isSub: boolean;
@@ -2549,7 +2571,7 @@ export function activate(context: vscode.ExtensionContext) {
       // Card "Contexto" (aba Sessão): usado/janela/% do último turno. null = sem dado.
       context:
         v.ctxTokens != null && v.ctxWindow
-          ? { tokens: v.ctxTokens, window: v.ctxWindow, pct: v.ctxPct ?? 0 }
+          ? { tokens: v.ctxTokens, window: v.ctxWindow, pct: v.ctxPct ?? 0, title: v.ctxTitle }
           : null,
       // Créditos extras (oauth) — card na aba Sessão quando habilitado na conta.
       extraUsage: v.extraUsage,
@@ -2857,7 +2879,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Abre (ou revela) o dashboard numa aba do editor: todas as seções num grid.
     vscode.commands.registerCommand("claudeUsageBar.openDashboard", () => {
       const dash = DashboardPanel.createOrShow();
-      dash.onReady = refreshAll;
+      dash.onReady = () => autoRefresh(READY_REFRESH_GAP_MS);
       render();
       refreshAll();
     }),
@@ -3131,11 +3153,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push({ dispose: () => clearTimeout(backfillTimer) });
 
   startWatch();
-  readState();
-  refreshCcusage();
-  refreshDaily();
-  refreshOAuth();
-  refreshStatus();
+  refreshAll();
 
   // Consentimento do token OAuth: pergunta UMA vez (decisão ainda não tomada
   // e fonte oauth habilitada). Async — os refreshes acima já rodaram e o gate

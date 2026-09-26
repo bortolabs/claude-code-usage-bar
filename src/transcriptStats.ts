@@ -3,7 +3,7 @@ import * as os from "os";
 import * as path from "path";
 import { costForSplit, CostBreakdown, UsageLike, pricingTableVersion } from "./pricing";
 import { prettyModel } from "./transcript";
-import { BranchResolver, buildBranchResolver } from "./branchTimeline";
+import { BranchResolver, sharedBranchResolver } from "./branchTimeline";
 
 /**
  * Agregador LOCAL dos transcripts do Claude Code (`~/.claude/projects/**`).
@@ -611,7 +611,7 @@ export function readTranscriptStats(
   windowStartMs: number,
   windowEndMs: number = Date.now(),
   limit = 8,
-  branchResolver: BranchResolver | null = buildBranchResolver()
+  branchResolver: BranchResolver | null = sharedBranchResolver()
 ): TranscriptStats {
   const root = path.join(os.homedir(), ".claude", "projects");
   let dirs: fs.Dirent[];
@@ -632,11 +632,14 @@ export function readTranscriptStats(
   files.sort((a, b) => (a.full < b.full ? -1 : a.full > b.full ? 1 : 0));
   // Bucket de 1min do windowStart absorve o drift de ms do reset do oauth; o
   // windowEnd não entra na chave (não há turnos no futuro). `limit` entra porque
-  // muda o slice das listas.
+  // muda o slice das listas. A `version` do resolver entra porque o git responde
+  // depois (assíncrono): sem ela, o cache devolveria a conta feita sem branches.
   const key =
     Math.floor(windowStartMs / 60000) +
     "|" +
     limit +
+    "|" +
+    (branchResolver?.version?.() ?? 0) +
     "|" +
     files.map((f) => f.full + ":" + f.mtimeMs + ":" + f.size).join("|");
   if (statsCache && statsCache.key === key) {

@@ -23,7 +23,7 @@ export interface PanelData {
   ringColorOverride: string | null;
   rows: { label: string; value: string; pct: number | null }[];
   /** Contexto do último turno (card na aba Sessão): usado/janela/%. null = sem dado. */
-  context?: { tokens: number; window: number; pct: number } | null;
+  context?: { tokens: number; window: number; pct: number; title?: string | null } | null;
   /** Créditos extras (oauth) — card na aba Sessão. null = conta sem o recurso. */
   extraUsage?: {
     enabled: boolean;
@@ -356,6 +356,7 @@ function panelStrings() {
       title: tr("Contexto"),
       used: tr("Usado"),
       free: tr("Espaço livre"),
+      session: tr("Sessão: {0}"),
     },
     advisor: {
       title: tr("Copiloto"),
@@ -621,6 +622,7 @@ function panelHtml(opts?: {
   details.cardc:not([open]) > summary { margin-bottom: 0; }
   details.cardc[open] > .cfg-summary::before { transform: rotate(90deg); }
   .cfg-help-line { font-size: 11px; color: var(--vscode-descriptionForeground); line-height: 1.45; margin: 0 0 8px; }
+  .ctx-session { margin: 6px 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* flex-wrap: quando o rótulo e o controle não cabem lado a lado (barra lateral
      estreita + rótulo longo), o controle desce para a própria linha em vez de
      espremer o texto. Só dispara nos <select>, que são os controles largos. */
@@ -1097,7 +1099,12 @@ function panelHtml(opts?: {
       '</span><span class="row-val">' + Math.round(pct) + '%</span></div>' + bar(pct, null) + '</div>';
     const usedRow = kvRow(L.context.used, fmtTok(ctx.tokens) + ' · ' + Math.round(pct) + '%');
     const freeRow = kvRow(L.context.free, fmtTok(free) + ' · ' + Math.round(100 - pct) + '%');
-    return collapsibleCard('context', L.context.title, head + usedRow + freeRow);
+    // Com 2 chats no mesmo projeto, diz de qual deles é o número (o do turno mais recente).
+    const titleRow = ctx.title
+      ? '<div class="cfg-help-line ctx-session" title="' + esc(ctx.title) + '">' +
+        esc(fmt(L.context.session, ctx.title)) + '</div>'
+      : '';
+    return collapsibleCard('context', L.context.title, head + titleRow + usedRow + freeRow);
   }
 
   // Card "MCP e subagentes": CONTAGEM de chamadas (sem custo — não dá pra atribuir).

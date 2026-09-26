@@ -19,10 +19,12 @@ const turnLine = (o: {
   model?: string;
   tokens?: number;
   isSidechain?: boolean;
+  timestamp?: string;
 }) =>
   JSON.stringify({
     cwd: o.cwd,
     isSidechain: o.isSidechain ?? false,
+    ...(o.timestamp ? { timestamp: o.timestamp } : {}),
     message: {
       model: o.model ?? "claude-opus-4-8",
       usage: { input_tokens: o.tokens ?? 100_000 },
@@ -137,6 +139,86 @@ describe("readCurrentTurn — escopo por projeto", () => {
     writeProject(PROJ_B, "sb", turnLine({ cwd: PROJ_B, tokens: 222_000 }), 2000);
     const r = readCurrentTurn([PROJ_A, PROJ_B]);
     expect(r.contextTokens).toBe(222_000);
+  });
+
+  it("cd para subpasta ou /tmp no meio da sessão não descarta a sessão ativa", () => {
+    // Regressão: o filtro olhava a cwd do ÚLTIMO turno e pulava a sessão ativa,
+    // e o card exibia o contexto de uma sessão parada do mesmo projeto.
+    writeProject(PROJ_A, "parada", turnLine({ cwd: PROJ_A, tokens: 447_438 }), 1000);
+    writeProject(
+      PROJ_A,
+      "ativa",
+      turnLine({ cwd: PROJ_A, tokens: 90_000 }) +
+        turnLine({ cwd: PROJ_A + "/docs/atlas", tokens: 120_000 }) +
+        turnLine({ cwd: "/private/tmp", tokens: 138_000 }),
+      2000
+    );
+    expect(readCurrentTurn([PROJ_A]).contextTokens).toBe(138_000);
+  });
+
+  it("colisão de slug vale pela cwd de ORIGEM, mesmo com cd para dentro do workspace", () => {
+    writeProject(
+      "/Users/me/my.app",
+      "s1",
+      turnLine({ cwd: "/Users/me/my.app" }) + turnLine({ cwd: "/Users/me/my-app" }),
+      1000
+    );
+    expect(readCurrentTurn(["/Users/me/my-app"]).contextTokens).toBeNull();
+  });
+
+  it("metadado anexado a sessão ociosa (mtime maior) não vence o turno mais recente", () => {
+    writeProject(
+      PROJ_A,
+      "ativa",
+      turnLine({ cwd: PROJ_A, tokens: 142_000, timestamp: "2026-09-26T20:00:00Z" }),
+      1000
+    );
+    writeProject(
+      PROJ_A,
+      "ociosa",
+      turnLine({ cwd: PROJ_A, tokens: 352_000, timestamp: "2026-09-26T07:18:00Z" }) +
+        JSON.stringify({ type: "cost-state", sessionId: "x" }) + "\n",
+      2000
+    );
+    expect(readCurrentTurn([PROJ_A]).contextTokens).toBe(142_000);
+  });
+
+  it("título: último /rename vence o gerado; sem nenhum → null", () => {
+    const title = (type: string, key: string, v: string) =>
+      JSON.stringify({ type, [key]: v, sessionId: "x" }) + "\n";
+    writeProject(
+      PROJ_A,
+      "s",
+      title("custom-title", "customTitle", "nome antigo") +
+        title("ai-title", "aiTitle", "Título gerado") +
+        turnLine({ cwd: PROJ_A }) +
+        title("custom-title", "customTitle", "SPEC-04 nome novo") +
+        title("ai-title", "aiTitle", "Outro gerado"),
+      1000
+    );
+    expect(readCurrentTurn([PROJ_A]).sessionTitle).toBe("SPEC-04 nome novo");
+
+    writeProject(PROJ_B, "g", title("ai-title", "aiTitle", "Só gerado") + turnLine({ cwd: PROJ_B }), 1000);
+    expect(readCurrentTurn([PROJ_B]).sessionTitle).toBe("Só gerado");
+
+    writeProject(PROJ_B, "g", turnLine({ cwd: PROJ_B }), 1000);
+    expect(readCurrentTurn([PROJ_B]).sessionTitle).toBeNull();
+  });
+
+  it("transcript grande: acha o turno lendo só o fim, e o do começo se o fim não tem turno", () => {
+    const filler = JSON.stringify({ type: "attachment", pad: "x".repeat(4096) }) + "\n";
+    writeProject(
+      PROJ_A,
+      "grande",
+      turnLine({ cwd: PROJ_A, tokens: 10_000 }) +
+        filler.repeat(300) + // ~1,2MB, maior que o trecho lido do fim
+        turnLine({ cwd: PROJ_A, tokens: 250_000 }),
+      1000
+    );
+    expect(readCurrentTurn([PROJ_A]).contextTokens).toBe(250_000);
+
+    writeProject(PROJ_B, "so-inicio", turnLine({ cwd: PROJ_B, tokens: 77_000 }) + filler.repeat(300), 1000);
+    expect(readCurrentTurn([PROJ_B]).contextTokens).toBe(77_000);
   });
 
   it("colisão de slug: cwd de dentro não casa → não usa aquele transcript", () => {

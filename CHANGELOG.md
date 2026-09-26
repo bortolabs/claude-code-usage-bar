@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.43.2
+
+### 🔢 O card Contexto mostrava o número de outra sessão
+
+Com mais de um chat do Claude Code no mesmo projeto, o card Contexto da aba
+Sessão podia exibir um número bem maior que o do `/context` — 447k contra 138k,
+352k contra 142k. Não era o modelo nem a conta: a soma estava certa, só que de
+**outra sessão**, às vezes parada havia horas.
+
+Eram dois tropeços na escolha da sessão. O primeiro: para não misturar projetos
+com nomes parecidos, o card conferia a pasta de trabalho do **último turno**, e
+bastava um `cd` para uma subpasta ou para `/tmp` no meio da conversa para a
+sessão ativa ser descartada. Agora vale a pasta onde a sessão **nasceu**, que é a
+que identifica o projeto. O segundo: o Claude Code passou a anexar registros de
+custo e de conexão a sessões ociosas, e isso fazia uma sessão parada parecer a
+mais recente. Agora vence a sessão com o **turno** mais recente, não a com o
+arquivo tocado por último.
+
+Como a extensão não tem como saber qual aba de chat está em foco, o card passou a
+dizer de qual sessão é o número: uma linha **Sessão:** com o nome que você deu no
+`/rename`, ou, sem ele, o título que o Claude Code gera.
+
+De quebra, a leitura ficou mais leve: em vez de carregar o transcript inteiro (que
+passa de vários MB) a cada atualização, o card lê só o trecho final, onde está o
+último turno.
+
+### 🧵 Menos trabalho travando o VS Code
+
+A investigação da [#32](https://github.com/bortolabs/claude-code-usage-bar/issues/32)
+(o extension host caindo segundos depois de abrir) achou três desperdícios no
+caminho que roda a cada atualização. Sem confirmação de que eles causam o crash,
+foram corrigidos pelo que valem sozinhos:
+
+- **O git do custo por branch saiu da thread principal.** Para saber em que
+  branch cada turno aconteceu, a extensão pergunta ao git — e fazia isso de forma
+  síncrona, uma vez para cada pasta que aparece nos transcripts, com o VS Code
+  inteiro esperando. Agora o git roda em segundo plano, um de cada vez, e o card
+  "Por branch" se completa alguns instantes depois. Numa máquina com uma semana
+  de sessões, a conta que segurava o host por 570 ms passou a 200 ms, sem nenhum
+  git no meio.
+- **As respostas do git passaram a ser lembradas.** Cada atualização jogava fora o
+  que já tinha aprendido e perguntava tudo de novo. Agora a extensão lembra, e
+  confere o histórico de branches a cada minuto para não perder um checkout novo.
+  O histórico diário, que não usa branch, nem pergunta.
+- **Abrir o painel não dispara mais uma rajada de atualizações.** A ativação, o
+  painel montando e o painel ficando visível pediam, cada um, a atualização
+  completa — até três `ccusage` e três leituras dos transcripts em poucos segundos.
+  Agora uma atualização completa recente vale para os três.
+
 ## 0.43.1
 
 ### 📐 Os dropdowns traduzidos ainda cortavam o texto

@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import { execFileSync } from "child_process";
+import { execFile } from "child_process";
 
 /**
  * Atribuição de custo POR BRANCH (≈ aproximada).
@@ -21,11 +21,24 @@ export interface BranchInterval {
   branch: string;
 }
 
-/** Resolve (cwd, timestamp) → nome do branch ativo naquele instante, ou null. */
-export type BranchResolver = (cwd: string | undefined, ts: number) => string | null;
+/**
+ * Resolve (cwd, timestamp) → nome do branch ativo naquele instante, ou null.
+ * Síncrono de propósito (roda por turno dentro da agregação); o resolver real
+ * responde do cache e carrega o git em segundo plano — `version` muda e `onUpdate`
+ * avisa quando um carregamento trouxe novidade, para quem agregou refazer a conta.
+ */
+export type BranchResolver = ((cwd: string | undefined, ts: number) => string | null) & {
+  version?: () => number;
+  onUpdate?: (cb: () => void) => () => void;
+};
 
-/** Runner de git injetável (facilita teste). Retorna stdout ou null em erro. */
-export type GitRunner = (args: string[], cwd: string) => string | null;
+/** Runner de git injetável (facilita teste). Resolve com o stdout, ou null em erro. */
+export type GitRunner = (args: string[], cwd: string) => Promise<string | null>;
+
+/** Por quanto tempo "este cwd não é repo" vale antes de perguntar ao git de novo. */
+const NO_REPO_TTL_MS = 10 * 60_000;
+/** Por quanto tempo a linha do tempo de um repo vale antes de reler o reflog. */
+const INTERVALS_TTL_MS = 60_000;
 
 /** SHA cru (detached HEAD) — não é um nome de branch de verdade. */
 const SHA_RE = /^[0-9a-f]{7,40}$/;
@@ -98,53 +111,100 @@ export function branchAt(intervals: BranchInterval[], ts: number): string | null
   return null;
 }
 
-/** Runner real: roda `git` no cwd. Guarda contra cwd inexistente (não spawna). */
-function realGit(args: string[], cwd: string): string | null {
-  try {
-    if (!fs.existsSync(cwd)) {
-      return null;
-    }
-    return execFileSync("git", args, {
-      cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-      timeout: 3000,
-      maxBuffer: 16 * 1024 * 1024,
-    });
-  } catch {
-    return null;
-  }
+/**
+ * Runner real: roda `git` no cwd, FORA da thread do extension host (`execFile`
+ * assíncrono — o `execFileSync` antigo travava o host a cada cwd). Guarda contra
+ * cwd inexistente (não spawna).
+ */
+function realGit(args: string[], cwd: string): Promise<string | null> {
+  return fs.promises.access(cwd).then(
+    () =>
+      new Promise<string | null>((resolve) => {
+        try {
+          const child = execFile(
+            "git",
+            args,
+            { cwd, encoding: "utf8", timeout: 3000, maxBuffer: 16 * 1024 * 1024 },
+            (err, stdout) => resolve(err ? null : stdout)
+          );
+          child.stdin?.end();
+        } catch {
+          resolve(null);
+        }
+      }),
+    () => null
+  );
 }
 
 /**
  * Cria um resolvedor `(cwd, ts) → branch`. Resolve o repo (git toplevel) e lê o
- * reflog UMA vez por repo, memoizando — as chamadas de git são preguiçosas (só na
- * 1ª vez que um cwd/repo é visto). `run` é injetável para teste.
+ * reflog, memoizando por cwd/repo. Quem pergunta nunca espera: cache hit responde
+ * na hora; miss enfileira o git e devolve null (o turno fica sem branch nesta
+ * passada). A fila roda um git por vez; quando esvazia com novidade, `version`
+ * sobe e os `onUpdate` são avisados uma vez só pelo lote.
+ *
+ * Validade: repo achado é permanente; "não é repo" expira em `NO_REPO_TTL_MS`; a
+ * linha do tempo expira em `INTERVALS_TTL_MS` e é relida em segundo plano servindo
+ * a antiga — sem isso, um resolver que vive a sessão inteira não veria checkout novo.
+ * `run` e `now` são injetáveis para teste.
  */
-export function buildBranchResolver(run: GitRunner = realGit): BranchResolver {
-  const cwdToRoot = new Map<string, string | null>();
-  const rootToIntervals = new Map<string, BranchInterval[]>();
+export function buildBranchResolver(
+  run: GitRunner = realGit,
+  now: () => number = Date.now
+): BranchResolver {
+  const cwdToRoot = new Map<string, { root: string | null; at: number }>();
+  const rootToIntervals = new Map<string, { intervals: BranchInterval[]; sig: string; at: number }>();
+  const inFlight = new Set<string>();
+  const queue: (() => Promise<void>)[] = [];
+  const listeners = new Set<() => void>();
+  let version = 0;
+  let changed = false;
+  let draining = false;
 
-  const rootFor = (cwd: string): string | null => {
-    if (cwdToRoot.has(cwd)) {
-      return cwdToRoot.get(cwd) ?? null;
+  const drain = async () => {
+    draining = true;
+    while (queue.length) {
+      await queue.shift()!();
     }
-    const out = run(["rev-parse", "--show-toplevel"], cwd);
-    const root = out ? out.trim() || null : null;
-    cwdToRoot.set(cwd, root);
-    return root;
+    draining = false;
+    if (changed) {
+      changed = false;
+      version++;
+      for (const cb of Array.from(listeners)) {
+        try {
+          cb();
+        } catch {
+          // ouvinte com defeito não derruba a fila
+        }
+      }
+    }
   };
 
-  const intervalsFor = (root: string): BranchInterval[] => {
-    const cached = rootToIntervals.get(root);
-    if (cached) {
-      return cached;
+  const enqueue = (key: string, job: () => Promise<void>) => {
+    if (inFlight.has(key)) {
+      return;
     }
-    const reflog = run(["reflog", "--date=unix", "--format=%gd%x09%gs"], root);
+    inFlight.add(key);
+    queue.push(async () => {
+      try {
+        await job();
+      } catch {
+        // git falhou: fica o que já havia no cache
+      } finally {
+        inFlight.delete(key);
+      }
+    });
+    if (!draining) {
+      void drain();
+    }
+  };
+
+  const loadIntervals = async (root: string) => {
+    const reflog = await run(["reflog", "--date=unix", "--format=%gd%x09%gs"], root);
     const checkouts = reflog ? parseCheckouts(reflog) : [];
     let current: string | null = null;
     if (!checkouts.length) {
-      const head = run(["rev-parse", "--abbrev-ref", "HEAD"], root);
+      const head = await run(["rev-parse", "--abbrev-ref", "HEAD"], root);
       current = head ? head.trim() : null;
       // "HEAD" = detached sem histórico de checkout → sem atribuição confiável.
       if (current === "HEAD" || current === "") {
@@ -152,18 +212,62 @@ export function buildBranchResolver(run: GitRunner = realGit): BranchResolver {
       }
     }
     const intervals = buildIntervals(checkouts, current);
-    rootToIntervals.set(root, intervals);
-    return intervals;
+    // Commit também escreve no reflog; só checkout muda a linha do tempo.
+    const sig = JSON.stringify(intervals);
+    const prev = rootToIntervals.get(root);
+    rootToIntervals.set(root, { intervals, sig, at: now() });
+    if (!prev || prev.sig !== sig) {
+      changed = true;
+    }
   };
 
-  return (cwd, ts) => {
+  const loadRoot = async (cwd: string) => {
+    const out = await run(["rev-parse", "--show-toplevel"], cwd);
+    const root = out ? out.trim() || null : null;
+    cwdToRoot.set(cwd, { root, at: now() });
+    if (root && !rootToIntervals.has(root)) {
+      enqueue("root:" + root, () => loadIntervals(root));
+    }
+  };
+
+  const resolve: BranchResolver = (cwd, ts) => {
     if (!cwd || typeof cwd !== "string") {
       return null;
     }
-    const root = rootFor(cwd);
+    const r = cwdToRoot.get(cwd);
+    if (!r || (r.root === null && now() - r.at > NO_REPO_TTL_MS)) {
+      enqueue("cwd:" + cwd, () => loadRoot(cwd));
+    }
+    const root = r?.root;
     if (!root) {
       return null;
     }
-    return branchAt(intervalsFor(root), ts);
+    const iv = rootToIntervals.get(root);
+    if (!iv || now() - iv.at > INTERVALS_TTL_MS) {
+      enqueue("root:" + root, () => loadIntervals(root));
+    }
+    return iv ? branchAt(iv.intervals, ts) : null;
   };
+  resolve.version = () => version;
+  resolve.onUpdate = (cb) => {
+    listeners.add(cb);
+    return () => {
+      listeners.delete(cb);
+    };
+  };
+  return resolve;
+}
+
+let shared: BranchResolver | null = null;
+
+/**
+ * Resolver único do processo, com o git real. Vive a sessão inteira para a
+ * memoização valer entre refreshes — antes cada agregação criava um novo e
+ * repetia todos os `git` de todos os cwds.
+ */
+export function sharedBranchResolver(): BranchResolver {
+  if (!shared) {
+    shared = buildBranchResolver();
+  }
+  return shared;
 }

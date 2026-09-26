@@ -82,6 +82,7 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | **README em inglês + pt-BR** | `README.md` passa a ser em inglês (é o que o Open VSX renderiza, do pacote) e o conteúdo em português vira `README.pt-BR.md`, linkados entre si | 0.41.1 |
 | **Verificar atualização agora** | Comando que pergunta ao Open VSX na hora, em vez de esperar a checagem diária; sempre responde (versão nova / já está na última / não deu para verificar). Junto: o aviso deixa de ser gravado antes de aparecer, então um toast perdido volta em vez de sumir para sempre | 0.42.0 |
 | **AI advice local sem atrito** | Progresso cancelável (cancelar derruba a conexão, não só a barra) e chave de API dispensada em endpoint local — Ollama/LM Studio não autenticam nada | 0.42.0 |
+| **Contexto da sessão certa (correção)** | Com vários chats no mesmo projeto, o card exibia o contexto de outra sessão (447k × 138k do `/context`). O anti-colisão de slug passa a conferir a `cwd` de **origem** (não a do último turno, que muda com `cd`), e o desempate é pelo `timestamp` do turno (metadados anexados a sessões ociosas mexem no `mtime`). O card mostra o nome da sessão; a leitura é pelo fim do arquivo | 0.43.2 |
 
 ## 💡 Próximas ideias
 
@@ -135,10 +136,17 @@ que aterrissa exatamente nos +4-5s — `readdirSync`/`statSync` recursivos, `rea
 teoria: host bloqueado costuma virar "unresponsive", não `crashed with code 5`. O teste A/B
 pedido ao reporter é `insightsEnabled: false`, gate único desse caminho.
 
-**Três defeitos reais achados na triagem**, independentes do crash: o `execFileSync` de git na
-thread do host (`branchTimeline.ts:107`); `buildBranchResolver()` como default de parâmetro, que
-recria o resolver a cada refresh e joga a memoização fora (`extension.ts:944`); e
-`onReady = refreshAll` sem throttle, ao contrário do irmão `onVisible` (`extension.ts:464`).
+**Três defeitos reais achados na triagem**, independentes do crash — ✅ **corrigidos na 0.43.2
+(26/09)**, sem resposta do reporter:
+- `execFileSync` de git na thread do host → `execFile` assíncrono numa fila serial; o resolver
+  responde do cache e avisa (`onUpdate`/`version`) quando o git traz novidade. Medido com 7d de
+  transcripts reais: 570 ms síncronos → 200 ms, sem git na thread.
+- `buildBranchResolver()` como default de parâmetro → `sharedBranchResolver()` que vive a sessão
+  (reflog relido a cada 60s; "não é repo" expira em 10 min). O histórico passa `null`.
+- `onReady = refreshAll` sem throttle → `autoRefresh(15s)`; `refreshAll` carimba o throttle e a
+  ativação usa o próprio `refreshAll`. Vale também para o `onReady` do dashboard.
+
+O que sobra do caminho síncrono é a varredura dos transcripts em si (~200 ms/7d nesta máquina).
 
 ## 🌐 Externo / operacional (fora do código)
 

@@ -362,6 +362,25 @@ describe("readTranscriptStats", () => {
     expect(s.byProject.map((p) => p.project).sort()).toEqual(["proj", "subagentes"]);
   });
 
+  it("byBranch: resolver que aprende depois (version sobe) invalida o cache", () => {
+    writeSession("-Users-me-proj3", "s", turn({ ts: iso(0), cwd: "/Users/me/proj3" }));
+    // Simula o git assíncrono: 1ª agregação sem resposta, depois ele responde.
+    let known = false;
+    let version = 0;
+    const resolver = Object.assign(
+      (_cwd: string | undefined, _ts: number) => (known ? "feat/x" : null),
+      { version: () => version }
+    );
+    expect(readTranscriptStats(WIN_START, WIN_END, 8, resolver).byBranch).toEqual([]);
+
+    known = true;
+    // Mesma versão → o cache vale (nada mudou para quem agrega).
+    expect(readTranscriptStats(WIN_START, WIN_END, 8, resolver).byBranch).toEqual([]);
+    version = 1;
+    const s = readTranscriptStats(WIN_START, WIN_END, 8, resolver);
+    expect(s.byBranch.map((b) => b.branch)).toEqual(["feat/x"]);
+  });
+
   it("byBranch: resolver null (feature off / sem git) → lista vazia, sem quebrar", () => {
     writeSession("-Users-me-proj2", "s", turn({ ts: iso(0), cwd: "/Users/me/proj2" }));
     const s = readTranscriptStats(WIN_START, WIN_END, 8, null);
