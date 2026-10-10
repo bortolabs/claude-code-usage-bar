@@ -17,7 +17,7 @@ vi.mock("os", async (importOriginal) => {
   return { ...patched, default: patched };
 });
 
-import { readTranscriptStats } from "../src/transcriptStats";
+import { readTranscriptStats, readTranscriptStatsAsync } from "../src/transcriptStats";
 
 const line = (o: Record<string, unknown>) => JSON.stringify(o) + "\n";
 
@@ -386,5 +386,117 @@ describe("readTranscriptStats", () => {
     const s = readTranscriptStats(WIN_START, WIN_END, 8, null);
     expect(s.byBranch).toEqual([]);
     expect(s.turns).toBe(1); // o resto da agregação segue normal
+  });
+});
+
+describe("readTranscriptStatsAsync", () => {
+  /** Fixture que exercita tudo que a conta tem de sutil, em mais de um arquivo. */
+  function writeMixedFixture() {
+    writeSession(
+      "-Users-me-meu-projeto",
+      "sessao-a",
+      // snapshots NÃO contíguos do mesmo turno + linha corrompida no meio
+      snapshot(iso(0), "msg_1", "req_1", 100) +
+        turn({ ts: iso(1), model: "claude-sonnet-5" }) +
+        '{"quebrado": "usage" \n' +
+        snapshot(iso(2), "msg_1", "req_1", 900) +
+        turn({
+          ts: iso(3),
+          content: [
+            { type: "tool_use", name: "mcp__github__get_me", input: {} },
+            { type: "tool_use", name: "Bash", input: { command: "ls" } },
+            { type: "tool_use", name: "Bash", input: { command: "ls" } },
+          ],
+        })
+    );
+    const sub = path.join(
+      home, ".claude", "projects", "-Users-me-meu-projeto",
+      "sessao-a", "subagents"
+    );
+    fs.mkdirSync(sub, { recursive: true });
+    fs.writeFileSync(
+      path.join(sub, "agent-1.jsonl"),
+      turn({ ts: iso(4), isSidechain: true })
+    );
+    writeSession(
+      "-Users-me-outro-projeto",
+      "sessao-b",
+      turn({ ts: iso(5), cwd: "/Users/me/outro-projeto" }) +
+        turn({ ts: iso(500), cwd: "/Users/me/outro-projeto" }) // fora da janela
+    );
+  }
+
+  it("sem diretório de transcripts → stats vazias, sem lançar", async () => {
+    const s = await readTranscriptStatsAsync(WIN_START, WIN_END, 8, null);
+    expect(s?.turns).toBe(0);
+  });
+
+  it("devolve EXATAMENTE a conta do síncrono", async () => {
+    writeMixedFixture();
+    const sync = readTranscriptStats(WIN_START, WIN_END, 8, null);
+    const asyncStats = await readTranscriptStatsAsync(WIN_START, WIN_END, 8, null);
+    expect(sync.turns).toBe(5); // a fixture não é vazia nem trivial
+    expect(asyncStats).toEqual(sync);
+  });
+
+  it("shouldStop interrompe a varredura e devolve null", async () => {
+    writeMixedFixture();
+    const s = await readTranscriptStatsAsync(WIN_START, WIN_END, 8, null, () => true);
+    expect(s).toBeNull();
+  });
+
+  it("arquivo que some entre a coleta e a leitura não aborta a varredura", async () => {
+    writeSession("-Users-me-meu-projeto", "sessao-a", turn({ ts: iso(0) }));
+    writeSession("-Users-me-meu-projeto", "sessao-b", turn({ ts: iso(1) }));
+    const doomed = path.join(
+      home, ".claude", "projects", "-Users-me-meu-projeto", "sessao-b.jsonl"
+    );
+    // shouldStop roda depois da coleta e antes de cada leitura: é o gancho p/
+    // apagar o arquivo já listado.
+    const s = await readTranscriptStatsAsync(WIN_START, WIN_END, 8, null, () => {
+      fs.rmSync(doomed, { force: true });
+      return false;
+    });
+    expect(s?.turns).toBe(1);
+  });
+
+  it("não despeja o cache do síncrono (que tem um slot só)", async () => {
+    writeMixedFixture();
+    const before = readTranscriptStats(WIN_START, WIN_END, 8, null);
+    await readTranscriptStatsAsync(WIN_START - 86_400_000, WIN_END, 8, null);
+    expect(readTranscriptStats(WIN_START, WIN_END, 8, null)).toBe(before);
+    // Contraprova: a MESMA janela diferente, pelo síncrono, despeja.
+    readTranscriptStats(WIN_START - 86_400_000, WIN_END, 8, null);
+    expect(readTranscriptStats(WIN_START, WIN_END, 8, null)).not.toBe(before);
+  });
+
+  // O backfill do histórico faz UMA varredura longa e regrava os 3 dias mais
+  // recentes com o resultado dela — só vale se esses dias saírem iguais aos de
+  // uma janela curta, apesar do cap de 72h do byHour.
+  it("os dias recentes saem iguais numa janela de 90 dias e numa de 2", async () => {
+    const day = (offset: number, h = 0, min = 0) =>
+      new Date(2026, 6, 10 + offset, h, min).getTime();
+    let content = "";
+    for (let d = -9; d <= 0; d++) {
+      for (let h = 0; h < 24; h++) {
+        content += turn({ ts: new Date(day(d, h, 15)).toISOString() });
+      }
+    }
+    writeSession("-Users-me-meu-projeto", "sessao-longa", content);
+    const end = day(0, 23, 59);
+    const long = await readTranscriptStatsAsync(day(-90), end, 8, null);
+    const short = readTranscriptStats(day(-2), end, 8, null);
+
+    const cut = "2026-07-08";
+    const recentDays = (s: typeof short) => s.byDay.filter((x) => x.date >= cut);
+    const recentHours = (s: typeof short) =>
+      s.byHour.filter((x) => x.hour.slice(0, 10) >= cut);
+    expect(recentDays(short)).toHaveLength(3);
+    expect(recentHours(short)).toHaveLength(72);
+    expect(recentDays(long!)).toEqual(recentDays(short));
+    expect(recentHours(long!)).toEqual(recentHours(short));
+    // E é por isso que o corte não recua: antes dele, a janela longa não traz hora nenhuma.
+    expect(long!.byDay).toHaveLength(10);
+    expect(long!.byHour).toHaveLength(72);
   });
 });

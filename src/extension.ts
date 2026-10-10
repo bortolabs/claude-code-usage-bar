@@ -28,6 +28,7 @@ import {
 } from "./oauthUsage";
 import {
   readTranscriptStats,
+  readTranscriptStatsAsync,
   computeTips,
   TranscriptStats,
   Tip,
@@ -54,8 +55,8 @@ import { initI18n, setLang, tr } from "./i18n";
 import { evaluateAdvice, suppressUnderBurnRate, Advice } from "./advisor";
 import { lightestUpcomingHour } from "./core/forecast";
 import { HistoryStore } from "./history/store";
+import { createHistoryRecorder } from "./history/recorder";
 import {
-  snapshotsFromStats,
   hourlyHeatmap,
   heatmapPeak,
   compareWindows,
@@ -715,12 +716,6 @@ export function activate(context: vscode.ExtensionContext) {
     return 0; // "all" = tudo (epoch 0)
   };
 
-  /** Meia-noite LOCAL de hoje (epoch ms). */
-  const startOfLocalDay = (): number => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  };
   const todayKey = (): string => {
     const d = new Date();
     const p2 = (n: number) => (n < 10 ? "0" + n : String(n));
@@ -728,37 +723,25 @@ export function activate(context: vscode.ExtensionContext) {
   };
 
   /**
-   * Grava o histórico persistente a partir dos transcripts. `windowDays` curto
-   * (2) no tick de 15min — o byHour do transcriptStats só cobre ~72h, então o
-   * dia corrente/anterior sempre têm o split por hora. `backfill` (ativação):
-   * janela longa só pra preencher DIAS AINDA AUSENTES no store (sem horas), sem
-   * sobrescrever dias já gravados com horas boas.
+   * Grava o histórico persistente a partir dos transcripts, FORA da thread do
+   * host: a varredura é assíncrona, um arquivo por vez. `windowDays` curto (2) no
+   * tick de 15min; longo (90) na ativação, pra preencher DIAS AINDA AUSENTES no
+   * store sem sobrescrever dias já gravados com horas boas (ver `recorder.ts`).
    */
-  const recordHistory = (windowDays: number, backfill = false) => {
-    if (!(cfg().get<boolean>("historyEnabled") ?? true)) {
-      return;
-    }
-    try {
-      const start = startOfLocalDay() - windowDays * 86_400_000;
-      // Histórico só usa byDay/byHour: sem resolver de branch, o backfill de 90
-      // dias não aciona git para cada cwd já visto.
-      const s = readTranscriptStats(start, Date.now(), 8, null);
-      let snaps = snapshotsFromStats(s.byDay, s.byHour);
-      if (backfill) {
-        const existing = new Set(history.readAll().map((d) => d.date));
-        snaps = snaps.filter((d) => !existing.has(d.date));
-      }
-      if (snaps.length) {
-        history.upsert(
-          snaps,
-          cfg().get<number>("historyRetentionDays") ?? 365
-        );
-        dashHistoryCache = null; // invalida as agregações
-      }
-    } catch {
-      // best-effort: histórico nunca derruba o resto
-    }
-  };
+  const historyRecorder = createHistoryRecorder({
+    store: history,
+    // Histórico só usa byDay/byHour: sem resolver de branch, o backfill de 90
+    // dias não aciona git para cada cwd já visto.
+    scan: (start, end, shouldStop) =>
+      readTranscriptStatsAsync(start, end, 8, null, shouldStop),
+    isEnabled: () => cfg().get<boolean>("historyEnabled") ?? true,
+    retentionDays: () => cfg().get<number>("historyRetentionDays") ?? 365,
+    onWritten: () => {
+      dashHistoryCache = null; // invalida as agregações
+    },
+  });
+  context.subscriptions.push({ dispose: () => historyRecorder.dispose() });
+  const recordHistory = (windowDays: number) => historyRecorder.run(windowDays);
 
   /** Agregações do histórico p/ o dashboard (cache de 5 min). */
   const buildDashHistory = (): DashboardData["history"] => {
@@ -3140,15 +3123,20 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   // Histórico persistente: tick de 15 min (janela curta de 2 dias — barata) +
-  // backfill único ~15s após ativar (não compete com o burst de startup).
-  historyTick = setInterval(() => recordHistory(2), 15 * 60 * 1000);
+  // backfill único ~15s após ativar (não compete com o burst de startup). O
+  // backfill é UMA varredura de 90 dias: ela já regrava os dias recentes, então
+  // não precisa de uma segunda passada curta.
+  historyTick = setInterval(() => void recordHistory(2), 15 * 60 * 1000);
   context.subscriptions.push({
     dispose: () => historyTick && clearInterval(historyTick),
   });
   const backfillTimer = setTimeout(() => {
-    recordHistory(90, true);
-    recordHistory(2);
-    maybeWeeklySummary();
+    // O resumo semanal lê o store: só depois de o backfill gravar.
+    void recordHistory(90).then(() => {
+      if (!historyRecorder.isDisposed()) {
+        maybeWeeklySummary();
+      }
+    });
   }, 15_000);
   context.subscriptions.push({ dispose: () => clearTimeout(backfillTimer) });
 

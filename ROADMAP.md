@@ -83,6 +83,8 @@ Ideias de features para o Claude Code Usage & Status. Marcadas conforme o status
 | **Verificar atualização agora** | Comando que pergunta ao Open VSX na hora, em vez de esperar a checagem diária; sempre responde (versão nova / já está na última / não deu para verificar). Junto: o aviso deixa de ser gravado antes de aparecer, então um toast perdido volta em vez de sumir para sempre | 0.42.0 |
 | **AI advice local sem atrito** | Progresso cancelável (cancelar derruba a conexão, não só a barra) e chave de API dispensada em endpoint local — Ollama/LM Studio não autenticam nada | 0.42.0 |
 | **Contexto da sessão certa (correção)** | Com vários chats no mesmo projeto, o card exibia o contexto de outra sessão (447k × 138k do `/context`). O anti-colisão de slug passa a conferir a `cwd` de **origem** (não a do último turno, que muda com `cd`), e o desempate é pelo `timestamp` do turno (metadados anexados a sessões ociosas mexem no `mtime`). O card mostra o nome da sessão; a leitura é pelo fim do arquivo | 0.43.2 |
+| **Tabela de preços v2 (correção)** | Com o `claude-opus-5-5` a atribuição local ficou 68–103% acima do ccusage: faixa genérica por família (`opus` = 5/25) e leitura de cache a 10% fixo do input. Agora há linha por versão (Opus 5.5, Sonnet 5.5/5, Haiku 5.5, Fable/Mythos 5.1), taxa de leitura **por modelo** e id normalizado. Bate com o ccusage na 4ª casa decimal em 40 dias reais | 0.43.3 |
+| **Backfill do histórico fora da thread** | A varredura de 90 dias, 15s após ativar, segurava o host por 630–670 ms. Virou uma varredura assíncrona (um arquivo por vez) em vez de duas síncronas; maior bloqueio de 27 ms. Guardas de gravação testadas em `history/recorder.ts` | 0.43.3 |
 
 ## 💡 Próximas ideias
 
@@ -125,7 +127,7 @@ O cap fixo saiu: o `<select>` se dimensiona pela opção mais longa e a `.cfg-ro
 
 | # | O quê | Estado |
 | --- | --- | --- |
-| [32](https://github.com/bortolabs/claude-code-usage-bar/issues/32) | **Crash do extension host (exit code 5)** no Antigravity IDE (fork do VS Code), macOS ARM, v0.43.0. ~4-5s após a ativação, em loop; após 3 crashes a IDE desativa o host inteiro e leva todas as extensões junto (inclusive o `vscode.git`). Confirmado por Extension Bisect | 🔍 **triagem feita (12/09)**, aguardando o reporter |
+| [32](https://github.com/bortolabs/claude-code-usage-bar/issues/32) | **Crash do extension host (exit code 5)** no Antigravity IDE (fork do VS Code), macOS ARM, v0.43.0. ~4-5s após a ativação, em loop; após 3 crashes a IDE desativa o host inteiro e leva todas as extensões junto (inclusive o `vscode.git`). Confirmado por Extension Bisect | 🔍 **triagem feita (12/09)**; avisado da 0.43.2 em 09/10, aguardando o reporter |
 
 Descartados com evidência (não refazer): Keychain (`exec`, fora do processo), módulo nativo
 (`dependencies: {}`), janela em epoch 0 (o fallback de "5h" é `now - 5h`), OOM do ccusage
@@ -146,7 +148,17 @@ pedido ao reporter é `insightsEnabled: false`, gate único desse caminho.
 - `onReady = refreshAll` sem throttle → `autoRefresh(15s)`; `refreshAll` carimba o throttle e a
   ativação usa o próprio `refreshAll`. Vale também para o `onReady` do dashboard.
 
-O que sobra do caminho síncrono é a varredura dos transcripts em si (~200 ms/7d nesta máquina).
+**Backfill do histórico fora da thread** (0.43.3): 15s após a ativação, o
+`recordHistory(90, true)` seguido do `recordHistory(2)` segurava o host num bloco só — 630–670 ms
+medidos nesta máquina (178 arquivos, 316 MB em 90 dias). Agora é **uma** varredura assíncrona
+(`readTranscriptStatsAsync`: `fs.promises.readFile`, um arquivo por vez, sem tocar o `statsCache`),
+que preenche os dias ausentes e regrava os 3 mais recentes; o maior bloqueio caiu para ~27 ms (um
+transcript de 20 MB). A regra de gravação e as guardas (uma varredura por vez, nada gravado depois
+do descarte) saíram do closure de `activate` para `src/history/recorder.ts`, com teste. O tick de
+15 min usa o mesmo caminho e deixou de despejar o cache do refresh de 60s.
+
+O que sobra síncrono é a varredura do refresh de 60s e do dashboard (~200 ms/7d nesta máquina;
+a janela padrão, de 5h, é bem menor).
 
 ## 🌐 Externo / operacional (fora do código)
 
@@ -178,5 +190,25 @@ O que sobra do caminho síncrono é a varredura dos transcripts em si (~200 ms/7
   Os números de custo de hoje/mês vêm do **ccusage** (oficiais); a quebra por modelo/projeto/contexto
   vem de uma **tabela de preços local** (`src/pricing.ts`, `tabela vX`), sempre rotulada
   **"≈ aproximado"** — atribuição, nunca contradiz o número oficial do ccusage.
+- **Tabela de preços v2 (0.43.3)**: a v1 casava por faixa genérica (`opus` =
+  5/25) e cobrava leitura de cache a 10% fixo do input. Desde 23/09, com o `claude-opus-5-5`
+  (4/20, leitura a 5%), a atribuição local ficou **68% a 103% acima do ccusage**. A v2 tem linha
+  própria para Opus 5.5, Sonnet 5.5/5, Haiku 5.5 e Fable/Mythos 5.1, taxa de leitura **por
+  modelo** e id normalizado (`opus-5.5` = `opus-5-5`). Conferido dia a dia em 40 dias de
+  transcripts reais: todo modelo Claude bate com o ccusage na 4ª casa decimal.
+  **Como conferir de novo** quando sair modelo: `ccusage daily --json` traz `modelBreakdowns`
+  por dia — comparar com o `byDay` por modelo. Se um dia divergir e os tokens forem iguais, é preço.
+- **Divergências conhecidas contra o ccusage** (medidas em 10/10, nenhuma é de preço):
+  - **Dedup entre arquivos.** Sessão retomada/bifurcada copia turnos para um `.jsonl` novo com o
+    mesmo `message.id`+`requestId`; o ccusage deduplica globalmente, o `transcriptStats` por
+    arquivo. 17 turnos em 40 dias (+US$ 1,80 num dia, 0,16% do total). O comentário do
+    `processContent` ("duplicata não cruza arquivo") e o teste `dedup é por arquivo` afirmam o
+    contrário — corrigir os três juntos.
+  - **Virada do dia.** 09/10 saiu US$ 0,16 abaixo e 10/10 US$ 0,16 acima: algum turno perto da
+    meia-noite cai em dias diferentes nas duas contas. Soma zero; causa não investigada.
+  - **Outros agentes.** O ccusage passou a somar uso que não é do Claude Code (um `gpt-5.6-terra`
+    de US$ 0,24 em 26/09), que não está em `~/.claude/projects` e a extensão não lê.
+  - **Não modelado na tabela:** Haiku 5.5 acima de 100K tokens de prompt (5× mais caro) e o
+    fast mode do Opus 5/5.5 (2×). Sem turno real desses casos para conferir.
 - **Insights/Dicas** (`src/transcriptStats.ts`): agregação **local, sem rede e sem LLM** dos
   transcripts, com **cache por mtime** e gate por `insightsEnabled`.

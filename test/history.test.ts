@@ -6,6 +6,7 @@ import * as path from "path";
 import { HistoryStore, DaySnapshot } from "../src/history/store";
 import {
   snapshotsFromStats,
+  pickBackfill,
   hourlyHeatmap,
   heatmapPeak,
   compareWindows,
@@ -252,5 +253,31 @@ describe("compareWindows", () => {
     const cmp = compareWindows([...past, today], "2026-07-01");
     expect(cmp.todayVsAvg).not.toBeNull();
     expect(cmp.todayVsAvg!.tokensPct).toBeNull();
+  });
+});
+
+describe("pickBackfill", () => {
+  const CUT = "2026-07-08";
+  const dates = (xs: DaySnapshot[]) => xs.map((x) => x.date);
+
+  it("store vazio → grava tudo", () => {
+    const snaps = [snap("2026-07-01", 1), snap("2026-07-09", 2)];
+    expect(pickBackfill(snaps, new Set(), CUT)).toEqual(snaps);
+  });
+
+  it("dia já gravado e anterior ao corte NÃO é regravado", () => {
+    const snaps = [snap("2026-07-01", 1), snap("2026-07-07", 2)];
+    expect(pickBackfill(snaps, new Set(["2026-07-01", "2026-07-07"]), CUT)).toEqual([]);
+  });
+
+  it("dia ausente e anterior ao corte é gravado", () => {
+    const snaps = [snap("2026-07-01", 1), snap("2026-07-02", 2)];
+    expect(dates(pickBackfill(snaps, new Set(["2026-07-01"]), CUT))).toEqual(["2026-07-02"]);
+  });
+
+  it("do corte em diante regrava sempre, o próprio dia do corte incluído", () => {
+    const snaps = [snap("2026-07-07", 1), snap("2026-07-08", 2), snap("2026-07-10", 3)];
+    const existing = new Set(["2026-07-07", "2026-07-08", "2026-07-10"]);
+    expect(dates(pickBackfill(snaps, existing, CUT))).toEqual(["2026-07-08", "2026-07-10"]);
   });
 });

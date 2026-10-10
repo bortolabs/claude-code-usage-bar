@@ -32,6 +32,20 @@ export function snapshotsFromStats(
   }));
 }
 
+/**
+ * Dos snapshots de uma varredura, os que vão pro store: dias AINDA ausentes
+ * (backfill) e dias a partir de `overwriteFrom` ("YYYY-MM-DD"), que são sempre
+ * regravados. Dia já gravado e anterior ao corte fica como está — numa janela
+ * longa ele vem com `hours` parcial (o byHour só cobre ~72h) e estragaria o bom.
+ */
+export function pickBackfill(
+  snaps: DaySnapshot[],
+  existing: ReadonlySet<string>,
+  overwriteFrom: string
+): DaySnapshot[] {
+  return snaps.filter((d) => d.date >= overwriteFrom || !existing.has(d.date));
+}
+
 /** Dia da semana LOCAL (0=domingo) de uma data "YYYY-MM-DD". */
 function weekdayOf(date: string): number {
   const y = Number(date.slice(0, 4));

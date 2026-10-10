@@ -204,7 +204,7 @@ interface TurnContrib {
 function pad2(n: number): string {
   return n < 10 ? "0" + n : String(n);
 }
-function dayKey(ts: number): string {
+export function dayKey(ts: number): string {
   const d = new Date(ts);
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
 }
@@ -521,7 +521,8 @@ function turnKey(o: any): string | null {
 }
 
 /**
- * Lê e processa UM arquivo (só no cache-miss), despachando cada turno pra onLine.
+ * Processa o conteúdo de UM arquivo já lido, despachando cada turno pra onLine.
+ * Separado da leitura p/ servir ao caminho síncrono e ao assíncrono com a MESMA conta.
  *
  * DEDUPLICAÇÃO: o Claude Code grava SNAPSHOTS DE STREAMING do mesmo turno — várias
  * linhas com o mesmo `message.id`+`requestId`, `input`/`cache_*` idênticos e
@@ -537,19 +538,14 @@ function turnKey(o: any): string | null {
  * (totais, custo por modelo/projeto/branch/dia, contadores de MCP/subagente/skill e os
  * sinais de anomalia) é corrigido de uma vez, sem precisar desfazer acumulação.
  */
-function processFile(
+function processContent(
+  content: string,
   ref: FileRef,
   acc: Accum,
   windowStartMs: number,
   windowEndMs: number,
   branchResolver: BranchResolver | null
 ) {
-  let content: string;
-  try {
-    content = fs.readFileSync(ref.full, "utf8");
-  } catch {
-    return;
-  }
   const sessionId = sessionIdFor(ref.full);
   // Fase 1: parseia os turnos e anota, por chave, o índice da ÚLTIMA ocorrência.
   const turns: any[] = [];
@@ -591,6 +587,48 @@ function processFile(
   }
 }
 
+/** Lê e processa UM arquivo (só no cache-miss). Arquivo ilegível é ignorado. */
+function processFile(
+  ref: FileRef,
+  acc: Accum,
+  windowStartMs: number,
+  windowEndMs: number,
+  branchResolver: BranchResolver | null
+) {
+  let content: string;
+  try {
+    content = fs.readFileSync(ref.full, "utf8");
+  } catch {
+    return;
+  }
+  processContent(content, ref, acc, windowStartMs, windowEndMs, branchResolver);
+}
+
+/**
+ * Passada BARATA da raiz (`readdirSync` + `statSync`, sem ler conteúdo): os .jsonl
+ * tocados na janela, em ordem estável de caminho. A ordem importa — ela decide os
+ * desempates do acumulador (1º projeto visto de uma sessão, 1º loop de tool a bater
+ * o máximo). null = `~/.claude/projects` não existe.
+ */
+function collectWindowFiles(windowStartMs: number): FileRef[] | null {
+  const root = path.join(os.homedir(), ".claude", "projects");
+  let dirs: fs.Dirent[];
+  try {
+    dirs = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  const files: FileRef[] = [];
+  for (const d of dirs) {
+    if (!d.isDirectory()) {
+      continue;
+    }
+    collectFiles(path.join(root, d.name), d.name, windowStartMs, files);
+  }
+  files.sort((a, b) => (a.full < b.full ? -1 : a.full > b.full ? 1 : 0));
+  return files;
+}
+
 function sortTC<T extends TokenCost>(arr: T[]): T[] {
   return arr.sort((a, b) => b.costUSD - a.costUSD || b.tokens - a.tokens);
 }
@@ -613,23 +651,11 @@ export function readTranscriptStats(
   limit = 8,
   branchResolver: BranchResolver | null = sharedBranchResolver()
 ): TranscriptStats {
-  const root = path.join(os.homedir(), ".claude", "projects");
-  let dirs: fs.Dirent[];
-  try {
-    dirs = fs.readdirSync(root, { withFileTypes: true });
-  } catch {
+  // Passada barata (só stat): arquivos na janela + assinatura de mtime/tamanho.
+  const files = collectWindowFiles(windowStartMs);
+  if (!files) {
     return emptyStats();
   }
-
-  // Passada barata (só stat): arquivos na janela + assinatura de mtime/tamanho.
-  const files: FileRef[] = [];
-  for (const d of dirs) {
-    if (!d.isDirectory()) {
-      continue;
-    }
-    collectFiles(path.join(root, d.name), d.name, windowStartMs, files);
-  }
-  files.sort((a, b) => (a.full < b.full ? -1 : a.full > b.full ? 1 : 0));
   // Bucket de 1min do windowStart absorve o drift de ms do reset do oauth; o
   // windowEnd não entra na chave (não há turnos no futuro). `limit` entra porque
   // muda o slice das listas. A `version` do resolver entra porque o git responde
@@ -651,7 +677,55 @@ export function readTranscriptStats(
   for (const f of files) {
     processFile(f, acc, windowStartMs, windowEndMs, branchResolver);
   }
+  const stats = finalizeStats(acc, limit);
+  statsCache = { key, stats };
+  return stats;
+}
 
+/**
+ * Mesma conta do `readTranscriptStats`, sem segurar a thread do extension host: lê
+ * um arquivo por vez com I/O assíncrono, e o controle volta ao event loop entre um
+ * e outro. Para janelas longas (o backfill de 90 dias do histórico), em que a
+ * versão síncrona é um bloco só de centenas de ms.
+ *
+ * O laço é SEQUENCIAL de propósito — a ordem dos arquivos decide os desempates do
+ * acumulador, então paralelizar mudaria o resultado. Não lê nem grava o
+ * `statsCache`: ele tem um slot só, e uma janela diferente despejaria a conta do
+ * refresh de 60s.
+ *
+ * `shouldStop` é consultado entre arquivos; devolve null se a varredura foi
+ * interrompida (extensão descartada no meio).
+ */
+export async function readTranscriptStatsAsync(
+  windowStartMs: number,
+  windowEndMs: number = Date.now(),
+  limit = 8,
+  branchResolver: BranchResolver | null = sharedBranchResolver(),
+  shouldStop?: () => boolean
+): Promise<TranscriptStats | null> {
+  const files = collectWindowFiles(windowStartMs);
+  if (!files) {
+    return emptyStats();
+  }
+  const acc = new Accum();
+  for (const f of files) {
+    if (shouldStop?.()) {
+      return null;
+    }
+    let content: string;
+    try {
+      content = await fs.promises.readFile(f.full, "utf8");
+    } catch {
+      // some entre o stat e o read (sessão apagada): ignora e segue
+      continue;
+    }
+    processContent(content, f, acc, windowStartMs, windowEndMs, branchResolver);
+  }
+  return shouldStop?.() ? null : finalizeStats(acc, limit);
+}
+
+/** Monta o resultado a partir do acumulador (ordenações, caps e derivados). */
+function finalizeStats(acc: Accum, limit: number): TranscriptStats {
   const byModel = sortTC(
     Array.from(acc.byModel.entries()).map(([model, tc]) => ({ model, ...tc }))
   ).slice(0, limit);
@@ -696,7 +770,7 @@ export function readTranscriptStats(
     .sort((a, b) => b.costUSD - a.costUSD || b.tokens - a.tokens)
     .slice(0, limit);
 
-  const stats: TranscriptStats = {
+  return {
     byModel,
     byProject,
     byBranch,
@@ -730,8 +804,6 @@ export function readTranscriptStats(
     approximate: true,
     tableVersion: pricingTableVersion,
   };
-  statsCache = { key, stats };
-  return stats;
 }
 
 function emptyStats(): TranscriptStats {

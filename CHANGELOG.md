@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.43.3
+
+### 💵 O custo por modelo estava quase o dobro no Opus 5.5
+
+Quem passou a usar o **Opus 5.5** viu os cards "Por modelo", "Por projeto" e "Por
+branch" marcarem bem mais do que o total oficial do ccusage — de 68% a 103% a mais,
+dependendo do dia. O total do topo estava certo; o que estava errado era a tabela
+de preços local, usada só para **repartir** esse custo.
+
+Eram dois problemas na mesma tabela. O primeiro: ela reconhecia o modelo por
+família — qualquer "opus" valia US$ 5 / US$ 25 por milhão de tokens — e o Opus 5.5
+custa US$ 4 / US$ 20. O mesmo valia para o Sonnet 5 e 5.5 (US$ 2 / US$ 10, não
+3 / 15) e para o Haiku 5.5 (US$ 0,10 / US$ 0,50, não 1 / 5). O segundo, e o que mais
+pesava: a leitura de cache era cobrada a 10% do preço de input em todos os modelos,
+e a geração 5.5 cobra a metade disso. Numa sessão longa, quase todo token é leitura
+de cache.
+
+Agora cada versão tem a sua linha e a sua taxa de leitura de cache, e o rodapé dos
+cards passa a dizer **tabela v2 · 2026-10**. Conferido dia a dia contra o ccusage em
+40 dias de uso real: Opus 5, Opus 5.5, Sonnet 5.5 e Haiku 4.5 batem até o centésimo
+de centavo.
+
+Dois casos continuam fora da conta, por falta de uso real para conferir: o Haiku 5.5
+com mais de 100 mil tokens de prompt e o fast mode do Opus. Nos dois o valor real é
+maior que o exibido.
+
+### 🧵 O histórico deixou de travar o VS Code na abertura
+
+Quinze segundos depois de abrir, a extensão relê os últimos 90 dias de transcripts
+para preencher o histórico que ficou para trás. Fazia isso de uma vez só, com o VS
+Code inteiro esperando — de 630 a 670 ms numa máquina com 316 MB de transcripts — e
+logo em seguida relia os dois últimos dias.
+
+Agora a leitura é feita um arquivo por vez, devolvendo o controle ao editor entre
+um e outro, e a segunda passada deixou de existir: a primeira já traz os dias
+recentes. O maior intervalo em que o VS Code fica sem resposta caiu para 27 ms. A
+atualização do histórico a cada 15 minutos segue o mesmo caminho e parou de
+invalidar o cache dos cards de custo.
+
+É mais um trecho síncrono retirado do caminho investigado na
+[#32](https://github.com/bortolabs/claude-code-usage-bar/issues/32), ainda sem
+confirmação de que ele cause o crash.
+
 ## 0.43.2
 
 ### 🔢 O card Contexto mostrava o número de outra sessão
